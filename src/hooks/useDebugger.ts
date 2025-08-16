@@ -4,7 +4,7 @@ import { GameMap } from '@/data/maps'
 import { CodeHighlighter, getHighlightFromStepResult } from '@/lib/highlighter'
 import { RegisterInfo, StepResult } from '@/workers/emulator/types'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { updateMapWithMovement } from '@/lib/game-animation'
+import { updateMapWithMovementAndGhosts } from '@/lib/game-animation'
 import { 
   initializeEmulatorWithCode, 
   getEmulatorMemoryState
@@ -102,7 +102,11 @@ export const useDebugger = () => {
       }
       
       const initialState: PlaybackState = {
-        mapState: { ...currentMap },
+        mapState: { 
+          ...currentMap,
+          // Ensure initial ghost animations exist
+          ghostAnimations: currentMap.ghostAnimations || currentMap.ghostPositions?.map(() => ({ shouldAnimate: true })) || []
+        },
         highlightedLine: undefined,
         ...initialMemory,
         stepResult: null
@@ -168,7 +172,7 @@ export const useDebugger = () => {
       
       // Handle movement
       if (hasValidMovementCommand(memoryState.dataMemory)) {
-        currentMapState = updateMapWithMovement(currentMapState, memoryState.dataMemory[0])
+        currentMapState = updateMapWithMovementAndGhosts(currentMapState, memoryState.dataMemory[0])
         await clearMovementCommand(emulator)
       }
       
