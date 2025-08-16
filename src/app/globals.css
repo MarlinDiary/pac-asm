@@ -146,10 +146,10 @@
 }
 
 .animate-teleport-fade-out {
-  animation: teleport-fade-out 0.15s ease-out forwards;
+  animation: teleport-fade-out 0.1s ease-out forwards;
 }
 
 .animate-teleport-fade-in {
-  animation: teleport-fade-in 0.15s ease-out;
+  animation: teleport-fade-in 0.1s ease-out;
 }
 
