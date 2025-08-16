@@ -122,16 +122,16 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
   }, [debugState, teleportPlayer, gameState.currentMap, setHighlightedLine])
 
   // Get current and previous debug states for panels
-  // Only use play state when actively playing, otherwise use debug state
+  // When in play mode, freeze panel updates by using debug state instead of play state
   const getCurrentState = useCallback(() => {
-    if (playState.isPlaying) {
+    if (playState.isPlaying && !isPlayMode) {
       return playState.getCurrentState()
     }
     return debugState.getCurrentState()
-  }, [playState.isPlaying, playState, debugState])
+  }, [playState.isPlaying, isPlayMode, playState, debugState])
   
   const currentDebugState = getCurrentState()
-  const previousDebugState = playState.isPlaying ? playState.getPreviousState() : debugState.getPreviousState()
+  const previousDebugState = (playState.isPlaying && !isPlayMode) ? playState.getPreviousState() : debugState.getPreviousState()
 
   // Listen for play state updates (including when game ends)
   useEffect(() => {
