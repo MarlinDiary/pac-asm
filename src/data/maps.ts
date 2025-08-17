@@ -164,16 +164,56 @@ eval_up:
     CMP R11, #1         // Empty grass?
     ADDEQ R7, R7, #10   // Small bonus for valid movement   
     
-    // Check if ghost is within 2 spaces in UP direction
-    CMP R5, #1          // Can we check 2 spaces up?
-    BLE eval_down
-    SUB R11, R5, #2     // Position 2 spaces up: (R5-2, R6)
+    // Check if ghost is adjacent to our target position (R5-1, R6)
+    SUB R3, R5, #1      // Target row
+    MOV R4, R6          // Target col
+    
+    // Check target's UP neighbor (R3-1, R4)
+    CMP R3, #0          // Within bounds?
+    BLE check_target_down
+    SUB R11, R3, #1     
     MUL R12, R11, R1    
-    ADD R12, R12, R6
+    ADD R12, R12, R4
     ADD R12, R0, R12    
     LDRB R11, [R12]     
-    CMP R11, #5         // Ghost 2 spaces away?
-    SUBEQ R7, R7, #500  // Penalty for nearby ghost
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R7, R7, #600  // Penalty for dangerous position
+    
+check_target_down:
+    // Check target's DOWN neighbor (R3+1, R4)
+    ADD R11, R3, #1     
+    CMP R11, R2         // Within bounds?
+    BGE check_target_left
+    MUL R12, R11, R1    
+    ADD R12, R12, R4
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R7, R7, #600  // Penalty for dangerous position
+    
+check_target_left:
+    // Check target's LEFT neighbor (R3, R4-1)
+    CMP R4, #0          // Within bounds?
+    BLE check_target_right
+    SUB R11, R4, #1     
+    MUL R12, R3, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R7, R7, #600  // Penalty for dangerous position
+    
+check_target_right:
+    // Check target's RIGHT neighbor (R3, R4+1)
+    ADD R11, R4, #1     
+    CMP R11, R1         // Within bounds?
+    BGE eval_down
+    MUL R12, R3, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R7, R7, #600  // Penalty for dangerous position
 
 // === EVALUATE DOWN ===
 eval_down:
@@ -196,16 +236,56 @@ eval_down:
     CMP R11, #1         // Empty grass?
     ADDEQ R8, R8, #10   // Small bonus for valid movement
     
-    // Check if ghost is within 2 spaces in DOWN direction
-    ADD R11, R5, #2     // Position 2 spaces down: (R5+2, R6)
-    CMP R11, R2         // Within bounds?
-    BGE eval_left
+    // Check if ghost is adjacent to our target position (R5+1, R6)
+    ADD R3, R5, #1      // Target row
+    MOV R4, R6          // Target col
+    
+    // Check target's UP neighbor (R3-1, R4)
+    CMP R3, #0          // Within bounds?
+    BLE check_down_target_down
+    SUB R11, R3, #1     
     MUL R12, R11, R1    
-    ADD R12, R12, R6
+    ADD R12, R12, R4
     ADD R12, R0, R12    
     LDRB R11, [R12]     
-    CMP R11, #5         // Ghost 2 spaces away?
-    SUBEQ R8, R8, #500  // Penalty for nearby ghost
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R8, R8, #600  // Penalty for dangerous position
+    
+check_down_target_down:
+    // Check target's DOWN neighbor (R3+1, R4)
+    ADD R11, R3, #1     
+    CMP R11, R2         // Within bounds?
+    BGE check_down_target_left
+    MUL R12, R11, R1    
+    ADD R12, R12, R4
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R8, R8, #600  // Penalty for dangerous position
+    
+check_down_target_left:
+    // Check target's LEFT neighbor (R3, R4-1)
+    CMP R4, #0          // Within bounds?
+    BLE check_down_target_right
+    SUB R11, R4, #1     
+    MUL R12, R3, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R8, R8, #600  // Penalty for dangerous position
+    
+check_down_target_right:
+    // Check target's RIGHT neighbor (R3, R4+1)
+    ADD R11, R4, #1     
+    CMP R11, R1         // Within bounds?
+    BGE eval_left
+    MUL R12, R3, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R8, R8, #600  // Penalty for dangerous position
 
 // === EVALUATE LEFT ===
 eval_left:
@@ -228,16 +308,56 @@ eval_left:
     CMP R11, #1         // Empty grass?
     ADDEQ R9, R9, #10   // Small bonus for valid movement
     
-    // Check if ghost is within 2 spaces in LEFT direction
-    CMP R6, #1          // Can we check 2 spaces left?
-    BLE eval_right
-    SUB R11, R6, #2     // Position 2 spaces left: (R5, R6-2)
-    MUL R12, R5, R1     
-    ADD R12, R12, R11
-    ADD R12, R0, R12
+    // Check if ghost is adjacent to our target position (R5, R6-1)
+    MOV R3, R5          // Target row
+    SUB R4, R6, #1      // Target col
+    
+    // Check target's UP neighbor (R3-1, R4)
+    CMP R3, #0          // Within bounds?
+    BLE check_left_target_down
+    SUB R11, R3, #1     
+    MUL R12, R11, R1    
+    ADD R12, R12, R4
+    ADD R12, R0, R12    
     LDRB R11, [R12]     
-    CMP R11, #5         // Ghost 2 spaces away?
-    SUBEQ R9, R9, #500  // Penalty for nearby ghost
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R9, R9, #600  // Penalty for dangerous position
+    
+check_left_target_down:
+    // Check target's DOWN neighbor (R3+1, R4)
+    ADD R11, R3, #1     
+    CMP R11, R2         // Within bounds?
+    BGE check_left_target_left
+    MUL R12, R11, R1    
+    ADD R12, R12, R4
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R9, R9, #600  // Penalty for dangerous position
+    
+check_left_target_left:
+    // Check target's LEFT neighbor (R3, R4-1)
+    CMP R4, #0          // Within bounds?
+    BLE check_left_target_right
+    SUB R11, R4, #1     
+    MUL R12, R3, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R9, R9, #600  // Penalty for dangerous position
+    
+check_left_target_right:
+    // Check target's RIGHT neighbor (R3, R4+1)
+    ADD R11, R4, #1     
+    CMP R11, R1         // Within bounds?
+    BGE eval_right
+    MUL R12, R3, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R9, R9, #600  // Penalty for dangerous position
 
 // === EVALUATE RIGHT ===
 eval_right:
@@ -260,16 +380,56 @@ eval_right:
     CMP R11, #1         // Empty grass?
     ADDEQ R10, R10, #10 // Small bonus for valid movement 
     
-    // Check if ghost is within 2 spaces in RIGHT direction
-    ADD R11, R6, #2     // Position 2 spaces right: (R5, R6+2)
+    // Check if ghost is adjacent to our target position (R5, R6+1)
+    MOV R3, R5          // Target row
+    ADD R4, R6, #1      // Target col
+    
+    // Check target's UP neighbor (R3-1, R4)
+    CMP R3, #0          // Within bounds?
+    BLE check_right_target_down
+    SUB R11, R3, #1     
+    MUL R12, R11, R1    
+    ADD R12, R12, R4
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R10, R10, #600 // Penalty for dangerous position
+    
+check_right_target_down:
+    // Check target's DOWN neighbor (R3+1, R4)
+    ADD R11, R3, #1     
+    CMP R11, R2         // Within bounds?
+    BGE check_right_target_left
+    MUL R12, R11, R1    
+    ADD R12, R12, R4
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R10, R10, #600 // Penalty for dangerous position
+    
+check_right_target_left:
+    // Check target's LEFT neighbor (R3, R4-1)
+    CMP R4, #0          // Within bounds?
+    BLE check_right_target_right
+    SUB R11, R4, #1     
+    MUL R12, R3, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R10, R10, #600 // Penalty for dangerous position
+    
+check_right_target_right:
+    // Check target's RIGHT neighbor (R3, R4+1)
+    ADD R11, R4, #1     
     CMP R11, R1         // Within bounds?
     BGE choose_best
-    MUL R12, R5, R1     
+    MUL R12, R3, R1     
     ADD R12, R12, R11
-    ADD R12, R0, R12
+    ADD R12, R0, R12    
     LDRB R11, [R12]     
-    CMP R11, #5         // Ghost 2 spaces away?
-    SUBEQ R10, R10, #500 // Penalty for nearby ghost
+    CMP R11, #5         // Ghost adjacent to target?
+    SUBEQ R10, R10, #600 // Penalty for dangerous position
 
 choose_best:
     // Find best score (highest positive value)
