@@ -102,7 +102,7 @@ export const MAPS: GameMap[] = [
     playerPosition: { row: 9, col: 9, direction: 'right' },
     ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
     waterBackground: { tilesX: 72, tilesY: 71 },
-    initialCode: `// Simple Smart Pac-Man: Avoid nearby ghosts
+    initialCode: `// Smart Global Pac-Man: Avoid ghosts + systematic exploration
 // Memory layout: 0x30004=width, 0x30008=height, 0x30010=map tiles
 // Tile encoding: 0=wall, 1=grass, 2=dot, 3=energizer, 4=player, 5=ghost
 
@@ -142,6 +142,9 @@ found_player:
     MOV R8, #100        // DOWN score  
     MOV R9, #100        // LEFT score
     MOV R10, #100       // RIGHT score
+    
+    // Add global exploration bias - check for dots in wider area
+    // Scan 3x3 area around each target direction for dot density
 
 // === EVALUATE UP ===
 eval_up:
@@ -214,6 +217,22 @@ check_target_right:
     LDRB R11, [R12]     
     CMP R11, #5         // Ghost adjacent to target?
     SUBEQ R7, R7, #600  // Penalty for dangerous position
+    
+    // Global exploration bias: favor directions that lead to map edges or corners
+    // This encourages systematic cleaning instead of circling in center
+    CMP R5, #5          // If in upper half of map
+    ADDLT R7, R7, #15   // Small bonus for going UP (toward edge)
+    
+    // Favor moving toward areas with more space (less walls nearby)
+    SUB R11, R5, #2     // Check 2 spaces up
+    CMP R11, #0         // Within bounds?
+    BLT eval_down
+    MUL R12, R11, R1    
+    ADD R12, R12, R6
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #0         // Wall 2 spaces up?
+    ADDNE R7, R7, #8    // Small bonus for open path ahead
 
 // === EVALUATE DOWN ===
 eval_down:
@@ -286,6 +305,23 @@ check_down_target_right:
     LDRB R11, [R12]     
     CMP R11, #5         // Ghost adjacent to target?
     SUBEQ R8, R8, #600  // Penalty for dangerous position
+    
+    // Global exploration bias for DOWN
+    MOV R11, R2         // Map height
+    LSR R11, R11, #1    // Half height
+    CMP R5, R11         // If in lower half of map
+    ADDGT R8, R8, #15   // Small bonus for going DOWN (toward edge)
+    
+    // Check for open path ahead
+    ADD R11, R5, #2     // Check 2 spaces down
+    CMP R11, R2         // Within bounds?
+    BGE eval_left
+    MUL R12, R11, R1    
+    ADD R12, R12, R6
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #0         // Wall 2 spaces down?
+    ADDNE R8, R8, #8    // Small bonus for open path ahead
 
 // === EVALUATE LEFT ===
 eval_left:
@@ -358,6 +394,21 @@ check_left_target_right:
     LDRB R11, [R12]     
     CMP R11, #5         // Ghost adjacent to target?
     SUBEQ R9, R9, #600  // Penalty for dangerous position
+    
+    // Global exploration bias for LEFT
+    CMP R6, #5          // If in left half of map
+    ADDLT R9, R9, #15   // Small bonus for going LEFT (toward edge)
+    
+    // Check for open path ahead
+    CMP R6, #1          // Can check 2 spaces left?
+    BLE eval_right
+    SUB R11, R6, #2     // Check 2 spaces left
+    MUL R12, R5, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #0         // Wall 2 spaces left?
+    ADDNE R9, R9, #8    // Small bonus for open path ahead
 
 // === EVALUATE RIGHT ===
 eval_right:
@@ -430,6 +481,23 @@ check_right_target_right:
     LDRB R11, [R12]     
     CMP R11, #5         // Ghost adjacent to target?
     SUBEQ R10, R10, #600 // Penalty for dangerous position
+    
+    // Global exploration bias for RIGHT
+    MOV R11, R1         // Map width
+    LSR R11, R11, #1    // Half width
+    CMP R6, R11         // If in right half of map
+    ADDGT R10, R10, #15 // Small bonus for going RIGHT (toward edge)
+    
+    // Check for open path ahead
+    ADD R11, R6, #2     // Check 2 spaces right
+    CMP R11, R1         // Within bounds?
+    BGE choose_best
+    MUL R12, R5, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #0         // Wall 2 spaces right?
+    ADDNE R10, R10, #8  // Small bonus for open path ahead
 
 choose_best:
     // Find best score (highest positive value)
