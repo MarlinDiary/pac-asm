@@ -102,7 +102,7 @@ export const MAPS: GameMap[] = [
     playerPosition: { row: 9, col: 9, direction: 'right' },
     ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
     waterBackground: { tilesX: 72, tilesY: 71 },
-    initialCode: `// Super Safe Pac-Man: Ghost avoidance priority
+    initialCode: `// Simple Smart Pac-Man: Avoid nearby ghosts
 // Memory layout: 0x30004=width, 0x30008=height, 0x30010=map tiles
 // Tile encoding: 0=wall, 1=grass, 2=dot, 3=energizer, 4=player, 5=ghost
 
@@ -118,64 +118,67 @@ MOV R5, #0          // Row counter
 MOV R6, #0          // Col counter
 
 find_player_loop:
-    MUL R7, R5, R1      // R7 = row * width
-    ADD R7, R7, R6      // R7 = row * width + col
-    ADD R7, R0, R7      // R7 = map_base + offset
-    LDRB R8, [R7]       // Load tile value  
-    CMP R8, #4          // Is it player tile?
-    BEQ found_player    // Found player at (R5, R6)
+    MUL R7, R5, R1      
+    ADD R7, R7, R6      
+    ADD R7, R0, R7      
+    LDRB R8, [R7]       
+    CMP R8, #4          
+    BEQ found_player    
     
-    ADD R6, R6, #1      // col++
-    CMP R6, R1          // col >= width?
+    ADD R6, R6, #1      
+    CMP R6, R1          
     BLT find_player_loop
-    MOV R6, #0          // Reset col
-    ADD R5, R5, #1      // row++
-    CMP R5, R2          // row >= height?
+    MOV R6, #0          
+    ADD R5, R5, #1      
+    CMP R5, R2          
     BLT find_player_loop
     
-    MOV R11, #1         // Player not found, default UP
+    MOV R11, #1         
     B store_direction
 
 found_player:
-    // Check all directions for safety first, then score
-    // R7(UP), R8(DOWN), R9(LEFT), R10(RIGHT) scores
-    MOV R7, #0          
-    MOV R8, #0          
-    MOV R9, #0          
-    MOV R10, #0         
+    // Start with base scores for all directions  
+    MOV R7, #100        // UP score
+    MOV R8, #100        // DOWN score  
+    MOV R9, #100        // LEFT score
+    MOV R10, #100       // RIGHT score
 
-// Check UP direction
-check_up:
+// === EVALUATE UP ===
+eval_up:
     CMP R5, #0          
-    MOVEQ R7, #0        // Edge = bad (will be set to 0)
-    BEQ check_down
+    SUBEQ R7, R7, #300  // Edge penalty
+    BEQ eval_down
     
-    // Check immediate UP tile
-    SUB R11, R5, #1     
+    SUB R11, R5, #1     // Target position: (R5-1, R6)
     MUL R12, R11, R1    
     ADD R12, R12, R6
     ADD R12, R0, R12    
     LDRB R11, [R12]     
     
     CMP R11, #0         // Wall?
-    MOVEQ R7, #0        // Wall = 0 score
-    BEQ check_down
-    CMP R11, #5         // Ghost?
-    MOVEQ R7, #0        // Ghost = 0 score (avoid)
-    BEQ check_down
-    
-    // Safe tile - give good score
-    MOV R7, #100        // Base safe score
+    SUBEQ R7, R7, #400  
+    CMP R11, #5         // Ghost already there? 
+    SUBEQ R7, R7, #800  
     CMP R11, #2         // Dot?
-    ADDEQ R7, R7, #50   // Dot bonus
-    B check_down
+    ADDEQ R7, R7, #50   
     
-// Check DOWN direction 
-check_down:
+    // Check if ghost is within 2 spaces in UP direction
+    CMP R5, #1          // Can we check 2 spaces up?
+    BLE eval_down
+    SUB R11, R5, #2     // Position 2 spaces up: (R5-2, R6)
+    MUL R12, R11, R1    
+    ADD R12, R12, R6
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost 2 spaces away?
+    SUBEQ R7, R7, #500  // Penalty for nearby ghost
+
+// === EVALUATE DOWN ===
+eval_down:
     ADD R11, R5, #1     
     CMP R11, R2         
-    MOVGE R8, #0        // Edge = 0
-    BGE check_left
+    SUBGE R8, R8, #300  
+    BGE eval_left
     
     MUL R12, R11, R1    
     ADD R12, R12, R6
@@ -183,21 +186,28 @@ check_down:
     LDRB R11, [R12]     
     
     CMP R11, #0         
-    MOVEQ R8, #0        // Wall = 0
-    BEQ check_left
+    SUBEQ R8, R8, #400  
     CMP R11, #5         
-    MOVEQ R8, #0        // Ghost = 0
-    BEQ check_left
-    
-    MOV R8, #100        // Safe path
+    SUBEQ R8, R8, #800  
     CMP R11, #2         
-    ADDEQ R8, R8, #50   // Dot bonus
+    ADDEQ R8, R8, #50
+    
+    // Check if ghost is within 2 spaces in DOWN direction
+    ADD R11, R5, #2     // Position 2 spaces down: (R5+2, R6)
+    CMP R11, R2         // Within bounds?
+    BGE eval_left
+    MUL R12, R11, R1    
+    ADD R12, R12, R6
+    ADD R12, R0, R12    
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost 2 spaces away?
+    SUBEQ R8, R8, #500  // Penalty for nearby ghost
 
-// Check LEFT direction
-check_left:
+// === EVALUATE LEFT ===
+eval_left:
     CMP R6, #0          
-    MOVEQ R9, #0        // Edge = 0
-    BEQ check_right
+    SUBEQ R9, R9, #300  
+    BEQ eval_right
     
     SUB R11, R6, #1     
     MUL R12, R5, R1     
@@ -206,22 +216,29 @@ check_left:
     LDRB R11, [R12]     
     
     CMP R11, #0         
-    MOVEQ R9, #0        // Wall = 0
-    BEQ check_right
+    SUBEQ R9, R9, #400  
     CMP R11, #5         
-    MOVEQ R9, #0        // Ghost = 0
-    BEQ check_right
-    
-    MOV R9, #100        // Safe path
+    SUBEQ R9, R9, #800  
     CMP R11, #2         
-    ADDEQ R9, R9, #50   // Dot bonus
+    ADDEQ R9, R9, #50
+    
+    // Check if ghost is within 2 spaces in LEFT direction
+    CMP R6, #1          // Can we check 2 spaces left?
+    BLE eval_right
+    SUB R11, R6, #2     // Position 2 spaces left: (R5, R6-2)
+    MUL R12, R5, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost 2 spaces away?
+    SUBEQ R9, R9, #500  // Penalty for nearby ghost
 
-// Check RIGHT direction
-check_right:
+// === EVALUATE RIGHT ===
+eval_right:
     ADD R11, R6, #1     
     CMP R11, R1         
-    MOVGE R10, #0       // Edge = 0
-    BGE choose_safest
+    SUBGE R10, R10, #300
+    BGE choose_best
     
     MUL R12, R5, R1     
     ADD R12, R12, R11
@@ -229,31 +246,38 @@ check_right:
     LDRB R11, [R12]     
     
     CMP R11, #0         
-    MOVEQ R10, #0       // Wall = 0
-    BEQ choose_safest
+    SUBEQ R10, R10, #400
     CMP R11, #5         
-    MOVEQ R10, #0       // Ghost = 0
-    BEQ choose_safest
-    
-    MOV R10, #100       // Safe path
+    SUBEQ R10, R10, #800
     CMP R11, #2         
-    ADDEQ R10, R10, #50 // Dot bonus 
+    ADDEQ R10, R10, #50 
+    
+    // Check if ghost is within 2 spaces in RIGHT direction
+    ADD R11, R6, #2     // Position 2 spaces right: (R5, R6+2)
+    CMP R11, R1         // Within bounds?
+    BGE choose_best
+    MUL R12, R5, R1     
+    ADD R12, R12, R11
+    ADD R12, R0, R12
+    LDRB R11, [R12]     
+    CMP R11, #5         // Ghost 2 spaces away?
+    SUBEQ R10, R10, #500 // Penalty for nearby ghost
 
-choose_safest:
-    // Choose highest scoring (safest) direction
+choose_best:
+    // Find best score (highest positive value)
     MOV R11, #1         // Default UP
-    MOV R12, R7         // Best score = UP
+    MOV R12, R7         // Best score
     
     CMP R8, R12         
-    MOVGT R11, #2       // DOWN is better
+    MOVGT R11, #2       
     MOVGT R12, R8       
     
     CMP R9, R12         
-    MOVGT R11, #3       // LEFT is better
+    MOVGT R11, #3       
     MOVGT R12, R9       
     
     CMP R10, R12        
-    MOVGT R11, #4       // RIGHT is better
+    MOVGT R11, #4
 
 store_direction:
     LDR R0, =0x30000
