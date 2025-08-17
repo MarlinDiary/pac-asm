@@ -1,6 +1,8 @@
 import { ARMAssembler } from '@/lib/assembler'
 import { CodeHighlighter, createHighlighter } from '@/lib/highlighter'
 import { RegisterInfo } from '@/workers/emulator/types'
+import { GameMap } from '@/data/maps'
+import { writeCompleteMapToMemory } from './map-memory'
 
 // Type for emulator objects (avoiding 'any')
 interface EmulatorInstance {
@@ -72,11 +74,12 @@ async function resetEmulatorRegistersOnly(emulator: EmulatorInstance): Promise<v
 }
 
 /**
- * Complete emulator initialization: reset, assemble code, load code, create highlighter
+ * Complete emulator initialization: reset, assemble code, load code, create highlighter, write map
  */
 export async function initializeEmulatorWithCode(
   emulator: EmulatorInstance, 
   sourceCode: string, 
+  initialMap: GameMap,
   abortController?: AbortController
 ): Promise<EmulatorInitResult> {
   // Ensure emulator is initialized
@@ -95,6 +98,9 @@ export async function initializeEmulatorWithCode(
   
   // Load code into emulator
   await emulator.loadCode(machineCode)
+  
+  // Write complete map data to memory
+  await writeCompleteMapToMemory(emulator, initialMap)
   
   // Create code highlighter
   const codeHighlighter = createHighlighter()

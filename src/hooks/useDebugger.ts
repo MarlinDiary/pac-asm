@@ -90,7 +90,7 @@ export const useDebugger = () => {
     abortControllerRef.current = abortController
     
     try {
-      const { codeHighlighter, machineCode } = await initializeEmulatorWithCode(emulator, sourceCode, abortController)
+      const { codeHighlighter, machineCode } = await initializeEmulatorWithCode(emulator, sourceCode, currentMap, abortController)
       
       // Save original code memory for reloading in cycles
       originalCodeMemoryRef.current = machineCode
@@ -259,7 +259,8 @@ export const useDebugger = () => {
         // Handle cycle end using common logic
         const cycleResult = await handleDebugCycleEnd(
           emulator, 
-          newMapState, 
+          newMapState,
+          currentState.mapState, // previousMapState
           originalCodeMemoryRef.current, 
           setIsGameComplete
         )

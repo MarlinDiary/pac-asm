@@ -62,15 +62,9 @@ export const useKeyboardControl = ({
     // Add event listener
     document.addEventListener('keydown', handleKeyPress)
 
-    // Show development warning in console
-    console.log('🎮 Keyboard control enabled (DEV MODE)')
-    console.log('Use WASD or Arrow Keys to control player')
-    console.log('↑/W: Up, ↓/S: Down, ←/A: Left, →/D: Right')
-
     // Cleanup function
     return () => {
       document.removeEventListener('keydown', handleKeyPress)
-      console.log('🎮 Keyboard control disabled')
     }
   }, [enabled, handleKeyPress])
 

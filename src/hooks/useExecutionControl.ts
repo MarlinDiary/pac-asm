@@ -136,11 +136,6 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
   // Listen for play state updates (including when game ends)
   useEffect(() => {
     if (playState.currentMap) {
-      console.log('[EXECUTION_CONTROL] Updating map from play state:', {
-        isPlaying: playState.isPlaying,
-        gameOver: playState.currentMap.gameOver,
-        mapUpdate: 'about to set'
-      });
       setCurrentMap(playState.currentMap)
       setHighlightedLine(playState.highlightedLine)
       

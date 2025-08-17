@@ -68,7 +68,7 @@ export const usePlayRunner = () => {
         return { success: false, error: null }
       }
       
-      const { codeHighlighter } = await initializeEmulatorWithCode(emulator, sourceCode, abortController)
+      const { codeHighlighter } = await initializeEmulatorWithCode(emulator, sourceCode, initialMap, abortController)
       
       if (abortController.signal.aborted) {
         setIsPlaying(false)
@@ -122,6 +122,10 @@ export const usePlayRunner = () => {
         const machineCode = await assembleCode(currentCodeRef.current)
         await resetAndReloadCode(emulator, machineCode)
         
+        // Write current map state to memory after reset
+        const { writeCompleteMapToMemory } = await import('@/lib/map-memory')
+        await writeCompleteMapToMemory(emulator, currentMapState)
+        
         // Run the complete user code with 3-second timeout
         const startTime = Date.now()
         const maxExecutionTime = 3000 // 3 seconds in milliseconds
@@ -163,6 +167,9 @@ export const usePlayRunner = () => {
         // Always move on each cycle - both player and ghosts
         movementCount++
         
+        // Get register state before movement for debugging
+        const memoryState = await getEmulatorMemoryState(emulator)
+        
         if (nextAction >= 1 && nextAction <= 4) {
           // Valid player action - move both player and ghosts
           currentMapState = updateMapWithMovementAndGhosts(currentMapState, nextAction)
@@ -171,9 +178,9 @@ export const usePlayRunner = () => {
           currentMapState = updateGhostsOnly(currentMapState)
         }
         
+        
         // Check for game over (collision)
         if (currentMapState.gameOver) {
-          console.log('[PLAY_RUNNER] Game over detected! Map state:', currentMapState);
           // Game over due to collision - stop execution
           setCurrentMap({ ...currentMapState })
           setHighlightedLine(undefined)

@@ -2,6 +2,7 @@ import { GameMap } from '@/data/maps'
 import { checkVictoryCondition } from '@/lib/game-logic'
 import { updateMapWithMovementAndGhosts, updateGhostsOnly } from '@/lib/game-animation'
 import { resetAndReloadCode, getEmulatorMemoryState, MEMORY_CONFIG } from '@/lib/emulator-utils'
+import { writeMapUpdatesToMemory } from './map-memory'
 import { RegisterInfo } from '@/workers/emulator/types'
 
 export interface MemoryState {
@@ -33,6 +34,7 @@ interface EmulatorInstance {
 export interface CycleEndOptions {
   emulator: EmulatorInstance
   currentMapState: GameMap
+  previousMapState?: GameMap
   originalMachineCode?: number[]
   skipEmulatorReset?: boolean
   isDebugMode?: boolean // To distinguish between debug and play modes
@@ -64,7 +66,7 @@ export function processMovementFromMemory(
  * Handle end of code execution cycle - common logic for both debug and play modes
  */
 export async function handleCycleEnd(options: CycleEndOptions): Promise<CycleEndResult> {
-  const { emulator, currentMapState, originalMachineCode, skipEmulatorReset = false, isDebugMode = false } = options
+  const { emulator, currentMapState, previousMapState, originalMachineCode, skipEmulatorReset = false, isDebugMode = false } = options
   
   // Get current memory state to check for movement commands
   const memoryState = await getEmulatorMemoryState(emulator)
@@ -95,6 +97,11 @@ export async function handleCycleEnd(options: CycleEndOptions): Promise<CycleEnd
   // Reset emulator for next cycle if game is not complete and machine code is provided
   if (!isGameComplete && !skipEmulatorReset && originalMachineCode) {
     await resetAndReloadCode(emulator, originalMachineCode)
+    
+    // Update map data in memory for next cycle
+    if (previousMapState) {
+      await writeMapUpdatesToMemory(emulator, previousMapState, newMapState)
+    }
   }
   
   return {
@@ -111,12 +118,14 @@ export async function handleCycleEnd(options: CycleEndOptions): Promise<CycleEnd
 export async function handleDebugCycleEnd(
   emulator: EmulatorInstance,
   currentMapState: GameMap,
+  previousMapState: GameMap,
   originalMachineCode: number[],
   setIsGameComplete: (complete: boolean) => void
 ): Promise<CycleEndResult> {
   const result = await handleCycleEnd({
     emulator,
     currentMapState,
+    previousMapState,
     originalMachineCode,
     isDebugMode: true
   })
@@ -134,11 +143,13 @@ export async function handleDebugCycleEnd(
  */
 export async function handlePlayCycleEnd(
   emulator: EmulatorInstance,
-  currentMapState: GameMap
+  currentMapState: GameMap,
+  previousMapState?: GameMap
 ): Promise<CycleEndResult> {
   return await handleCycleEnd({
     emulator,
     currentMapState,
+    previousMapState,
     skipEmulatorReset: true, // Play mode handles reset differently
     isDebugMode: false
   })
