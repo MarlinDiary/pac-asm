@@ -65,6 +65,13 @@ export async function assembleCode(sourceCode: string): Promise<number[]> {
 }
 
 /**
+ * Reset emulator registers only (preserve memory data)
+ */
+async function resetEmulatorRegistersOnly(emulator: EmulatorInstance): Promise<void> {
+  await emulator.reset()
+}
+
+/**
  * Complete emulator initialization: reset, assemble code, load code, create highlighter
  */
 export async function initializeEmulatorWithCode(
@@ -105,9 +112,20 @@ export async function initializeEmulatorWithCode(
 }
 
 /**
- * Quick reset and reload code for game cycles
+ * Quick reset and reload code for game cycles (preserves memory data)
  */
 export async function resetAndReloadCode(
+  emulator: EmulatorInstance,
+  machineCode: number[]
+): Promise<void> {
+  await resetEmulatorRegistersOnly(emulator)
+  await emulator.loadCode(machineCode)
+}
+
+/**
+ * Full reset and reload code (clears all memory)
+ */
+export async function fullResetAndReloadCode(
   emulator: EmulatorInstance,
   machineCode: number[]
 ): Promise<void> {
