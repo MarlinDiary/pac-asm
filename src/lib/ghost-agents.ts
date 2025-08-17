@@ -1,5 +1,5 @@
 /**
- * Ghost Agents - Simple AI algorithms for ghost movement
+ * Ghost Agents - Simplified AI algorithms for balanced ghost movement
  */
 
 import { GameMap } from '@/data/maps';
@@ -43,8 +43,8 @@ function getValidMoves(map: GameMap, position: Position): Position[] {
 }
 
 /**
- * Algorithm 1: Smart patrol movement
- * More intelligent than pure random - prefers continuing straight, explores areas, avoids backtracking
+ * Algorithm 1: Simple random movement with momentum
+ * Much less intelligent - mostly random with slight preference for continuing straight
  */
 export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position, previousPosition?: Position): Position {
   const validMoves = getValidMoves(map, ghostPosition);
@@ -53,7 +53,13 @@ export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacm
     return ghostPosition;
   }
   
-  // Calculate direction from previous position (if available)
+  // 70% chance to move randomly, 30% chance to use simple logic
+  if (Math.random() < 0.7) {
+    // Pure random movement
+    return validMoves[Math.floor(Math.random() * validMoves.length)];
+  }
+  
+  // Simple logic: slight preference for continuing straight, avoid backtracking
   let currentDirection: {row: number, col: number} | null = null;
   if (previousPosition) {
     currentDirection = {
@@ -62,11 +68,10 @@ export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacm
     };
   }
   
-  // Score each move based on multiple factors
   const moveScores = validMoves.map(move => {
-    let score = 0;
+    let score = Math.random() * 100; // Heavy randomness
     
-    // Factor 1: Prefer continuing in same direction (momentum)
+    // Slight preference for continuing straight
     if (currentDirection) {
       const moveDirection = {
         row: move.row - ghostPosition.row,
@@ -74,79 +79,57 @@ export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacm
       };
       
       if (moveDirection.row === currentDirection.row && moveDirection.col === currentDirection.col) {
-        score += 50; // Strong preference for continuing straight
+        score += 20; // Reduced from 50
       }
     }
     
-    // Factor 2: Avoid going back to previous position
+    // Avoid going back to previous position
     if (previousPosition && move.row === previousPosition.row && move.col === previousPosition.col) {
-      score -= 100; // Strong penalty for backtracking
+      score -= 30; // Reduced from 100
     }
-    
-    // Factor 3: Prefer intersections for exploration (positions with more exits)
-    const movesFromNewPos = getValidMoves(map, move);
-    if (movesFromNewPos.length >= 3) {
-      score += 20; // Bonus for intersections
-    }
-    
-    // Factor 4: Maintain some distance from pacman (don't get too close accidentally)
-    const distanceToPacman = Math.abs(move.row - pacmanPosition.row) + Math.abs(move.col - pacmanPosition.col);
-    if (distanceToPacman < 3) {
-      score -= 10; // Small penalty for getting too close
-    } else if (distanceToPacman > 8) {
-      score += 5; // Small bonus for not being too far
-    }
-    
-    // Factor 5: Slight randomness to prevent predictable patterns
-    score += Math.random() * 10;
     
     return { move, score };
   });
   
-  // Sort by score and pick from top moves with some randomness
   moveScores.sort((a, b) => b.score - a.score);
-  
-  // Pick from the top 2-3 moves to maintain some unpredictability
-  const topMoves = moveScores.slice(0, Math.min(3, moveScores.length));
-  const selectedMove = topMoves[Math.floor(Math.random() * topMoves.length)];
-  
-  return selectedMove.move;
+  return moveScores[0].move;
 }
 
 /**
- * Algorithm 2: BFS optimal path pursuit
- * Uses breadth-first search to find shortest path to pacman
+ * Algorithm 2: Moderate pursuit 
+ * 70% chase behavior, 30% random movement
  */
 export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position): Position {
-  // BFS to find shortest path
-  const queue: {pos: Position, path: Position[]}[] = [{pos: ghostPosition, path: []}];
-  const visited = new Set<string>();
-  const getKey = (pos: Position) => `${pos.row},${pos.col}`;
+  const validMoves = getValidMoves(map, ghostPosition);
   
-  visited.add(getKey(ghostPosition));
-  
-  while (queue.length > 0) {
-    const {pos: current, path} = queue.shift()!;
-    
-    // Found pacman
-    if (current.row === pacmanPosition.row && current.col === pacmanPosition.col) {
-      // Return first step in path, or stay if already at target
-      return path.length > 0 ? path[0] : ghostPosition;
-    }
-    
-    // Explore neighbors
-    for (const neighbor of getValidMoves(map, current)) {
-      const key = getKey(neighbor);
-      if (!visited.has(key)) {
-        visited.add(key);
-        queue.push({
-          pos: neighbor, 
-          path: [...path, neighbor]
-        });
-      }
-    }
+  if (validMoves.length === 0) {
+    return ghostPosition;
   }
   
-  // No path found, fallback to smart patrol movement
-  return smartPatrolGhostMove(map, ghostPosition, ghostPosition);
+  // 30% chance to move completely randomly
+  if (Math.random() < 0.3) {
+    return validMoves[Math.floor(Math.random() * validMoves.length)];
+  }
+  
+  // 70% chance to pursue pacman
+  const moveScores = validMoves.map(move => {
+    let score = Math.random() * 20; // Reduced base randomness
+    
+    // Simple distance calculation - prefer moves that get closer to pacman
+    const currentDistance = Math.abs(ghostPosition.row - pacmanPosition.row) + 
+                           Math.abs(ghostPosition.col - pacmanPosition.col);
+    const newDistance = Math.abs(move.row - pacmanPosition.row) + 
+                       Math.abs(move.col - pacmanPosition.col);
+    
+    if (newDistance < currentDistance) {
+      score += 60; // Stronger bonus for getting closer
+    } else if (newDistance > currentDistance) {
+      score -= 20; // Penalty for getting farther
+    }
+    
+    return { move, score };
+  });
+  
+  moveScores.sort((a, b) => b.score - a.score);
+  return moveScores[0].move; // Take the best move
 }

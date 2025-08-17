@@ -102,417 +102,373 @@ export const MAPS: GameMap[] = [
     playerPosition: { row: 9, col: 9, direction: 'right' },
     ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
     waterBackground: { tilesX: 72, tilesY: 71 },
-    initialCode: `// Smart Global Pac-Man: Avoid ghosts + systematic exploration
-// Memory layout: 0x30004=width, 0x30008=height, 0x30010=map tiles
-// Tile encoding: 0=wall, 1=grass, 2=dot, 3=energizer, 4=player, 5=ghost
-
-// Read map dimensions
-LDR R0, =0x30004
-LDR R1, [R0]        // R1 = width
+    initialCode: `LDR R0, =0x30004
+LDR R1, [R0]
 LDR R0, =0x30008  
-LDR R2, [R0]        // R2 = height
+LDR R2, [R0]
 
-// Find current player position
-LDR R0, =0x30010    // Map data start
-MOV R5, #0          // Row counter 
-MOV R6, #0          // Col counter
+LDR R0, =0x30010
+MOV R5, #0
+MOV R6, #0
 
 find_player_loop:
-    MUL R7, R5, R1      
-    ADD R7, R7, R6      
-    ADD R7, R0, R7      
-    LDRB R8, [R7]       
-    CMP R8, #4          
-    BEQ found_player    
+    MUL R7, R5, R1
+    ADD R7, R7, R6
+    ADD R7, R0, R7
+    LDRB R8, [R7]
+    CMP R8, #4
+    BEQ found_player
     
-    ADD R6, R6, #1      
-    CMP R6, R1          
+    ADD R6, R6, #1
+    CMP R6, R1
     BLT find_player_loop
-    MOV R6, #0          
-    ADD R5, R5, #1      
-    CMP R5, R2          
+    MOV R6, #0
+    ADD R5, R5, #1
+    CMP R5, R2
     BLT find_player_loop
     
-    MOV R11, #1         
+    MOV R11, #1
     B store_direction
 
 found_player:
-    // Start with base scores for all directions  
-    MOV R7, #100        // UP score
-    MOV R8, #100        // DOWN score  
-    MOV R9, #100        // LEFT score
-    MOV R10, #100       // RIGHT score
-    
-    // Add global exploration bias - check for dots in wider area
-    // Scan 3x3 area around each target direction for dot density
+    MOV R7, #100
+    MOV R8, #100
+    MOV R9, #100
+    MOV R10, #100
 
-// === EVALUATE UP ===
 eval_up:
-    CMP R5, #0          
-    SUBEQ R7, R7, #300  // Edge penalty
+    CMP R5, #0
+    SUBEQ R7, R7, #300
     BEQ eval_down
     
-    SUB R11, R5, #1     // Target position: (R5-1, R6)
-    MUL R12, R11, R1    
+    SUB R11, R5, #1
+    MUL R12, R11, R1
     ADD R12, R12, R6
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
+    ADD R12, R0, R12
+    LDRB R11, [R12]
     
-    CMP R11, #0         // Wall?
-    SUBEQ R7, R7, #400  
-    CMP R11, #5         // Ghost already there? 
-    SUBEQ R7, R7, #800  
-    CMP R11, #2         // Dot?
+    CMP R11, #0
+    SUBEQ R7, R7, #400
+    CMP R11, #5
+    SUBEQ R7, R7, #800
+    CMP R11, #2
     ADDEQ R7, R7, #50
-    CMP R11, #1         // Empty grass?
-    ADDEQ R7, R7, #10   // Small bonus for valid movement   
+    CMP R11, #1
+    ADDEQ R7, R7, #10
     
-    // Check if ghost is adjacent to our target position (R5-1, R6)
-    SUB R3, R5, #1      // Target row
-    MOV R4, R6          // Target col
+    SUB R3, R5, #1
+    MOV R4, R6
     
-    // Check target's UP neighbor (R3-1, R4)
-    CMP R3, #0          // Within bounds?
+    CMP R3, #0
     BLE check_target_down
-    SUB R11, R3, #1     
-    MUL R12, R11, R1    
+    SUB R11, R3, #1
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R7, R7, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R7, R7, #600
     
 check_target_down:
-    // Check target's DOWN neighbor (R3+1, R4)
-    ADD R11, R3, #1     
-    CMP R11, R2         // Within bounds?
+    ADD R11, R3, #1
+    CMP R11, R2
     BGE check_target_left
-    MUL R12, R11, R1    
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R7, R7, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R7, R7, #600
     
 check_target_left:
-    // Check target's LEFT neighbor (R3, R4-1)
-    CMP R4, #0          // Within bounds?
+    CMP R4, #0
     BLE check_target_right
-    SUB R11, R4, #1     
-    MUL R12, R3, R1     
+    SUB R11, R4, #1
+    MUL R12, R3, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R7, R7, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R7, R7, #600
     
 check_target_right:
-    // Check target's RIGHT neighbor (R3, R4+1)
-    ADD R11, R4, #1     
-    CMP R11, R1         // Within bounds?
+    ADD R11, R4, #1
+    CMP R11, R1
     BGE eval_down
-    MUL R12, R3, R1     
+    MUL R12, R3, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R7, R7, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R7, R7, #600
     
-    // Global exploration bias: favor directions that lead to map edges or corners
-    // This encourages systematic cleaning instead of circling in center
-    CMP R5, #5          // If in upper half of map
-    ADDLT R7, R7, #15   // Small bonus for going UP (toward edge)
+    CMP R5, #5
+    ADDLT R7, R7, #15
     
-    // Favor moving toward areas with more space (less walls nearby)
-    SUB R11, R5, #2     // Check 2 spaces up
-    CMP R11, #0         // Within bounds?
+    SUB R11, R5, #2
+    CMP R11, #0
     BLT eval_down
-    MUL R12, R11, R1    
-    ADD R12, R12, R6
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #0         // Wall 2 spaces up?
-    ADDNE R7, R7, #8    // Small bonus for open path ahead
-
-// === EVALUATE DOWN ===
-eval_down:
-    ADD R11, R5, #1     
-    CMP R11, R2         
-    SUBGE R8, R8, #300  
-    BGE eval_left
-    
-    MUL R12, R11, R1    
+    MUL R12, R11, R1
     ADD R12, R12, R6
     ADD R12, R0, R12
-    LDRB R11, [R12]     
+    LDRB R11, [R12]
+    CMP R11, #0
+    ADDNE R7, R7, #8
+
+eval_down:
+    ADD R11, R5, #1
+    CMP R11, R2
+    SUBGE R8, R8, #300
+    BGE eval_left
     
-    CMP R11, #0         
-    SUBEQ R8, R8, #400  
-    CMP R11, #5         
-    SUBEQ R8, R8, #800  
-    CMP R11, #2         
+    MUL R12, R11, R1
+    ADD R12, R12, R6
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    
+    CMP R11, #0
+    SUBEQ R8, R8, #400
+    CMP R11, #5
+    SUBEQ R8, R8, #800
+    CMP R11, #2
     ADDEQ R8, R8, #50
-    CMP R11, #1         // Empty grass?
-    ADDEQ R8, R8, #10   // Small bonus for valid movement
+    CMP R11, #1
+    ADDEQ R8, R8, #10
     
-    // Check if ghost is adjacent to our target position (R5+1, R6)
-    ADD R3, R5, #1      // Target row
-    MOV R4, R6          // Target col
+    ADD R3, R5, #1
+    MOV R4, R6
     
-    // Check target's UP neighbor (R3-1, R4)
-    CMP R3, #0          // Within bounds?
+    CMP R3, #0
     BLE check_down_target_down
-    SUB R11, R3, #1     
-    MUL R12, R11, R1    
+    SUB R11, R3, #1
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R8, R8, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R8, R8, #600
     
 check_down_target_down:
-    // Check target's DOWN neighbor (R3+1, R4)
-    ADD R11, R3, #1     
-    CMP R11, R2         // Within bounds?
+    ADD R11, R3, #1
+    CMP R11, R2
     BGE check_down_target_left
-    MUL R12, R11, R1    
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R8, R8, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R8, R8, #600
     
 check_down_target_left:
-    // Check target's LEFT neighbor (R3, R4-1)
-    CMP R4, #0          // Within bounds?
+    CMP R4, #0
     BLE check_down_target_right
-    SUB R11, R4, #1     
-    MUL R12, R3, R1     
-    ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R8, R8, #600  // Penalty for dangerous position
-    
-check_down_target_right:
-    // Check target's RIGHT neighbor (R3, R4+1)
-    ADD R11, R4, #1     
-    CMP R11, R1         // Within bounds?
-    BGE eval_left
-    MUL R12, R3, R1     
-    ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R8, R8, #600  // Penalty for dangerous position
-    
-    // Global exploration bias for DOWN
-    MOV R11, R2         // Map height
-    LSR R11, R11, #1    // Half height
-    CMP R5, R11         // If in lower half of map
-    ADDGT R8, R8, #15   // Small bonus for going DOWN (toward edge)
-    
-    // Check for open path ahead
-    ADD R11, R5, #2     // Check 2 spaces down
-    CMP R11, R2         // Within bounds?
-    BGE eval_left
-    MUL R12, R11, R1    
-    ADD R12, R12, R6
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #0         // Wall 2 spaces down?
-    ADDNE R8, R8, #8    // Small bonus for open path ahead
-
-// === EVALUATE LEFT ===
-eval_left:
-    CMP R6, #0          
-    SUBEQ R9, R9, #300  
-    BEQ eval_right
-    
-    SUB R11, R6, #1     
-    MUL R12, R5, R1     
+    SUB R11, R4, #1
+    MUL R12, R3, R1
     ADD R12, R12, R11
     ADD R12, R0, R12
-    LDRB R11, [R12]     
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R8, R8, #600
     
-    CMP R11, #0         
-    SUBEQ R9, R9, #400  
-    CMP R11, #5         
-    SUBEQ R9, R9, #800  
-    CMP R11, #2         
+check_down_target_right:
+    ADD R11, R4, #1
+    CMP R11, R1
+    BGE eval_left
+    MUL R12, R3, R1
+    ADD R12, R12, R11
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R8, R8, #600
+    
+    MOV R11, R2
+    LSR R11, R11, #1
+    CMP R5, R11
+    ADDGT R8, R8, #15
+    
+    ADD R11, R5, #2
+    CMP R11, R2
+    BGE eval_left
+    MUL R12, R11, R1
+    ADD R12, R12, R6
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #0
+    ADDNE R8, R8, #8
+
+eval_left:
+    CMP R6, #0
+    SUBEQ R9, R9, #300
+    BEQ eval_right
+    
+    SUB R11, R6, #1
+    MUL R12, R5, R1
+    ADD R12, R12, R11
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    
+    CMP R11, #0
+    SUBEQ R9, R9, #400
+    CMP R11, #5
+    SUBEQ R9, R9, #800
+    CMP R11, #2
     ADDEQ R9, R9, #50
-    CMP R11, #1         // Empty grass?
-    ADDEQ R9, R9, #10   // Small bonus for valid movement
+    CMP R11, #1
+    ADDEQ R9, R9, #10
     
-    // Check if ghost is adjacent to our target position (R5, R6-1)
-    MOV R3, R5          // Target row
-    SUB R4, R6, #1      // Target col
+    MOV R3, R5
+    SUB R4, R6, #1
     
-    // Check target's UP neighbor (R3-1, R4)
-    CMP R3, #0          // Within bounds?
+    CMP R3, #0
     BLE check_left_target_down
-    SUB R11, R3, #1     
-    MUL R12, R11, R1    
+    SUB R11, R3, #1
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R9, R9, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R9, R9, #600
     
 check_left_target_down:
-    // Check target's DOWN neighbor (R3+1, R4)
-    ADD R11, R3, #1     
-    CMP R11, R2         // Within bounds?
+    ADD R11, R3, #1
+    CMP R11, R2
     BGE check_left_target_left
-    MUL R12, R11, R1    
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R9, R9, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R9, R9, #600
     
 check_left_target_left:
-    // Check target's LEFT neighbor (R3, R4-1)
-    CMP R4, #0          // Within bounds?
+    CMP R4, #0
     BLE check_left_target_right
-    SUB R11, R4, #1     
-    MUL R12, R3, R1     
+    SUB R11, R4, #1
+    MUL R12, R3, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R9, R9, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R9, R9, #600
     
 check_left_target_right:
-    // Check target's RIGHT neighbor (R3, R4+1)
-    ADD R11, R4, #1     
-    CMP R11, R1         // Within bounds?
+    ADD R11, R4, #1
+    CMP R11, R1
     BGE eval_right
-    MUL R12, R3, R1     
+    MUL R12, R3, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R9, R9, #600  // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R9, R9, #600
     
-    // Global exploration bias for LEFT
-    CMP R6, #5          // If in left half of map
-    ADDLT R9, R9, #15   // Small bonus for going LEFT (toward edge)
+    CMP R6, #5
+    ADDLT R9, R9, #15
     
-    // Check for open path ahead
-    CMP R6, #1          // Can check 2 spaces left?
+    CMP R6, #1
     BLE eval_right
-    SUB R11, R6, #2     // Check 2 spaces left
-    MUL R12, R5, R1     
+    SUB R11, R6, #2
+    MUL R12, R5, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #0         // Wall 2 spaces left?
-    ADDNE R9, R9, #8    // Small bonus for open path ahead
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #0
+    ADDNE R9, R9, #8
 
-// === EVALUATE RIGHT ===
 eval_right:
-    ADD R11, R6, #1     
-    CMP R11, R1         
+    ADD R11, R6, #1
+    CMP R11, R1
     SUBGE R10, R10, #300
     BGE choose_best
     
-    MUL R12, R5, R1     
+    MUL R12, R5, R1
     ADD R12, R12, R11
     ADD R12, R0, R12
-    LDRB R11, [R12]     
+    LDRB R11, [R12]
     
-    CMP R11, #0         
+    CMP R11, #0
     SUBEQ R10, R10, #400
-    CMP R11, #5         
+    CMP R11, #5
     SUBEQ R10, R10, #800
-    CMP R11, #2         
+    CMP R11, #2
     ADDEQ R10, R10, #50
-    CMP R11, #1         // Empty grass?
-    ADDEQ R10, R10, #10 // Small bonus for valid movement 
+    CMP R11, #1
+    ADDEQ R10, R10, #10
     
-    // Check if ghost is adjacent to our target position (R5, R6+1)
-    MOV R3, R5          // Target row
-    ADD R4, R6, #1      // Target col
+    MOV R3, R5
+    ADD R4, R6, #1
     
-    // Check target's UP neighbor (R3-1, R4)
-    CMP R3, #0          // Within bounds?
+    CMP R3, #0
     BLE check_right_target_down
-    SUB R11, R3, #1     
-    MUL R12, R11, R1    
+    SUB R11, R3, #1
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R10, R10, #600 // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R10, R10, #600
     
 check_right_target_down:
-    // Check target's DOWN neighbor (R3+1, R4)
-    ADD R11, R3, #1     
-    CMP R11, R2         // Within bounds?
+    ADD R11, R3, #1
+    CMP R11, R2
     BGE check_right_target_left
-    MUL R12, R11, R1    
+    MUL R12, R11, R1
     ADD R12, R12, R4
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R10, R10, #600 // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R10, R10, #600
     
 check_right_target_left:
-    // Check target's LEFT neighbor (R3, R4-1)
-    CMP R4, #0          // Within bounds?
+    CMP R4, #0
     BLE check_right_target_right
-    SUB R11, R4, #1     
-    MUL R12, R3, R1     
+    SUB R11, R4, #1
+    MUL R12, R3, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R10, R10, #600 // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R10, R10, #600
     
 check_right_target_right:
-    // Check target's RIGHT neighbor (R3, R4+1)
-    ADD R11, R4, #1     
-    CMP R11, R1         // Within bounds?
+    ADD R11, R4, #1
+    CMP R11, R1
     BGE choose_best
-    MUL R12, R3, R1     
+    MUL R12, R3, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #5         // Ghost adjacent to target?
-    SUBEQ R10, R10, #600 // Penalty for dangerous position
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #5
+    SUBEQ R10, R10, #600
     
-    // Global exploration bias for RIGHT
-    MOV R11, R1         // Map width
-    LSR R11, R11, #1    // Half width
-    CMP R6, R11         // If in right half of map
-    ADDGT R10, R10, #15 // Small bonus for going RIGHT (toward edge)
+    MOV R11, R1
+    LSR R11, R11, #1
+    CMP R6, R11
+    ADDGT R10, R10, #15
     
-    // Check for open path ahead
-    ADD R11, R6, #2     // Check 2 spaces right
-    CMP R11, R1         // Within bounds?
+    ADD R11, R6, #2
+    CMP R11, R1
     BGE choose_best
-    MUL R12, R5, R1     
+    MUL R12, R5, R1
     ADD R12, R12, R11
-    ADD R12, R0, R12    
-    LDRB R11, [R12]     
-    CMP R11, #0         // Wall 2 spaces right?
-    ADDNE R10, R10, #8  // Small bonus for open path ahead
+    ADD R12, R0, R12
+    LDRB R11, [R12]
+    CMP R11, #0
+    ADDNE R10, R10, #8
 
 choose_best:
-    // Find best score (highest positive value)
-    MOV R11, #1         // Default UP
-    MOV R12, R7         // Best score
+    MOV R11, #1
+    MOV R12, R7
     
-    CMP R8, R12         
-    MOVGT R11, #2       
-    MOVGT R12, R8       
+    CMP R8, R12
+    MOVGT R11, #2
+    MOVGT R12, R8
     
-    CMP R9, R12         
-    MOVGT R11, #3       
-    MOVGT R12, R9       
+    CMP R9, R12
+    MOVGT R11, #3
+    MOVGT R12, R9
     
-    CMP R10, R12        
+    CMP R10, R12
     MOVGT R11, #4
 
 store_direction:
