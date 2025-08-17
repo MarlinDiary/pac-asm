@@ -131,10 +131,22 @@ find_player_loop:
     B store_direction
 
 found_player:
+    LDR R3, =0x30200
+    LDRB R3, [R3]
+    
     MOV R7, #100
     MOV R8, #100
     MOV R9, #100
     MOV R10, #100
+    
+    CMP R3, #2
+    SUBEQ R7, R7, #80
+    CMP R3, #1  
+    SUBEQ R8, R8, #80
+    CMP R3, #4
+    SUBEQ R9, R9, #80
+    CMP R3, #3
+    SUBEQ R10, R10, #80
 
 eval_up:
     CMP R5, #0
@@ -473,7 +485,10 @@ choose_best:
 
 store_direction:
     LDR R0, =0x30000
-    STR R11, [R0]`,
+    STR R11, [R0]
+    
+    LDR R0, =0x30200
+    STRB R11, [R0]`,
   }
 ];
 
