@@ -160,7 +160,9 @@ eval_up:
     CMP R11, #5         // Ghost already there? 
     SUBEQ R7, R7, #800  
     CMP R11, #2         // Dot?
-    ADDEQ R7, R7, #50   
+    ADDEQ R7, R7, #50
+    CMP R11, #1         // Empty grass?
+    ADDEQ R7, R7, #10   // Small bonus for valid movement   
     
     // Check if ghost is within 2 spaces in UP direction
     CMP R5, #1          // Can we check 2 spaces up?
@@ -191,6 +193,8 @@ eval_down:
     SUBEQ R8, R8, #800  
     CMP R11, #2         
     ADDEQ R8, R8, #50
+    CMP R11, #1         // Empty grass?
+    ADDEQ R8, R8, #10   // Small bonus for valid movement
     
     // Check if ghost is within 2 spaces in DOWN direction
     ADD R11, R5, #2     // Position 2 spaces down: (R5+2, R6)
@@ -221,6 +225,8 @@ eval_left:
     SUBEQ R9, R9, #800  
     CMP R11, #2         
     ADDEQ R9, R9, #50
+    CMP R11, #1         // Empty grass?
+    ADDEQ R9, R9, #10   // Small bonus for valid movement
     
     // Check if ghost is within 2 spaces in LEFT direction
     CMP R6, #1          // Can we check 2 spaces left?
@@ -250,7 +256,9 @@ eval_right:
     CMP R11, #5         
     SUBEQ R10, R10, #800
     CMP R11, #2         
-    ADDEQ R10, R10, #50 
+    ADDEQ R10, R10, #50
+    CMP R11, #1         // Empty grass?
+    ADDEQ R10, R10, #10 // Small bonus for valid movement 
     
     // Check if ghost is within 2 spaces in RIGHT direction
     ADD R11, R6, #2     // Position 2 spaces right: (R5, R6+2)
