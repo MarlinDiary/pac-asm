@@ -1,4 +1,4 @@
-import { Bug, Play, Award } from 'lucide-react'
+import { Bug, Play, Award, Star } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import StatusBar from './StatusBar'
@@ -11,9 +11,10 @@ interface ExecutionBarProps {
   playStatus?: 'running'
   hasWon?: boolean
   currentLevel?: string
+  isChallenge?: boolean
 }
 
-export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, isPlayMode, playStatus, hasWon, currentLevel }: ExecutionBarProps) {
+export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, isPlayMode, playStatus, hasWon, currentLevel, isChallenge = false }: ExecutionBarProps) {
   const router = useRouter()
   const [showStatusBar, setShowStatusBar] = useState(false)
 
@@ -68,17 +69,28 @@ export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, i
         {/* Next button */}
         <div className="relative">
           <button 
-            className={`h-8 bg-[#e7e7e7] dark:bg-[#222222] rounded-r-sm flex items-center gap-1 transition-all duration-200 ${showStatusBar || isDebugMode ? 'px-2' : 'px-3'} ${hasWon ? 'cursor-pointer hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a]' : 'cursor-default'}`}
-            onClick={hasWon ? handleNextClick : undefined}
+            className={`h-8 bg-[#e7e7e7] dark:bg-[#222222] rounded-r-sm flex items-center gap-1 transition-all duration-200 ${showStatusBar || isDebugMode ? 'px-2' : 'px-3'} ${isChallenge ? 'cursor-default' : hasWon ? 'cursor-pointer hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a]' : 'cursor-default'}`}
+            onClick={!isChallenge && hasWon ? handleNextClick : undefined}
           >
-            {hasWon ? (
-              <Award size={16} color="#50b040" />
+            {isChallenge ? (
+              <>
+                <Star size={16} color="#a7a7a7" />
+                <span className="text-sm font-medium" style={{ color: '#a7a7a7' }}>
+                  0000
+                </span>
+              </>
             ) : (
-              <Award size={16} color="#a7a7a7" />
+              <>
+                {hasWon ? (
+                  <Award size={16} color="#50b040" />
+                ) : (
+                  <Award size={16} color="#a7a7a7" />
+                )}
+                <span className="text-sm font-medium" style={{ color: hasWon ? '#50b040' : '#a7a7a7' }}>
+                  Next
+                </span>
+              </>
             )}
-            <span className="text-sm font-medium" style={{ color: hasWon ? '#50b040' : '#a7a7a7' }}>
-              Next
-            </span>
           </button>
         </div>
       </div>
