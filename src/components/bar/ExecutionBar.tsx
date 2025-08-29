@@ -12,9 +12,10 @@ interface ExecutionBarProps {
   hasWon?: boolean
   currentLevel?: string
   isChallenge?: boolean
+  challengeScore?: string
 }
 
-export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, isPlayMode, playStatus, hasWon, currentLevel, isChallenge = false }: ExecutionBarProps) {
+export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, isPlayMode, playStatus, hasWon, currentLevel, isChallenge = false, challengeScore = '0000' }: ExecutionBarProps) {
   const router = useRouter()
   const [showStatusBar, setShowStatusBar] = useState(false)
 
@@ -41,7 +42,7 @@ export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, i
   return (
     <div className="relative">
       <div className={`absolute inset-0 transition-opacity duration-200 ${showStatusBar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <StatusBar />
+        <StatusBar isChallenge={isChallenge} challengeScore={challengeScore} />
       </div>
       <div className={`flex items-center h-8 transition-all duration-200 ${showStatusBar || isDebugMode ? 'opacity-0 pointer-events-none' : 'opacity-100'} ${showStatusBar || isDebugMode ? '' : ''}`}>
         {/* Debug button */}
@@ -75,8 +76,8 @@ export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, i
             {isChallenge ? (
               <>
                 <Star size={16} color="#a7a7a7" />
-                <span className="text-sm font-medium" style={{ color: '#a7a7a7' }}>
-                  0000
+                <span className="text-sm font-mono" style={{ color: '#a7a7a7' }}>
+                  {challengeScore}
                 </span>
               </>
             ) : (

@@ -23,6 +23,7 @@ import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { KeyboardControl } from '@/hooks/useKeyboardControl'
+import { useChallengeScore } from '@/hooks/useChallengeScore'
 import { Gamepad2, Move, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2 } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 
@@ -39,6 +40,9 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const gameState = useGameState(levelMap, levelMap.initialCode || '')
   const panelLayout = usePanelLayout()
   const executionControl = useExecutionControl({ gameState, levelMap })
+  
+  // Challenge mode scoring
+  const { formattedScore } = useChallengeScore(isChallenge, gameState)
 
   // Cleanup emulator on unmount
   useEffect(() => {
@@ -76,6 +80,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               hasWon={gameState.hasWon}
               currentLevel={levelId}
               isChallenge={isChallenge}
+              challengeScore={formattedScore}
             />
             <div className={`absolute inset-0 transition-opacity duration-200 ${gameState.isDebugMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <DebuggerBar 
