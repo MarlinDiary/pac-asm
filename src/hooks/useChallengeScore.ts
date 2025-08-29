@@ -181,7 +181,7 @@ export function useChallengeScore(
       // Award completion bonus when level is won (if not already awarded)
       // The bonus might have already been given in updateScore when all dots were eaten
       // This is a safety net to ensure the bonus is always given
-      setScore(prev => prev + 200)
+      setScore(prev => Math.max(0, prev + 200))
       hasCompletedLevelRef.current = true
     }
   }, [isChallenge, gameState.currentPlayWon])
