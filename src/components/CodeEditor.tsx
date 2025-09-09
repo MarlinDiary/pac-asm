@@ -473,7 +473,8 @@ export default function CodeEditor({
           overviewRulerLanes: 0,
           renderLineHighlight: 'all',
           occurrencesHighlight: 'off',
-          selectionHighlight: false
+          selectionHighlight: false,
+          stickyScroll: { enabled: false }
         }}
       />
     </div>
