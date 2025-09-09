@@ -170,35 +170,35 @@ export default function CodeEditor({
         // Default text - white
         { token: '', foreground: 'ffffff' },
         
-        // Comments - #8b92a3
-        { token: 'comment', foreground: '8b92a3' },
+        // Comments - #6A737D
+        { token: 'comment', foreground: '6A737D' },
         
-        // Strings - #4da6ff
-        { token: 'string', foreground: '4da6ff' },
-        { token: 'string.invalid', foreground: '4da6ff' },
-        { token: 'string.escape.invalid', foreground: '4da6ff' },
-        { token: 'string.regexp', foreground: '4da6ff' },
+        // Strings - #9ECBFF
+        { token: 'string', foreground: '9ECBFF' },
+        { token: 'string.invalid', foreground: '9ECBFF' },
+        { token: 'string.escape.invalid', foreground: '9ECBFF' },
+        { token: 'string.regexp', foreground: '9ECBFF' },
         
-        // Keywords (ARM instructions) - #ff6b7d
-        { token: 'keyword', foreground: 'ff6b7d' },
+        // Keywords (ARM instructions) - #F87683
+        { token: 'keyword', foreground: 'F87683' },
         
-        // Functions/Labels - #b794f6
-        { token: 'type', foreground: 'b794f6' },
+        // Functions/Labels - #B392F0
+        { token: 'type', foreground: 'B392F0' },
         
-        // Variables (ARM registers) - #ffb366
-        { token: 'variable.predefined', foreground: 'ffb366' },
+        // Variables (ARM registers) - #FFAB70
+        { token: 'variable.predefined', foreground: 'FFAB70' },
         { token: 'identifier', foreground: 'ffffff' },
         
-        // Numbers/Constants - #66b3ff
-        { token: 'number', foreground: '66b3ff' },
-        { token: 'number.hex', foreground: '66b3ff' }
+        // Numbers/Constants - #79B8FF
+        { token: 'number', foreground: '79B8FF' },
+        { token: 'number.hex', foreground: '79B8FF' }
       ],
       colors: {
         'editor.background': '#262626',
         'editor.foreground': '#ffffff',
-        'editor.lineHighlightBackground': '#2f2f2f',
-        'editor.lineHighlightBorder': '#2f2f2f',
-        'editorLineNumber.foreground': '#6e7681',
+        'editor.lineHighlightBackground': '#2B3036',
+        'editor.lineHighlightBorder': '#2B3036',
+        'editorLineNumber.foreground': '#444D56',
         'editorLineNumber.activeForeground': '#ffffff',
         'editorCursor.foreground': '#FFFFFF'
       }
@@ -226,24 +226,24 @@ export default function CodeEditor({
       inherit: false,
       rules: [
         { token: '', foreground: 'ffffff' },
-        { token: 'comment', foreground: '8b92a3' },
-        { token: 'string', foreground: '4da6ff' },
-        { token: 'string.invalid', foreground: '4da6ff' },
-        { token: 'string.escape.invalid', foreground: '4da6ff' },
-        { token: 'string.regexp', foreground: '4da6ff' },
-        { token: 'keyword', foreground: 'ff6b7d' },
-        { token: 'type', foreground: 'b794f6' },
-        { token: 'variable.predefined', foreground: 'ffb366' },
+        { token: 'comment', foreground: '6A737D' },
+        { token: 'string', foreground: '9ECBFF' },
+        { token: 'string.invalid', foreground: '9ECBFF' },
+        { token: 'string.escape.invalid', foreground: '9ECBFF' },
+        { token: 'string.regexp', foreground: '9ECBFF' },
+        { token: 'keyword', foreground: 'F87683' },
+        { token: 'type', foreground: 'B392F0' },
+        { token: 'variable.predefined', foreground: 'FFAB70' },
         { token: 'identifier', foreground: 'ffffff' },
-        { token: 'number', foreground: '66b3ff' },
-        { token: 'number.hex', foreground: '66b3ff' }
+        { token: 'number', foreground: '79B8FF' },
+        { token: 'number.hex', foreground: '79B8FF' }
       ],
       colors: {
         'editor.background': '#262626',
         'editor.foreground': '#ffffff',
-        'editor.lineHighlightBackground': '#2f2f2f',
-        'editor.lineHighlightBorder': '#2f2f2f',
-        'editorLineNumber.foreground': '#6e7681',
+        'editor.lineHighlightBackground': '#2B3036',
+        'editor.lineHighlightBorder': '#2B3036',
+        'editorLineNumber.foreground': '#444D56',
         'editorLineNumber.activeForeground': '#ffffff',
         'editorCursor.foreground': '#FFFFFF'
       }
