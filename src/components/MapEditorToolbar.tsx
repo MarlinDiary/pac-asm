@@ -38,8 +38,8 @@ const tools = [
 
 export default function MapEditorToolbar({ selectedTool, onToolSelect }: MapEditorToolbarProps) {
   return (
-    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 h-12 px-3 flex items-center">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+      <div className="bg-white/95 dark:bg-neutral-950/95 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800/50 h-12 px-3 flex items-center">
         <div className="flex gap-3">
           {tools.map((tool) => {
             const Icon = tool.icon
@@ -56,7 +56,6 @@ export default function MapEditorToolbar({ selectedTool, onToolSelect }: MapEdit
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                   }
                 `}
-                title={tool.label}
               >
                 <Icon 
                   size={20} 

@@ -16,7 +16,7 @@ interface ViewState {
 
 export default function MapEditor() {
   // Create a large empty canvas for editing
-  const canvasSize = 100 // 100x100 grid
+  const canvasSize = 99 // 99x99 grid
   const emptyCanvas: GameMap = {
     id: 'editor-canvas',
     name: 'Editor Canvas',
@@ -24,7 +24,7 @@ export default function MapEditor() {
     height: canvasSize,
     tileSize: 20,
     tiles: Array(canvasSize).fill(null).map(() => Array(canvasSize).fill('%')),
-    playerPosition: { row: 50, col: 50, direction: 'right' },
+    playerPosition: { row: 49, col: 49, direction: 'right' },
     ghostPositions: [],
     playerAnimation: { direction: 'right' },
     ghostAnimations: [],
@@ -52,22 +52,13 @@ export default function MapEditor() {
       const scaleFactor = e.deltaY > 0 ? 0.8 : 1.2
       const newScale = Math.max(1, Math.min(3, viewState.scale * scaleFactor))
 
-      // Zoom around the center of the world (map), keeping that point fixed on screen
-      const tileSize = currentMap.tileSize || 64
-      const worldCenterX = (currentMap.width * tileSize) / 2
-      const worldCenterY = (currentMap.height * tileSize) / 2
-
-      const newOffsetX = viewState.offsetX + (viewState.scale - newScale) * worldCenterX
-      const newOffsetY = viewState.offsetY + (viewState.scale - newScale) * worldCenterY
-
-      setViewState({
-        scale: newScale,
-        offsetX: newOffsetX,
-        offsetY: newOffsetY
-      })
+      setViewState(prev => ({
+        ...prev,
+        scale: newScale
+      }))
     }
     // Remove pan functionality - only zoom is allowed
-  }, [viewState, currentMap])
+  }, [viewState])
 
 
   const resetView = useCallback(() => {
@@ -112,8 +103,8 @@ export default function MapEditor() {
         <div 
           className="relative"
           style={{
-            transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`,
-            transformOrigin: 'top left',
+            transform: `scale(${viewState.scale})`,
+            transformOrigin: 'center',
             transition: 'transform 0.1s ease-out'
           }}
         >
