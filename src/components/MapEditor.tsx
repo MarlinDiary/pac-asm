@@ -74,7 +74,8 @@ export default function MapEditor() {
     if (selectedTool === 'grass') {
       const newTiles = [...currentMap.tiles]
       newTiles[row] = [...newTiles[row]]
-      newTiles[row][col] = ' ' // Grass tile (space character)
+      // Toggle: if it's already grass, make it air; otherwise make it grass
+      newTiles[row][col] = currentMap.tiles[row][col] === ' ' ? '%' : ' '
       setCurrentMap({
         ...currentMap,
         tiles: newTiles

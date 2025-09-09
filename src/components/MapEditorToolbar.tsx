@@ -1,6 +1,6 @@
 'use client'
 
-import { SquareDashed, Square, Circle, Ghost, User } from 'lucide-react'
+import { Square, Circle, Ghost, User } from 'lucide-react'
 import { ToolType } from '@/components/MapEditor'
 
 interface MapEditorToolbarProps {
@@ -9,11 +9,6 @@ interface MapEditorToolbarProps {
 }
 
 const tools = [
-  {
-    type: 'air' as ToolType,
-    icon: SquareDashed,
-    label: 'Air/Wall'
-  },
   {
     type: 'grass' as ToolType,
     icon: Square,
