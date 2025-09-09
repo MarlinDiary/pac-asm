@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import MapRenderer from '@/components/MapRenderer'
+import MapGridOverlay from '@/components/MapGridOverlay'
 import MapEditorToolbar from '@/components/MapEditorToolbar'
 import { GameMap, MAPS } from '@/data/maps'
 
@@ -14,15 +15,29 @@ interface ViewState {
 }
 
 export default function MapEditor() {
-  const [currentMap, setCurrentMap] = useState<GameMap>(MAPS[0])
+  // Create a large empty canvas for editing
+  const canvasSize = 100 // 100x100 grid
+  const emptyCanvas: GameMap = {
+    id: 'editor-canvas',
+    name: 'Editor Canvas',
+    width: canvasSize,
+    height: canvasSize,
+    tileSize: 20,
+    tiles: Array(canvasSize).fill(null).map(() => Array(canvasSize).fill('%')),
+    playerPosition: { row: 50, col: 50, direction: 'right' },
+    ghostPositions: [],
+    playerAnimation: { direction: 'right' },
+    ghostAnimations: [],
+    waterBackground: { tilesX: 8, tilesY: 6 }
+  }
+  
+  const [currentMap, setCurrentMap] = useState<GameMap>(emptyCanvas)
   const [selectedTool, setSelectedTool] = useState<ToolType>('grass')
   const [viewState, setViewState] = useState<ViewState>({
     scale: 1,
     offsetX: 0,
     offsetY: 0
   })
-  const [isDragging, setIsDragging] = useState(false)
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleToolSelect = (tool: ToolType) => {
@@ -33,9 +48,9 @@ export default function MapEditor() {
     e.preventDefault()
     
     if (e.ctrlKey) {
-      // Zoom on pinch gesture (ctrlKey is set during pinch on trackpad)
-      const scaleFactor = e.deltaY > 0 ? 0.93 : 1.07
-      const newScale = Math.max(0.5, Math.min(2, viewState.scale * scaleFactor))
+      // Discrete scaling for responsiveness
+      const scaleFactor = e.deltaY > 0 ? 0.8 : 1.2
+      const newScale = Math.max(1, Math.min(3, viewState.scale * scaleFactor))
 
       // Zoom around the center of the world (map), keeping that point fixed on screen
       const tileSize = currentMap.tileSize || 64
@@ -50,46 +65,31 @@ export default function MapEditor() {
         offsetX: newOffsetX,
         offsetY: newOffsetY
       })
-    } else {
-      // Pan on two-finger scroll (trackpad) or regular mouse wheel
-      setViewState(prev => ({
-        ...prev,
-        offsetX: prev.offsetX - e.deltaX,
-        offsetY: prev.offsetY - e.deltaY
-      }))
     }
-  }, [viewState])
+    // Remove pan functionality - only zoom is allowed
+  }, [viewState, currentMap])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1 || (e.button === 0 && e.ctrlKey)) { // Middle mouse or Ctrl+Left
-      e.preventDefault()
-      setIsDragging(true)
-      setLastMousePos({ x: e.clientX, y: e.clientY })
-    }
-  }, [])
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      const deltaX = e.clientX - lastMousePos.x
-      const deltaY = e.clientY - lastMousePos.y
-      
-      setViewState(prev => ({
-        ...prev,
-        offsetX: prev.offsetX + deltaX,
-        offsetY: prev.offsetY + deltaY
-      }))
-      
-      setLastMousePos({ x: e.clientX, y: e.clientY })
-    }
-  }, [isDragging, lastMousePos])
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
-  }, [])
 
   const resetView = useCallback(() => {
     setViewState({ scale: 1, offsetX: 0, offsetY: 0 })
   }, [])
+
+  const handleTileClick = useCallback((row: number, col: number) => {
+    // Allow editing anywhere within the canvas bounds
+    if (row < 0 || row >= currentMap.height || col < 0 || col >= currentMap.width) {
+      return
+    }
+    
+    if (selectedTool === 'grass') {
+      const newTiles = [...currentMap.tiles]
+      newTiles[row] = [...newTiles[row]]
+      newTiles[row][col] = ' ' // Grass tile (space character)
+      setCurrentMap({
+        ...currentMap,
+        tiles: newTiles
+      })
+    }
+  }, [selectedTool, currentMap])
 
 
   return (
@@ -104,12 +104,8 @@ export default function MapEditor() {
         ref={containerRef}
         className="h-full w-full flex items-center justify-center"
         onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
         style={{
-          cursor: isDragging ? 'grabbing' : 'default',
+          cursor: 'default',
           touchAction: 'none' // Extra protection for touch events
         }}
       >
@@ -118,10 +114,11 @@ export default function MapEditor() {
           style={{
             transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`,
             transformOrigin: 'top left',
-            transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+            transition: 'transform 0.1s ease-out'
           }}
         >
           <MapRenderer map={currentMap} />
+          <MapGridOverlay map={currentMap} onTileClick={handleTileClick} />
         </div>
       </div>
       

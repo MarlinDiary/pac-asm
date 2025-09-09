@@ -1,0 +1,44 @@
+'use client'
+
+import { GameMap } from '@/data/maps'
+
+interface MapGridOverlayProps {
+  map: GameMap
+  onTileClick: (row: number, col: number) => void
+}
+
+export default function MapGridOverlay({ map, onTileClick }: MapGridOverlayProps) {
+  const tileSize = map.tileSize || 64
+
+  return (
+    <div
+      className="absolute pointer-events-none"
+      style={{
+        top: 0,
+        left: 0,
+        width: map.width * tileSize,
+        height: map.height * tileSize,
+        display: 'grid',
+        gridTemplateColumns: `repeat(${map.width}, ${tileSize}px)`,
+        gridTemplateRows: `repeat(${map.height}, ${tileSize}px)`,
+      }}
+    >
+      {Array.from({ length: map.height }, (_, rowIndex) =>
+        Array.from({ length: map.width }, (_, colIndex) => (
+          <div
+            key={`${rowIndex}-${colIndex}`}
+            className="border-t border-l border-gray-400/[0.07] dark:border-gray-600/[0.07] hover:bg-white/10 dark:hover:bg-white/5 cursor-pointer pointer-events-auto transition-colors"
+            style={{
+              borderRightWidth: colIndex === map.width - 1 ? '1px' : '0',
+              borderBottomWidth: rowIndex === map.height - 1 ? '1px' : '0',
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTileClick(rowIndex, colIndex)
+            }}
+          />
+        ))
+      ).flat()}
+    </div>
+  )
+}
