@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import MapRenderer from '@/components/MapRenderer'
 import MapGridOverlay from '@/components/MapGridOverlay'
 import MapEditorToolbar from '@/components/MapEditorToolbar'
-import { GameMap } from '@/data/maps'
+import { GameMap, TileMapping } from '@/data/maps'
 
 export type ToolType = 'air' | 'grass' | 'dot' | 'pacman' | 'ghost'
 
@@ -70,6 +70,114 @@ export default function MapEditor() {
   const resetView = useCallback(() => {
     setViewState({ scale: 1, offsetX: 0, offsetY: 0 })
   }, [])
+
+  const extractMinimalMap = useCallback(() => {
+    // Find the bounding box of all non-air tiles and entities
+    let minRow = currentMap.height
+    let maxRow = -1
+    let minCol = currentMap.width
+    let maxCol = -1
+    
+    // Check all tiles
+    for (let row = 0; row < currentMap.height; row++) {
+      for (let col = 0; col < currentMap.width; col++) {
+        if (currentMap.tiles[row][col] !== '%') {
+          minRow = Math.min(minRow, row)
+          maxRow = Math.max(maxRow, row)
+          minCol = Math.min(minCol, col)
+          maxCol = Math.max(maxCol, col)
+        }
+      }
+    }
+    
+    // Check Pacman position
+    if (currentMap.playerPosition.row >= 0 && currentMap.playerPosition.col >= 0) {
+      minRow = Math.min(minRow, currentMap.playerPosition.row)
+      maxRow = Math.max(maxRow, currentMap.playerPosition.row)
+      minCol = Math.min(minCol, currentMap.playerPosition.col)
+      maxCol = Math.max(maxCol, currentMap.playerPosition.col)
+    }
+    
+    // Check ghost positions
+    for (const ghost of currentMap.ghostPositions) {
+      minRow = Math.min(minRow, ghost.row)
+      maxRow = Math.max(maxRow, ghost.row)
+      minCol = Math.min(minCol, ghost.col)
+      maxCol = Math.max(maxCol, ghost.col)
+    }
+    
+    // If no content found, return null
+    if (maxRow < 0 || maxCol < 0) {
+      return null
+    }
+    
+    // Add 1 tile padding around the content
+    const padding = 1
+    const newHeight = maxRow - minRow + 1 + padding * 2
+    const newWidth = maxCol - minCol + 1 + padding * 2
+    const newTiles: (keyof TileMapping)[][] = []
+    
+    // Create the map with padding
+    for (let r = 0; r < newHeight; r++) {
+      const row: (keyof TileMapping)[] = []
+      for (let c = 0; c < newWidth; c++) {
+        // Check if we're in the padding area
+        if (r < padding || r >= newHeight - padding || 
+            c < padding || c >= newWidth - padding) {
+          row.push('%' as keyof TileMapping) // Air for padding
+        } else {
+          // Get the tile from the original map
+          const origRow = minRow + r - padding
+          const origCol = minCol + c - padding
+          row.push(currentMap.tiles[origRow][origCol])
+        }
+      }
+      newTiles.push(row)
+    }
+    
+    // Adjust entity positions relative to the new origin (accounting for padding)
+    const minimalMap: GameMap = {
+      ...currentMap,
+      height: newHeight,
+      width: newWidth,
+      tiles: newTiles,
+      playerPosition: currentMap.playerPosition.row >= 0 ? {
+        row: currentMap.playerPosition.row - minRow + padding,
+        col: currentMap.playerPosition.col - minCol + padding,
+        direction: currentMap.playerPosition.direction
+      } : currentMap.playerPosition,
+      ghostPositions: currentMap.ghostPositions.map(g => ({
+        row: g.row - minRow + padding,
+        col: g.col - minCol + padding
+      }))
+    }
+    
+    return minimalMap
+  }, [currentMap])
+
+  const copyMapToClipboard = useCallback(() => {
+    const minimalMap = extractMinimalMap()
+    if (!minimalMap) {
+      alert('No map content to copy!')
+      return
+    }
+    
+    // Convert the map to a string format (you can customize this)
+    const mapString = JSON.stringify({
+      width: minimalMap.width,
+      height: minimalMap.height,
+      tiles: minimalMap.tiles.map(row => row.join('')).join('\n'),
+      playerPosition: minimalMap.playerPosition,
+      ghostPositions: minimalMap.ghostPositions
+    }, null, 2)
+    
+    navigator.clipboard.writeText(mapString).then(() => {
+      alert(`Copied ${minimalMap.width}x${minimalMap.height} map to clipboard!`)
+    }).catch(err => {
+      console.error('Failed to copy:', err)
+      alert('Failed to copy map to clipboard')
+    })
+  }, [extractMinimalMap])
 
 
   const applyToolWithMode = useCallback((row: number, col: number, mode?: 'add' | 'remove' | null) => {
@@ -242,36 +350,48 @@ export default function MapEditor() {
       const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
       const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
       
-      // Pacman can be placed on grass or dots
-      if (currentTile === ' ' || currentTile === '.') {
-        if (isPacmanHere) {
-          // Click on existing Pacman to remove it
-          setCurrentMap({
-            ...currentMap,
-            playerPosition: { row: -1, col: -1, direction: currentMap.playerPosition.direction }
-          })
-        } else {
-          // Place Pacman at new position
-          // Ensure grass tile underneath
-          newTiles[row][col] = ' '
-          
-          let updateObj: any = { 
-            tiles: newTiles,
-            playerPosition: { row, col, direction: currentMap.playerPosition.direction }
+      if (isPacmanHere) {
+        // Click on existing Pacman to rotate its direction clockwise
+        const directions = ['right', 'down', 'left', 'up'] as const
+        const currentDirectionIndex = directions.indexOf(currentMap.playerPosition.direction)
+        const newDirection = directions[(currentDirectionIndex + 1) % 4]
+        
+        setCurrentMap({
+          ...currentMap,
+          playerPosition: { 
+            ...currentMap.playerPosition, 
+            direction: newDirection 
+          },
+          playerAnimation: {
+            ...currentMap.playerAnimation,
+            direction: newDirection
           }
-          
-          // Remove ghost if it's here
-          if (ghostIndex !== -1) {
-            const newGhostPositions = [...currentMap.ghostPositions]
-            newGhostPositions.splice(ghostIndex, 1)
-            updateObj.ghostPositions = newGhostPositions
+        })
+      } else if (currentTile === ' ' || currentTile === '.') {
+        // Place Pacman at new position
+        // Ensure grass tile underneath
+        newTiles[row][col] = ' '
+        
+        let updateObj: any = { 
+          tiles: newTiles,
+          playerPosition: { row, col, direction: currentMap.playerPosition.direction },
+          playerAnimation: {
+            ...currentMap.playerAnimation,
+            direction: currentMap.playerPosition.direction
           }
-          
-          setCurrentMap({
-            ...currentMap,
-            ...updateObj
-          })
         }
+        
+        // Remove ghost if it's here
+        if (ghostIndex !== -1) {
+          const newGhostPositions = [...currentMap.ghostPositions]
+          newGhostPositions.splice(ghostIndex, 1)
+          updateObj.ghostPositions = newGhostPositions
+        }
+        
+        setCurrentMap({
+          ...currentMap,
+          ...updateObj
+        })
       }
     } else if (selectedTool === 'ghost') {
       const currentTile = currentMap.tiles[row][col]
@@ -383,7 +503,6 @@ export default function MapEditor() {
           <MapRenderer map={currentMap} />
           <MapGridOverlay 
             map={currentMap} 
-            onTileClick={handleTileClick}
             onTileMouseDown={handleTileMouseDown}
             onTileMouseEnter={handleTileMouseEnter}
             onTileMouseUp={handleTileMouseUp}
@@ -397,6 +516,14 @@ export default function MapEditor() {
         className="absolute bottom-4 right-4 text-base font-semibold text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 px-3 py-1 rounded-lg transition-all duration-200 cursor-pointer"
       >
         {Math.round(viewState.scale * 100)}%
+      </button>
+      
+      {/* Copy map button */}
+      <button
+        onClick={copyMapToClipboard}
+        className="absolute bottom-4 right-24 text-base font-semibold text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 px-3 py-1 rounded-lg transition-all duration-200 cursor-pointer"
+      >
+        Copy Map
       </button>
       
       <MapEditorToolbar 
