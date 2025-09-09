@@ -55,17 +55,15 @@ export default function MapEditor() {
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     
-    if (e.ctrlKey) {
-      // Discrete scaling for responsiveness
-      const scaleFactor = e.deltaY > 0 ? 0.8 : 1.2
-      const newScale = Math.max(1, Math.min(3, viewState.scale * scaleFactor))
+    // Allow zoom with both pinch (ctrlKey) and regular scroll
+    // Reverse the direction for natural scrolling
+    const scaleFactor = e.deltaY > 0 ? 1.2 : 0.8
+    const newScale = Math.max(1, Math.min(3, viewState.scale * scaleFactor))
 
-      setViewState(prev => ({
-        ...prev,
-        scale: newScale
-      }))
-    }
-    // Remove pan functionality - only zoom is allowed
+    setViewState(prev => ({
+      ...prev,
+      scale: newScale
+    }))
   }, [viewState])
 
 
