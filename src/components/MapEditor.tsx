@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { Copy, CopyCheck, ArrowLeft, RefreshCcw } from 'lucide-react'
 import MapRenderer from '@/components/MapRenderer'
 import MapGridOverlay from '@/components/MapGridOverlay'
 import MapEditorToolbar from '@/components/MapEditorToolbar'
@@ -44,6 +45,7 @@ export default function MapEditor() {
   })
   const [isDrawing, setIsDrawing] = useState(false)
   const [drawingMode, setDrawingMode] = useState<'add' | 'remove' | null>(null)
+  const [isCopied, setIsCopied] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleToolSelect = (tool: ToolType) => {
@@ -68,6 +70,27 @@ export default function MapEditor() {
 
 
   const resetView = useCallback(() => {
+    setViewState({ scale: 1, offsetX: 0, offsetY: 0 })
+  }, [])
+
+  const resetToInitialState = useCallback(() => {
+    // Reset the map to initial empty state
+    const tiles = Array(99).fill(null).map(() => Array(99).fill('%'))
+    tiles[49][49] = ' '  // Place grass under initial Pacman
+    
+    setCurrentMap({
+      id: 'editor-canvas',
+      name: 'Editor Canvas',
+      width: 99,
+      height: 99,
+      tileSize: 20,
+      tiles: tiles,
+      playerPosition: { row: 49, col: 49, direction: 'right' },
+      ghostPositions: [],
+      playerAnimation: { direction: 'right' },
+      ghostAnimations: [],
+      waterBackground: { tilesX: 8, tilesY: 6 }
+    })
     setViewState({ scale: 1, offsetX: 0, offsetY: 0 })
   }, [])
 
@@ -158,7 +181,6 @@ export default function MapEditor() {
   const copyMapToClipboard = useCallback(() => {
     const minimalMap = extractMinimalMap()
     if (!minimalMap) {
-      alert('No map content to copy!')
       return
     }
     
@@ -172,10 +194,10 @@ export default function MapEditor() {
     }, null, 2)
     
     navigator.clipboard.writeText(mapString).then(() => {
-      alert(`Copied ${minimalMap.width}x${minimalMap.height} map to clipboard!`)
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2000) // Reset after 2 seconds
     }).catch(err => {
       console.error('Failed to copy:', err)
-      alert('Failed to copy map to clipboard')
     })
   }, [extractMinimalMap])
 
@@ -510,20 +532,42 @@ export default function MapEditor() {
         </div>
       </div>
       
+      {/* Back button - top left (no function) */}
+      <button
+        className="absolute top-4 left-4 p-2 text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-lg transition-all duration-200 cursor-pointer"
+        aria-label="Back"
+      >
+        <ArrowLeft size={20} />
+      </button>
+      
+      {/* Reset button - bottom left */}
+      <button
+        onClick={resetToInitialState}
+        className="absolute bottom-4 left-4 p-2 text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-lg transition-all duration-200 cursor-pointer"
+        aria-label="Reset to initial state"
+      >
+        <RefreshCcw size={20} />
+      </button>
+      
+      {/* Copy map button - top right */}
+      <button
+        onClick={copyMapToClipboard}
+        className="absolute top-4 right-4 p-2 text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-lg transition-all duration-200 cursor-pointer"
+        aria-label="Copy map to clipboard"
+      >
+        {isCopied ? (
+          <CopyCheck size={20} className="text-green-600 dark:text-green-400" />
+        ) : (
+          <Copy size={20} />
+        )}
+      </button>
+      
       {/* Zoom percentage - clickable to reset */}
       <button
         onClick={resetView}
         className="absolute bottom-4 right-4 text-base font-semibold text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 px-3 py-1 rounded-lg transition-all duration-200 cursor-pointer"
       >
         {Math.round(viewState.scale * 100)}%
-      </button>
-      
-      {/* Copy map button */}
-      <button
-        onClick={copyMapToClipboard}
-        className="absolute bottom-4 right-24 text-base font-semibold text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 px-3 py-1 rounded-lg transition-all duration-200 cursor-pointer"
-      >
-        Copy Map
       </button>
       
       <MapEditorToolbar 

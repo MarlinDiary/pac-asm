@@ -32,7 +32,7 @@ export default function MapGridOverlay({ map, onTileMouseDown, onTileMouseEnter,
         Array.from({ length: map.width }, (_, colIndex) => (
           <div
             key={`${rowIndex}-${colIndex}`}
-            className="border-t border-l border-gray-400/[0.07] dark:border-gray-600/[0.07] hover:bg-white/10 dark:hover:bg-white/5 cursor-pointer pointer-events-auto transition-colors"
+            className="border-t border-l border-gray-400/[0.07] dark:border-gray-600/[0.07] hover:bg-white/10 dark:hover:bg-transparent cursor-pointer pointer-events-auto transition-colors"
             style={{
               borderRightWidth: colIndex === map.width - 1 ? '1px' : '0',
               borderBottomWidth: rowIndex === map.height - 1 ? '1px' : '0',
