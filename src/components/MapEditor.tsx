@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import MapRenderer from '@/components/MapRenderer'
 import MapEditorToolbar from '@/components/MapEditorToolbar'
 import { GameMap, MAPS } from '@/data/maps'
@@ -128,7 +128,7 @@ export default function MapEditor() {
       {/* Zoom percentage - clickable to reset */}
       <button
         onClick={resetView}
-        className="absolute bottom-20 right-4 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200"
+        className="absolute bottom-4 right-4 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-all duration-200 cursor-pointer"
         title="Click to reset view"
       >
         {Math.round(viewState.scale * 100)}%
