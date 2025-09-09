@@ -102,14 +102,14 @@ export default function MapEditor() {
     >
       <div 
         ref={containerRef}
-        className="h-full w-full flex items-center justify-center cursor-grab active:cursor-grabbing"
+        className="h-full w-full flex items-center justify-center"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         style={{
-          cursor: isDragging ? 'grabbing' : 'grab',
+          cursor: isDragging ? 'grabbing' : 'default',
           touchAction: 'none' // Extra protection for touch events
         }}
       >
@@ -128,8 +128,7 @@ export default function MapEditor() {
       {/* Zoom percentage - clickable to reset */}
       <button
         onClick={resetView}
-        className="absolute bottom-4 right-4 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-all duration-200 cursor-pointer"
-        title="Click to reset view"
+        className="absolute bottom-4 right-4 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer"
       >
         {Math.round(viewState.scale * 100)}%
       </button>
