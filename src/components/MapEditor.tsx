@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import MapRenderer from '@/components/MapRenderer'
 import MapGridOverlay from '@/components/MapGridOverlay'
 import MapEditorToolbar from '@/components/MapEditorToolbar'
-import { GameMap, MAPS } from '@/data/maps'
+import { GameMap } from '@/data/maps'
 
 export type ToolType = 'air' | 'grass' | 'dot' | 'pacman' | 'ghost'
 
@@ -17,13 +17,17 @@ interface ViewState {
 export default function MapEditor() {
   // Create a large empty canvas for editing
   const canvasSize = 99 // 99x99 grid
+  const tiles = Array(canvasSize).fill(null).map(() => Array(canvasSize).fill('%'))
+  // Place grass tile under initial Pacman position
+  tiles[49][49] = ' '
+  
   const emptyCanvas: GameMap = {
     id: 'editor-canvas',
     name: 'Editor Canvas',
     width: canvasSize,
     height: canvasSize,
     tileSize: 20,
-    tiles: Array(canvasSize).fill(null).map(() => Array(canvasSize).fill('%')),
+    tiles: tiles,
     playerPosition: { row: 49, col: 49, direction: 'right' },
     ghostPositions: [],
     playerAnimation: { direction: 'right' },
@@ -71,15 +75,154 @@ export default function MapEditor() {
       return
     }
     
+    const newTiles = [...currentMap.tiles]
+    newTiles[row] = [...newTiles[row]]
+    
     if (selectedTool === 'grass') {
-      const newTiles = [...currentMap.tiles]
-      newTiles[row] = [...newTiles[row]]
-      // Toggle: if it's already grass, make it air; otherwise make it grass
-      newTiles[row][col] = currentMap.tiles[row][col] === ' ' ? '%' : ' '
-      setCurrentMap({
-        ...currentMap,
-        tiles: newTiles
-      })
+      const currentTile = currentMap.tiles[row][col]
+      const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
+      const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
+      
+      // Toggle: grass/dot -> air, air -> grass
+      if (currentTile === ' ' || currentTile === '.') {
+        newTiles[row][col] = '%' // Remove grass (and dot if present)
+        
+        // Prepare update object
+        let updateObj: any = { tiles: newTiles }
+        
+        // If Pacman is on this tile, move him off the map
+        if (isPacmanHere) {
+          updateObj.playerPosition = { row: -1, col: -1, direction: currentMap.playerPosition.direction }
+        }
+        
+        // If a ghost is on this tile, remove it
+        if (ghostIndex !== -1) {
+          const newGhostPositions = [...currentMap.ghostPositions]
+          newGhostPositions.splice(ghostIndex, 1)
+          updateObj.ghostPositions = newGhostPositions
+        }
+        
+        setCurrentMap({
+          ...currentMap,
+          ...updateObj
+        })
+      } else {
+        newTiles[row][col] = ' ' // Place grass
+        setCurrentMap({
+          ...currentMap,
+          tiles: newTiles
+        })
+      }
+    } else if (selectedTool === 'dot') {
+      const currentTile = currentMap.tiles[row][col]
+      const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
+      const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
+      
+      // Dots can be placed on grass tiles or replace existing dots
+      if (currentTile === ' ' || currentTile === '.') {
+        if (currentTile === '.') {
+          // Remove dot, revert to grass
+          newTiles[row][col] = ' '
+        } else {
+          // Place dot
+          newTiles[row][col] = '.'
+        }
+        
+        let updateObj: any = { tiles: newTiles }
+        
+        // Remove Pacman if he's here
+        if (isPacmanHere) {
+          updateObj.playerPosition = { row: -1, col: -1, direction: currentMap.playerPosition.direction }
+        }
+        
+        // Remove ghost if it's here
+        if (ghostIndex !== -1) {
+          const newGhostPositions = [...currentMap.ghostPositions]
+          newGhostPositions.splice(ghostIndex, 1)
+          updateObj.ghostPositions = newGhostPositions
+        }
+        
+        setCurrentMap({
+          ...currentMap,
+          ...updateObj
+        })
+      }
+    } else if (selectedTool === 'pacman') {
+      const currentTile = currentMap.tiles[row][col]
+      const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
+      const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
+      
+      // Pacman can be placed on grass or dots
+      if (currentTile === ' ' || currentTile === '.') {
+        if (isPacmanHere) {
+          // Click on existing Pacman to remove it
+          setCurrentMap({
+            ...currentMap,
+            playerPosition: { row: -1, col: -1, direction: currentMap.playerPosition.direction }
+          })
+        } else {
+          // Place Pacman at new position
+          // Ensure grass tile underneath
+          newTiles[row][col] = ' '
+          
+          let updateObj: any = { 
+            tiles: newTiles,
+            playerPosition: { row, col, direction: currentMap.playerPosition.direction }
+          }
+          
+          // Remove ghost if it's here
+          if (ghostIndex !== -1) {
+            const newGhostPositions = [...currentMap.ghostPositions]
+            newGhostPositions.splice(ghostIndex, 1)
+            updateObj.ghostPositions = newGhostPositions
+          }
+          
+          setCurrentMap({
+            ...currentMap,
+            ...updateObj
+          })
+        }
+      }
+    } else if (selectedTool === 'ghost') {
+      const currentTile = currentMap.tiles[row][col]
+      const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
+      const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
+      
+      // Ghosts can be placed on grass or dots
+      if (currentTile === ' ' || currentTile === '.') {
+        const newGhostPositions = [...currentMap.ghostPositions]
+        
+        if (ghostIndex !== -1) {
+          // Click on existing ghost to remove it
+          newGhostPositions.splice(ghostIndex, 1)
+        } else {
+          // Add new ghost
+          newGhostPositions.push({ row, col })
+          
+          // If we have more than 2 ghosts, remove the oldest one
+          if (newGhostPositions.length > 2) {
+            newGhostPositions.shift()
+          }
+        }
+        
+        // Ensure grass tile underneath
+        newTiles[row][col] = ' '
+        
+        let updateObj: any = { 
+          tiles: newTiles,
+          ghostPositions: newGhostPositions
+        }
+        
+        // Remove Pacman if he's here
+        if (isPacmanHere) {
+          updateObj.playerPosition = { row: -1, col: -1, direction: currentMap.playerPosition.direction }
+        }
+        
+        setCurrentMap({
+          ...currentMap,
+          ...updateObj
+        })
+      }
     }
   }, [selectedTool, currentMap])
 
