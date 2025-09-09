@@ -15,8 +15,6 @@ import MemoryPanel from '@/components/panel/MemoryPanel'
 import DiagnosticsPanel from '@/components/panel/DiagnosticsPanel'
 import SubBar from '@/components/bar/SubBar'
 import QueryBar from '@/components/bar/QueryBar'
-import ActuatorBar from '@/components/bar/ActuatorBar'
-import ActuatorPanel from '@/components/panel/ActuatorPanel'
 import { useEmulator } from '@/hooks/useEmulator'
 import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
@@ -24,7 +22,7 @@ import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { KeyboardControl } from '@/hooks/useKeyboardControl'
 import { useChallengeScore } from '@/hooks/useChallengeScore'
-import { Gamepad2, Move, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2 } from 'lucide-react'
+import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2 } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 
 interface GamePageProps {
@@ -135,26 +133,6 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                       </div>
                     </div>
                   )}
-                </div>
-              </Card>
-            </ResizablePanel>
-            <ResizableHandle 
-              style={{ height: '8px' }}
-              onDoubleClick={panelLayout.resetVerticalPanels}
-            />
-            <ResizablePanel defaultSize={30} ref={panelLayout.panel2Ref} minSize={10}>
-              <Card tabs={[{ icon: Move, text: "Actuator", color: "#f4ba40" }]}>
-                <div className="h-full flex flex-col">
-                  <ActuatorBar />
-                  <div 
-                    className="flex-1 overflow-y-auto"
-                    style={{
-                      scrollbarWidth: 'none',
-                      msOverflowStyle: 'none'
-                    }}
-                  >
-                    <ActuatorPanel />
-                  </div>
                 </div>
               </Card>
             </ResizablePanel>
