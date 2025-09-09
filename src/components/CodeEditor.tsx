@@ -461,8 +461,9 @@ export default function CodeEditor({
           lineHeight: 1.5,
           renderWhitespace: 'selection',
           showUnused: false,
-          folding: true,
-          foldingHighlight: true,
+          // Disable code folding per request
+          folding: false,
+          foldingHighlight: false,
           unfoldOnClickAfterEndOfLine: false,
           selectOnLineNumbers: true,
           padding: { top: 8 },
