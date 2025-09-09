@@ -4,10 +4,13 @@ import { GameMap } from '@/data/maps'
 
 interface MapGridOverlayProps {
   map: GameMap
-  onTileClick: (row: number, col: number) => void
+  onTileClick?: (row: number, col: number) => void
+  onTileMouseDown: (row: number, col: number) => void
+  onTileMouseEnter: (row: number, col: number) => void
+  onTileMouseUp: () => void
 }
 
-export default function MapGridOverlay({ map, onTileClick }: MapGridOverlayProps) {
+export default function MapGridOverlay({ map, onTileMouseDown, onTileMouseEnter, onTileMouseUp }: MapGridOverlayProps) {
   const tileSize = map.tileSize || 64
 
   return (
@@ -22,6 +25,8 @@ export default function MapGridOverlay({ map, onTileClick }: MapGridOverlayProps
         gridTemplateColumns: `repeat(${map.width}, ${tileSize}px)`,
         gridTemplateRows: `repeat(${map.height}, ${tileSize}px)`,
       }}
+      onMouseUp={onTileMouseUp}
+      onMouseLeave={onTileMouseUp}
     >
       {Array.from({ length: map.height }, (_, rowIndex) =>
         Array.from({ length: map.width }, (_, colIndex) => (
@@ -32,9 +37,13 @@ export default function MapGridOverlay({ map, onTileClick }: MapGridOverlayProps
               borderRightWidth: colIndex === map.width - 1 ? '1px' : '0',
               borderBottomWidth: rowIndex === map.height - 1 ? '1px' : '0',
             }}
-            onClick={(e) => {
+            onMouseDown={(e) => {
               e.stopPropagation()
-              onTileClick(rowIndex, colIndex)
+              onTileMouseDown(rowIndex, colIndex)
+            }}
+            onMouseEnter={(e) => {
+              e.stopPropagation()
+              onTileMouseEnter(rowIndex, colIndex)
             }}
           />
         ))

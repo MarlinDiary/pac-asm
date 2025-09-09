@@ -42,6 +42,8 @@ export default function MapEditor() {
     offsetX: 0,
     offsetY: 0
   })
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [drawingMode, setDrawingMode] = useState<'add' | 'remove' | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleToolSelect = (tool: ToolType) => {
@@ -68,6 +70,94 @@ export default function MapEditor() {
   const resetView = useCallback(() => {
     setViewState({ scale: 1, offsetX: 0, offsetY: 0 })
   }, [])
+
+
+  const applyToolWithMode = useCallback((row: number, col: number, mode?: 'add' | 'remove' | null) => {
+    // Allow editing anywhere within the canvas bounds
+    if (row < 0 || row >= currentMap.height || col < 0 || col >= currentMap.width) {
+      return
+    }
+    
+    const newTiles = [...currentMap.tiles]
+    newTiles[row] = [...newTiles[row]]
+    const currentTile = currentMap.tiles[row][col]
+    
+    if (selectedTool === 'grass') {
+      if (mode === 'add') {
+        // Only add grass if it's air
+        if (currentTile === '%') {
+          newTiles[row][col] = ' '
+          setCurrentMap({
+            ...currentMap,
+            tiles: newTiles
+          })
+        }
+      } else if (mode === 'remove') {
+        // Only remove if it's grass or dot
+        if (currentTile === ' ' || currentTile === '.') {
+          newTiles[row][col] = '%'
+          
+          // Handle entities on this tile
+          const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
+          const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
+          
+          let updateObj: any = { tiles: newTiles }
+          
+          if (isPacmanHere) {
+            updateObj.playerPosition = { row: -1, col: -1, direction: currentMap.playerPosition.direction }
+          }
+          
+          if (ghostIndex !== -1) {
+            const newGhostPositions = [...currentMap.ghostPositions]
+            newGhostPositions.splice(ghostIndex, 1)
+            updateObj.ghostPositions = newGhostPositions
+          }
+          
+          setCurrentMap({
+            ...currentMap,
+            ...updateObj
+          })
+        }
+      }
+    } else if (selectedTool === 'dot') {
+      if (mode === 'add') {
+        // Only add dot if it's grass
+        if (currentTile === ' ') {
+          newTiles[row][col] = '.'
+          
+          // Remove entities if present
+          const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
+          const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
+          
+          let updateObj: any = { tiles: newTiles }
+          
+          if (isPacmanHere) {
+            updateObj.playerPosition = { row: -1, col: -1, direction: currentMap.playerPosition.direction }
+          }
+          
+          if (ghostIndex !== -1) {
+            const newGhostPositions = [...currentMap.ghostPositions]
+            newGhostPositions.splice(ghostIndex, 1)
+            updateObj.ghostPositions = newGhostPositions
+          }
+          
+          setCurrentMap({
+            ...currentMap,
+            ...updateObj
+          })
+        }
+      } else if (mode === 'remove') {
+        // Only remove if it's a dot
+        if (currentTile === '.') {
+          newTiles[row][col] = ' '
+          setCurrentMap({
+            ...currentMap,
+            tiles: newTiles
+          })
+        }
+      }
+    }
+  }, [selectedTool, currentMap])
 
   const handleTileClick = useCallback((row: number, col: number) => {
     // Allow editing anywhere within the canvas bounds
@@ -226,6 +316,44 @@ export default function MapEditor() {
     }
   }, [selectedTool, currentMap])
 
+  const handleTileMouseDown = useCallback((row: number, col: number) => {
+    if (selectedTool === 'grass' || selectedTool === 'dot') {
+      // Determine the mode based on the current tile BEFORE clicking
+      const currentTile = currentMap.tiles[row][col]
+      let mode: 'add' | 'remove' | null = null
+      
+      if (selectedTool === 'grass') {
+        // If current tile is air, we'll be adding; otherwise removing
+        mode = currentTile === '%' ? 'add' : 'remove'
+      } else if (selectedTool === 'dot') {
+        // If current tile is grass, we'll be adding dot; if it's dot, removing
+        mode = currentTile === ' ' ? 'add' : (currentTile === '.' ? 'remove' : null)
+      }
+      
+      // Apply the normal click action
+      handleTileClick(row, col)
+      
+      // Set up for dragging
+      setIsDrawing(true)
+      setDrawingMode(mode)
+    } else {
+      // For other tools, just use normal click behavior
+      handleTileClick(row, col)
+    }
+  }, [selectedTool, currentMap, handleTileClick])
+
+  const handleTileMouseEnter = useCallback((row: number, col: number) => {
+    // Continue drawing with the same mode
+    if (isDrawing && drawingMode && (selectedTool === 'grass' || selectedTool === 'dot')) {
+      applyToolWithMode(row, col, drawingMode)
+    }
+  }, [isDrawing, drawingMode, selectedTool, applyToolWithMode])
+
+  const handleTileMouseUp = useCallback(() => {
+    setIsDrawing(false)
+    setDrawingMode(null)
+  }, [])
+
 
   return (
     <div 
@@ -253,7 +381,13 @@ export default function MapEditor() {
           }}
         >
           <MapRenderer map={currentMap} />
-          <MapGridOverlay map={currentMap} onTileClick={handleTileClick} />
+          <MapGridOverlay 
+            map={currentMap} 
+            onTileClick={handleTileClick}
+            onTileMouseDown={handleTileMouseDown}
+            onTileMouseEnter={handleTileMouseEnter}
+            onTileMouseUp={handleTileMouseUp}
+          />
         </div>
       </div>
       
