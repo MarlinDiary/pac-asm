@@ -55,9 +55,12 @@ export default function MapEditor() {
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     
-    // Allow zoom with both pinch (ctrlKey) and regular scroll
-    // Reverse the direction for natural scrolling
-    const scaleFactor = e.deltaY > 0 ? 1.2 : 0.8
+    // Check if it's a pinch gesture (ctrlKey is true for trackpad pinch)
+    // For pinch: deltaY < 0 means pinch out (zoom in), deltaY > 0 means pinch in (zoom out)
+    // For scroll: deltaY > 0 means scroll down (zoom out), deltaY < 0 means scroll up (zoom in)
+    const scaleFactor = e.ctrlKey 
+      ? (e.deltaY < 0 ? 1.2 : 0.8)  // Pinch gesture
+      : (e.deltaY > 0 ? 1.2 : 0.8)  // Regular scroll
     const newScale = Math.max(1, Math.min(3, viewState.scale * scaleFactor))
 
     setViewState(prev => ({
