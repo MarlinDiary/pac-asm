@@ -185,16 +185,29 @@ export default function MapEditor() {
       return
     }
     
-    // Convert the map to a string format (you can customize this)
-    const mapString = JSON.stringify({
-      width: minimalMap.width,
-      height: minimalMap.height,
-      tiles: minimalMap.tiles.map(row => row.join('')).join('\n'),
-      playerPosition: minimalMap.playerPosition,
-      ghostPositions: minimalMap.ghostPositions
-    }, null, 2)
+    // Format tiles as a multi-line string for the raw map
+    const tilesString = minimalMap.tiles.map(row => row.join('')).join('\n')
     
-    navigator.clipboard.writeText(mapString).then(() => {
+    // Calculate waterBackground based on dimensions
+    // Even dimensions get 72, odd dimensions get 71
+    const tilesX = minimalMap.width % 2 === 0 ? 72 : 71
+    const tilesY = minimalMap.height % 2 === 0 ? 72 : 71
+    
+    // Create the map object in the format used in maps.ts
+    const mapObject = `{
+    id: 'custom-map',
+    name: 'Custom Map',
+    width: ${minimalMap.width},
+    height: ${minimalMap.height},
+    tileSize: 20,
+    tiles: parseMapFromString(\`
+${tilesString}\`),
+    playerPosition: { row: ${minimalMap.playerPosition.row}, col: ${minimalMap.playerPosition.col}, direction: '${minimalMap.playerPosition.direction}' },
+    ghostPositions: [${minimalMap.ghostPositions.map(g => `{ row: ${g.row}, col: ${g.col} }`).join(', ')}],
+    waterBackground: { tilesX: ${tilesX}, tilesY: ${tilesY} }
+  }`
+    
+    navigator.clipboard.writeText(mapObject).then(() => {
       setIsCopied(true)
       setTimeout(() => setIsCopied(false), 2000) // Reset after 2 seconds
     }).catch(err => {
