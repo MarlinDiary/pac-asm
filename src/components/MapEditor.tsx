@@ -229,7 +229,7 @@ export default function MapEditor() {
           const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
           const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
           
-          let updateObj: any = { tiles: newTiles }
+          const updateObj: Partial<GameMap> = { tiles: newTiles }
           
           if (isPacmanHere) {
             updateObj.playerPosition = { row: -1, col: -1, direction: currentMap.playerPosition.direction }
@@ -257,7 +257,7 @@ export default function MapEditor() {
           const isPacmanHere = currentMap.playerPosition.row === row && currentMap.playerPosition.col === col
           const ghostIndex = currentMap.ghostPositions.findIndex(g => g.row === row && g.col === col)
           
-          let updateObj: any = { tiles: newTiles }
+          const updateObj: Partial<GameMap> = { tiles: newTiles }
           
           if (isPacmanHere) {
             updateObj.playerPosition = { row: -1, col: -1, direction: currentMap.playerPosition.direction }
@@ -306,7 +306,7 @@ export default function MapEditor() {
         newTiles[row][col] = '%' // Remove grass (and dot if present)
         
         // Prepare update object
-        let updateObj: any = { tiles: newTiles }
+        const updateObj: Partial<GameMap> = { tiles: newTiles }
         
         // If Pacman is on this tile, move him off the map
         if (isPacmanHere) {
@@ -346,7 +346,7 @@ export default function MapEditor() {
           newTiles[row][col] = '.'
         }
         
-        let updateObj: any = { tiles: newTiles }
+        const updateObj: Partial<GameMap> = { tiles: newTiles }
         
         // Remove Pacman if he's here
         if (isPacmanHere) {
