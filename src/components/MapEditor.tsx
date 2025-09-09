@@ -392,7 +392,7 @@ export default function MapEditor() {
         // Ensure grass tile underneath
         newTiles[row][col] = ' '
         
-        let updateObj: any = { 
+        const updateObj: Partial<GameMap> = { 
           tiles: newTiles,
           playerPosition: { row, col, direction: currentMap.playerPosition.direction },
           playerAnimation: {
@@ -438,7 +438,7 @@ export default function MapEditor() {
         // Ensure grass tile underneath
         newTiles[row][col] = ' '
         
-        let updateObj: any = { 
+        const updateObj: Partial<GameMap> = { 
           tiles: newTiles,
           ghostPositions: newGhostPositions
         }
