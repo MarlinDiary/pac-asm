@@ -116,7 +116,7 @@ export default function MapEditor() {
       {/* Zoom percentage - clickable to reset */}
       <button
         onClick={resetView}
-        className="absolute bottom-4 right-4 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer"
+        className="absolute bottom-4 right-4 text-base font-semibold text-gray-700 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-800 px-3 py-1 rounded-lg transition-all duration-200 cursor-pointer"
       >
         {Math.round(viewState.scale * 100)}%
       </button>
