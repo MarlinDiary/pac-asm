@@ -539,6 +539,7 @@ ${tilesString}\`),
           <MapRenderer map={currentMap} />
           <MapGridOverlay 
             map={currentMap} 
+            selectedTool={selectedTool}
             onTileMouseDown={handleTileMouseDown}
             onTileMouseEnter={handleTileMouseEnter}
             onTileMouseUp={handleTileMouseUp}
