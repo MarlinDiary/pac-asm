@@ -85,13 +85,9 @@ export function useChallengeScore(
       }
     }
 
-    // Check if a turn was executed (player position changed)
-    if (currentMap.playerPosition && prevMap.playerPosition) {
-      if (currentMap.playerPosition.row !== prevMap.playerPosition.row ||
-          currentMap.playerPosition.col !== prevMap.playerPosition.col) {
-        events.turnExecuted = true
-      }
-    }
+    // A turn is executed whenever the code runs, regardless of whether movement succeeded
+    // This ensures players are penalized for inefficient code (e.g., hitting walls)
+    events.turnExecuted = true
 
     return events
   }, [countDots])
