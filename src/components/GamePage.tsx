@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import Confetti from 'react-confetti'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import Card from '@/components/Card'
@@ -14,6 +14,7 @@ import RegisterPanel from '@/components/panel/RegisterPanel'
 import MemoryPanel from '@/components/panel/MemoryPanel'
 import DiagnosticsPanel from '@/components/panel/DiagnosticsPanel'
 import GuidePanel from '@/components/panel/GuidePanel'
+import { MemoryRegion } from '@/components/MemoryFilter'
 import SubBar from '@/components/bar/SubBar'
 import QueryBar from '@/components/bar/QueryBar'
 import { useEmulator } from '@/hooks/useEmulator'
@@ -39,6 +40,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const gameState = useGameState(levelMap, levelMap.initialCode || '')
   const panelLayout = usePanelLayout()
   const executionControl = useExecutionControl({ gameState, levelMap })
+  const [isMemoryFilterOpen, setIsMemoryFilterOpen] = React.useState(false)
+  const [selectedMemoryRegion, setSelectedMemoryRegion] = React.useState<MemoryRegion>('all')
   
   // Challenge mode scoring
   const { formattedScore } = useChallengeScore(isChallenge, gameState)
@@ -201,11 +204,12 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                   />
                 </div>
               </div>,
-              <div key="memory" className="h-full flex flex-col">
+              <div key="memory" className="h-full flex flex-col relative">
                 <QueryBar 
                   onSearch={gameState.setMemorySearchQuery} 
-                  onFilterToggle={gameState.setHideZeroRows}
-                  isFilterActive={gameState.hideZeroRows}
+                  onFilterToggle={() => setIsMemoryFilterOpen(prev => !prev)}
+                  isFilterActive={isMemoryFilterOpen}
+                  selectedRegion={selectedMemoryRegion}
                 />
                 <div 
                   className="flex-1 overflow-y-auto"
@@ -220,6 +224,10 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                     codeMemory={executionControl.currentDebugState?.codeMemory}
                     stackMemory={executionControl.currentDebugState?.stackMemory}
                     dataMemory={executionControl.currentDebugState?.dataMemory}
+                    isFilterOpen={isMemoryFilterOpen}
+                    onFilterClose={() => setIsMemoryFilterOpen(false)}
+                    selectedRegion={selectedMemoryRegion}
+                    onRegionChange={setSelectedMemoryRegion}
                   />
                 </div>
               </div>,

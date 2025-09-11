@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table"
 import { useTheme } from 'next-themes'
 import { useEffect, useState, useRef, useCallback } from 'react'
+import MemoryFilter, { MemoryRegion } from '@/components/MemoryFilter'
 
 interface MemoryRow {
   address: string;
@@ -74,17 +75,23 @@ interface MemoryPanelProps {
   codeMemory?: number[]
   stackMemory?: number[]
   dataMemory?: number[]
+  isFilterOpen?: boolean
+  onFilterClose?: () => void
+  selectedRegion?: MemoryRegion
+  onRegionChange?: (region: MemoryRegion) => void
 }
 
 const ROWS_PER_PAGE = 100 // Initial rows to display
 const ROWS_TO_LOAD = 50 // Rows to load on each scroll
 
-export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, codeMemory, stackMemory, dataMemory }: MemoryPanelProps) {
+export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory, dataMemory, isFilterOpen = false, onFilterClose, selectedRegion: propSelectedRegion, onRegionChange }: MemoryPanelProps) {
   const { theme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [displayedRowCount, setDisplayedRowCount] = useState(ROWS_PER_PAGE)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const loadingRef = useRef(false)
+  const [selectedRegion, setSelectedRegion] = useState<MemoryRegion>(propSelectedRegion || 'all')
+  const [hideZeros, setHideZeros] = useState(false)
   
   const memoryRows = generateMemoryRows(codeMemory, stackMemory, dataMemory)
   
@@ -95,11 +102,33 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
   // Reset displayed count when search or filter changes
   useEffect(() => {
     setDisplayedRowCount(ROWS_PER_PAGE)
-  }, [searchQuery, hideZeroRows])
+  }, [searchQuery, hideZeros, selectedRegion])
   
   const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light'
   
   const filteredRows = memoryRows.filter(row => {
+    // Region filter
+    const address = parseInt(row.address, 16)
+    let matchesRegion = true
+    
+    switch (selectedRegion) {
+      case 'code':
+        matchesRegion = address >= 0x10000 && address <= 0x10FFF
+        break
+      case 'stack':
+        matchesRegion = address >= 0x20000 && address <= 0x20FFF
+        break
+      case 'game':
+        matchesRegion = address >= 0x30000 && address <= 0x303FF
+        break
+      case 'user':
+        matchesRegion = address >= 0x30400 && address <= 0x30FFF
+        break
+      case 'all':
+      default:
+        matchesRegion = true
+    }
+    
     // Search filter
     const matchesSearch = !searchQuery || 
       row.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -107,9 +136,9 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
       row.ascii.toLowerCase().includes(searchQuery.toLowerCase())
     
     // Zero rows filter - check if all hex bytes are '00'
-    const isAllZeros = hideZeroRows && row.hex === '00 00 00 00'
+    const isAllZeros = hideZeros && row.hex === '00 00 00 00'
     
-    return matchesSearch && !isAllZeros
+    return matchesRegion && matchesSearch && !isAllZeros
   })
   
   // Only show a subset of filtered rows
@@ -135,53 +164,76 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
     }
   }, [hasMoreRows, filteredRows.length])
   
-  if (filteredRows.length === 0) {
-    // Determine the appropriate message based on filters
-    let message = "No memory data available"
-    if (searchQuery) {
-      message = "No results found for your search"
-    } else if (hideZeroRows) {
-      message = "No non-zero memory addresses found"
-    }
-    
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-        <img 
-          src={currentTheme === 'dark' ? '/res/null-dark.png' : '/res/null.png'} 
-          alt="No results" 
-          style={{ width: '200px', flexShrink: 0, pointerEvents: 'none', userSelect: 'none' }}
-        />
-        <div className="text-[#c4c4c6] dark:text-[#626265] text-sm">
-          {message}
+  // Build content depending on whether there are rows
+  const renderContent = () => {
+    if (filteredRows.length === 0) {
+      let message = "No memory data available"
+      if (searchQuery) {
+        message = "No results found for your search"
+      } else if (hideZeros) {
+        message = "No non-zero memory addresses found"
+      } else if (selectedRegion !== 'all') {
+        message = `No data found in ${selectedRegion === 'code' ? 'Code' : selectedRegion === 'stack' ? 'Stack' : selectedRegion === 'game' ? 'Game Data' : 'User Data'} region`
+      }
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+          <img 
+            src={currentTheme === 'dark' ? '/res/null-dark.png' : '/res/null.png'} 
+            alt="No results" 
+            style={{ width: '200px', flexShrink: 0, pointerEvents: 'none', userSelect: 'none' }}
+          />
+          <div className="text-[#c4c4c6] dark:text-[#626265] text-sm">
+            {message}
+          </div>
         </div>
+      )
+    }
+    return (
+      <div 
+        className="w-full h-full overflow-y-auto [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        onScroll={handleScroll}
+        ref={scrollContainerRef}
+      >
+        <Table className="border-none">
+          <TableBody>
+            {visibleRows.map((row, index) => (
+              <TableRow key={row.address} className={`h-12 border-none ${index % 2 === 0 ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
+                <TableCell className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
+                  {row.address}
+                </TableCell>
+                <TableCell className="font-mono h-12 w-1/3 text-center border-none text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">
+                  {row.hex}
+                </TableCell>
+                <TableCell className="font-mono h-12 w-1/3 text-right border-none text-xs pr-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
+                  {row.ascii}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     )
   }
-  
+
   return (
-    <div 
-      className="w-full h-full overflow-y-auto [&::-webkit-scrollbar]:hidden"
-      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      onScroll={handleScroll}
-      ref={scrollContainerRef}
-    >
-      <Table className="border-none">
-        <TableBody>
-          {visibleRows.map((row, index) => (
-            <TableRow key={row.address} className={`h-12 border-none ${index % 2 === 0 ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
-              <TableCell className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
-                {row.address}
-              </TableCell>
-              <TableCell className="font-mono h-12 w-1/3 text-center border-none text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">
-                {row.hex}
-              </TableCell>
-              <TableCell className="font-mono h-12 w-1/3 text-right border-none text-xs pr-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
-                {row.ascii}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="relative w-full h-full">
+      {onFilterClose && (
+        <div className="absolute top-0 right-2 z-50">
+          <MemoryFilter
+            isOpen={isFilterOpen}
+            onClose={onFilterClose}
+            selectedRegion={selectedRegion}
+            onRegionChange={(region) => {
+              setSelectedRegion(region)
+              onRegionChange?.(region)
+            }}
+            hideZeros={hideZeros}
+            onHideZerosChange={setHideZeros}
+          />
+        </div>
+      )}
+      {renderContent()}
     </div>
   )
 }

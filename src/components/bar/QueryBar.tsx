@@ -1,5 +1,6 @@
 import { Search, Trash2, ListFilter } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { MemoryRegion } from '@/components/MemoryFilter'
 
 interface QueryBarProps {
   children?: React.ReactNode
@@ -8,9 +9,10 @@ interface QueryBarProps {
   showDeleteButton?: boolean
   onFilterToggle?: (isActive: boolean) => void
   isFilterActive?: boolean
+  selectedRegion?: MemoryRegion
 }
 
-export default function QueryBar({ children, onSearch, onDelete, showDeleteButton = false, onFilterToggle, isFilterActive = false }: QueryBarProps) {
+export default function QueryBar({ children, onSearch, onDelete, showDeleteButton = false, onFilterToggle, isFilterActive = false, selectedRegion }: QueryBarProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -63,12 +65,26 @@ export default function QueryBar({ children, onSearch, onDelete, showDeleteButto
           />
         )}
         {onFilterToggle && (
-          <ListFilter
-            size={16}
-            className={`cursor-pointer ml-1 flex-shrink-0 ${isFilterActive ? 'text-[#262626] dark:text-[#FFFFFF]' : 'text-[#8A8A8E] dark:text-[#9FA0A2]'}`}
-            style={{ width: '16px', height: '16px' }}
+          <div 
+            className="flex items-center group cursor-pointer ml-1"
             onClick={handleFilterToggle}
-          />
+            data-filter-button="true"
+          >
+            <ListFilter
+              size={16}
+              className="flex-shrink-0 text-[#8A8A8E] dark:text-[#9FA0A2] group-hover:text-[#262626] dark:group-hover:text-[#FFFFFF] transition-colors"
+              style={{ width: '16px', height: '16px' }}
+            />
+            {selectedRegion && (
+              <span className="ml-1 text-sm text-[#8A8A8E] dark:text-[#9FA0A2] group-hover:text-[#262626] dark:group-hover:text-[#FFFFFF] flex-shrink-0 transition-colors">
+                {selectedRegion === 'all' ? 'All' :
+                 selectedRegion === 'code' ? 'Code' : 
+                 selectedRegion === 'stack' ? 'Stack' : 
+                 selectedRegion === 'game' ? 'Game' : 
+                 selectedRegion === 'user' ? 'User' : ''}
+              </span>
+            )}
+          </div>
         )}
       </div>
       {children}
