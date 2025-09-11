@@ -98,6 +98,14 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
   })
   
   if (filteredRows.length === 0) {
+    // Determine the appropriate message based on filters
+    let message = "No memory data available"
+    if (searchQuery) {
+      message = "No results found for your search"
+    } else if (hideZeroRows) {
+      message = "No non-zero memory addresses found"
+    }
+    
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
         <img 
@@ -106,7 +114,7 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
           style={{ width: '200px', flexShrink: 0, pointerEvents: 'none', userSelect: 'none' }}
         />
         <div className="text-[#c4c4c6] dark:text-[#626265] text-sm">
-          No non-zero memory addresses found
+          {message}
         </div>
       </div>
     )
