@@ -19,6 +19,7 @@ export interface GameState {
   highlightedLine: number | undefined
   
   // Panel states
+  leftPanelTab: number
   rightPanelTab: number
   memorySearchQuery: string
   hideZeroRows: boolean
@@ -42,6 +43,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [highlightedLine, setHighlightedLine] = useState<number | undefined>(undefined)
   
   // Panel states
+  const [leftPanelTab, setLeftPanelTab] = useState(0)
   const [rightPanelTab, setRightPanelTab] = useState(0)
   const [memorySearchQuery, setMemorySearchQuery] = useState('')
   const [hideZeroRows, setHideZeroRows] = useState(false)
@@ -161,6 +163,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     currentCode,
     currentMap,
     highlightedLine,
+    leftPanelTab,
     rightPanelTab,
     memorySearchQuery,
     hideZeroRows,
@@ -176,6 +179,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setCurrentCode,
     setCurrentMap,
     setHighlightedLine,
+    setLeftPanelTab,
     setRightPanelTab,
     setMemorySearchQuery,
     setHideZeroRows,

@@ -29,7 +29,7 @@ export function useChallengeScore(
     for (let row = 0; row < map.height; row++) {
       for (let col = 0; col < map.width; col++) {
         const tile = map.tiles[row][col]
-        if (tile === '.' || tile === 'o') {  // dot or energizer
+        if (tile === '.') {  // dot only
           count++
         }
       }

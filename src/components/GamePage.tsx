@@ -13,6 +13,7 @@ import CodeEditor from '@/components/CodeEditor'
 import RegisterPanel from '@/components/panel/RegisterPanel'
 import MemoryPanel from '@/components/panel/MemoryPanel'
 import DiagnosticsPanel from '@/components/panel/DiagnosticsPanel'
+import GuidePanel from '@/components/panel/GuidePanel'
 import SubBar from '@/components/bar/SubBar'
 import QueryBar from '@/components/bar/QueryBar'
 import { useEmulator } from '@/hooks/useEmulator'
@@ -22,7 +23,7 @@ import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { KeyboardControl } from '@/hooks/useKeyboardControl'
 import { useChallengeScore } from '@/hooks/useChallengeScore'
-import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2 } from 'lucide-react'
+import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2, Book } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 
 interface GamePageProps {
@@ -107,8 +108,15 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         <ResizablePanel defaultSize={33} ref={panelLayout.firstColumnRef} minSize={10}>
           <ResizablePanelGroup direction="vertical" className="h-full">
             <ResizablePanel defaultSize={70} ref={panelLayout.panel1Ref} minSize={10}>
-              <Card tabs={[{ icon: Gamepad2, text: "Game", color: "#3579f6" }]}>
-                <div className="w-full h-full relative overflow-hidden">
+              <Card 
+                tabs={[
+                  { icon: Gamepad2, text: "Game", color: "#3579f6" },
+                  { icon: Book, text: "Guide", color: "#FE5C02" }
+                ]}
+                selectedTab={gameState.leftPanelTab}
+                onTabChange={gameState.setLeftPanelTab}
+                tabContent={[
+                  <div key="game" className="w-full h-full relative overflow-hidden">
                   {gameState.currentPlayWon && (
                     <div className="absolute inset-0 z-20">
                       <Confetti
@@ -133,8 +141,10 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                       </div>
                     </div>
                   )}
-                </div>
-              </Card>
+                </div>,
+                  <GuidePanel key="guide" />
+                ]}
+              />
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>

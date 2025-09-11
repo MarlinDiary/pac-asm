@@ -99,19 +99,6 @@ export default function MapRenderer({ map }: MapRendererProps) {
                   />
                 </div>
               )}
-              
-              {tileType === 'energizer' && (
-                <div className="absolute top-0 left-0">
-                  <Image
-                    src="/res/energizer.gif"
-                    alt="Energizer"
-                    width={tileSize}
-                    height={tileSize}
-                    className="object-cover"
-                    priority
-                  />
-                </div>
-              )}
             </div>
           );
         })}

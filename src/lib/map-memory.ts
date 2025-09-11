@@ -30,9 +30,8 @@ export const TILE_ENCODING = {
   'air': 0,      // % - wall/air
   'grass': 1,    // space - empty grass
   'dot': 2,      // . - collectible dot
-  'energizer': 3, // o - power pellet
-  'player': 4,   // P - player position
-  'ghost': 5,    // G - ghost position
+  'player': 3,   // P - player position
+  'ghost': 4,    // G - ghost position
 } as const
 
 
@@ -43,11 +42,10 @@ function encodeTile(tileSymbol: TileSymbol): number {
   const tileType = {
     '%': 'air',
     ' ': 'grass', 
-    '.': 'dot',
-    'o': 'energizer'
+    '.': 'dot'
   }[tileSymbol] as keyof typeof TILE_ENCODING
   
-  return TILE_ENCODING[tileType]
+  return TILE_ENCODING[tileType] || 0 // Default to wall if unknown
 }
 
 /**

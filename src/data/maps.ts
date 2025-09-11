@@ -2,17 +2,15 @@ export interface TileMapping {
   '%': 'air';
   ' ': 'grass';
   '.': 'dot';
-  'o': 'energizer';
 }
 
-export type TileType = 'air' | 'grass' | 'dot' | 'energizer';
+export type TileType = 'air' | 'grass' | 'dot';
 export type TileSymbol = keyof TileMapping;
 
 export const TILE_MAPPING: Record<TileSymbol, TileType> = {
   '%': 'air',
   ' ': 'grass',
-  '.': 'dot',
-  'o': 'energizer'
+  '.': 'dot'
 };
 
 export type PlayerDirection = 'right' | 'up' | 'left' | 'down';
@@ -126,17 +124,6 @@ export function getDots(map: GameMap): { row: number; col: number }[] {
   return dots;
 }
 
-export function getEnergizers(map: GameMap): { row: number; col: number }[] {
-  const energizers: { row: number; col: number }[] = [];
-  for (let row = 0; row < map.height; row++) {
-    for (let col = 0; col < map.width; col++) {
-      if (map.tiles[row][col] === 'o') {
-        energizers.push({ row, col });
-      }
-    }
-  }
-  return energizers;
-}
 
 export function getGhosts(map: GameMap): { row: number; col: number }[] {
   return map.ghostPositions;
