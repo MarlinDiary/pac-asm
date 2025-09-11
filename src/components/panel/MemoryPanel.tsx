@@ -28,7 +28,9 @@ const generateMemoryRows = (
   ]
   
   memoryRegions.forEach(region => {
-    for (let i = 0; i < 256; i++) {
+    // Each region is 4KB (4096 bytes), showing 4 bytes per row = 1024 rows per region
+    const rowsPerRegion = 1024 // 4096 bytes / 4 bytes per row
+    for (let i = 0; i < rowsPerRegion; i++) {
       const address = region.start + (i * 4)
       const addressHex = `0x${address.toString(16).toUpperCase().padStart(8, '0')}`
       
@@ -74,8 +76,8 @@ interface MemoryPanelProps {
   dataMemory?: number[]
 }
 
-const ROWS_PER_PAGE = 50 // Initial rows to display
-const ROWS_TO_LOAD = 30 // Rows to load on each scroll
+const ROWS_PER_PAGE = 100 // Initial rows to display
+const ROWS_TO_LOAD = 50 // Rows to load on each scroll
 
 export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, codeMemory, stackMemory, dataMemory }: MemoryPanelProps) {
   const { theme, resolvedTheme } = useTheme()
@@ -122,14 +124,14 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
     const scrollPosition = element.scrollTop + element.clientHeight
     const scrollHeight = element.scrollHeight
     
-    // Load more when within 100px of bottom
-    if (scrollHeight - scrollPosition < 100) {
+    // Load more when within 200px of bottom for smoother experience
+    if (scrollHeight - scrollPosition < 200) {
       loadingRef.current = true
       setDisplayedRowCount(prev => Math.min(prev + ROWS_TO_LOAD, filteredRows.length))
-      // Small delay to prevent multiple triggers
+      // Shorter delay for more responsive loading
       setTimeout(() => {
         loadingRef.current = false
-      }, 100)
+      }, 50)
     }
   }, [hasMoreRows, filteredRows.length])
   
