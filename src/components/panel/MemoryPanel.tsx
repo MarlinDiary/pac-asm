@@ -7,7 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 interface MemoryRow {
   address: string;
@@ -74,16 +74,29 @@ interface MemoryPanelProps {
   dataMemory?: number[]
 }
 
+const ROWS_PER_PAGE = 50 // Initial rows to display
+const ROWS_TO_LOAD = 30 // Rows to load on each scroll
+
 export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, codeMemory, stackMemory, dataMemory }: MemoryPanelProps) {
   const { theme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const [displayedRowCount, setDisplayedRowCount] = useState(ROWS_PER_PAGE)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const loadingRef = useRef(false)
+  
   const memoryRows = generateMemoryRows(codeMemory, stackMemory, dataMemory)
   
   useEffect(() => {
     setMounted(true)
   }, [])
   
+  // Reset displayed count when search or filter changes
+  useEffect(() => {
+    setDisplayedRowCount(ROWS_PER_PAGE)
+  }, [searchQuery, hideZeroRows])
+  
   const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light'
+  
   const filteredRows = memoryRows.filter(row => {
     // Search filter
     const matchesSearch = !searchQuery || 
@@ -96,6 +109,29 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
     
     return matchesSearch && !isAllZeros
   })
+  
+  // Only show a subset of filtered rows
+  const visibleRows = filteredRows.slice(0, displayedRowCount)
+  const hasMoreRows = displayedRowCount < filteredRows.length
+  
+  // Handle scroll to load more
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (loadingRef.current || !hasMoreRows) return
+    
+    const element = e.currentTarget
+    const scrollPosition = element.scrollTop + element.clientHeight
+    const scrollHeight = element.scrollHeight
+    
+    // Load more when within 100px of bottom
+    if (scrollHeight - scrollPosition < 100) {
+      loadingRef.current = true
+      setDisplayedRowCount(prev => Math.min(prev + ROWS_TO_LOAD, filteredRows.length))
+      // Small delay to prevent multiple triggers
+      setTimeout(() => {
+        loadingRef.current = false
+      }, 100)
+    }
+  }, [hasMoreRows, filteredRows.length])
   
   if (filteredRows.length === 0) {
     // Determine the appropriate message based on filters
@@ -121,10 +157,15 @@ export default function MemoryPanel({ searchQuery = '', hideZeroRows = false, co
   }
   
   return (
-    <div className="w-full">
+    <div 
+      className="w-full h-full overflow-y-auto [&::-webkit-scrollbar]:hidden"
+      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      onScroll={handleScroll}
+      ref={scrollContainerRef}
+    >
       <Table className="border-none">
         <TableBody>
-          {filteredRows.map((row, index) => (
+          {visibleRows.map((row, index) => (
             <TableRow key={row.address} className={`h-12 border-none ${index % 2 === 0 ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
               <TableCell className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
                 {row.address}
