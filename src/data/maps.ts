@@ -67,6 +67,20 @@ export interface GameMap {
   gameOver?: boolean;
 }
 
+const CHALLENGE_RAW_MAP = `
+%%%%%%%%%%%%%%%%%%%%
+%....%........%....%
+%.%%.%.%%%%%%.%.%%.%
+%.%..............%.%
+%.%.%%.%%  %%.%%.%.%
+%......%    %......%
+%.%.%%.%%%%%%.%%.%.%
+%.%..............%.%
+%.%%.%.%%%%%%.%.%%.%
+%....%... ....%....%
+%%%%%%%%%%%%%%%%%%%%`;
+
+// Temporary Level 1 data - will be replaced with new map design
 const LEVEL1_RAW_MAP = `
 %%%%%%%%%%%%%%%%%%%%
 %....%........%....%
@@ -93,6 +107,20 @@ export const MAPS: GameMap[] = [
     height: 11,
     tileSize: 20,
     tiles: parseMapFromString(LEVEL1_RAW_MAP),
+    playerPosition: { row: 9, col: 9, direction: 'right' },
+    ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
+    waterBackground: { tilesX: 72, tilesY: 71 },
+    initialCode: `MOV R0, #4
+LDR R1, =0x30000
+STRB R0, [R1]`,
+  },
+  {
+    id: 'challenge',
+    name: 'Challenge Mode',
+    width: 20,
+    height: 11,
+    tileSize: 20,
+    tiles: parseMapFromString(CHALLENGE_RAW_MAP),
     playerPosition: { row: 9, col: 9, direction: 'right' },
     ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
     waterBackground: { tilesX: 72, tilesY: 71 },
