@@ -27,7 +27,7 @@ export const MEMORY_CONFIG = {
   CODE_BASE: 0x10000,
   STACK_BASE: 0x20000,
   DATA_BASE: 0x30000,
-  MEMORY_SIZE: 1024
+  MEMORY_SIZE: 4096  // 4KB per region to cover full range (0x1000 bytes)
 } as const
 
 /**
