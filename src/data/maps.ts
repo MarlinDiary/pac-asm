@@ -93,6 +93,22 @@ const LEVEL2_RAW_MAP = `
 %%%%%.%
 %%%%%%%`;
 
+// Level 3: Environment sensing - find the dot by checking surroundings
+const LEVEL3_RAW_MAP = `
+%%%%%%%%%%%%%
+%%%.......%%%
+%%..%%%%%..%%
+%..%%...%%..%
+%.%%..%..%%.%
+%.%..%%%..%.%
+%.%.%%%%%.%.%
+%.%..%%%..%.%
+%.%%..%..%%.%
+%..%%.%.%%..%
+%%..%%%.%..%%
+%%%.....% %%%
+%%%%%%%%%%%%%`;
+
 function parseMapFromString(mapString: string): TileSymbol[][] {
   const lines = mapString.trim().split('\n');
   return lines.map(line => line.split('') as TileSymbol[]);
@@ -130,6 +146,45 @@ MOVLT R0, #4
 MOVGE R0, #2
 ADD R2, R2, #1
 STR R2, [R1]
+LDR R1, =0x30000
+STR R0, [R1]`,
+  },
+  {
+    id: 'level3',
+    name: 'Level 3',
+    width: 13,
+    height: 13,
+    tileSize: 32,
+    tiles: parseMapFromString(LEVEL3_RAW_MAP),
+    playerPosition: { row: 11, col: 9, direction: 'right' },
+    ghostPositions: [],
+    waterBackground: { tilesX: 71, tilesY: 71 },
+    initialCode: `LDR R1, =0x30010
+MOV R2, #0
+MOV R3, #169
+scan:
+LDRB R4, [R1, R2]
+CMP R4, #3
+BEQ found
+ADD R2, R2, #1
+CMP R2, R3
+BLT scan
+B done
+found:
+ADD R5, R1, R2
+LDRB R6, [R5, #-13]
+CMP R6, #2
+MOVEQ R0, #1
+LDRB R6, [R5, #13]
+CMP R6, #2
+MOVEQ R0, #2
+LDRB R6, [R5, #-1]
+CMP R6, #2
+MOVEQ R0, #3
+LDRB R6, [R5, #1]
+CMP R6, #2
+MOVEQ R0, #4
+done:
 LDR R1, =0x30000
 STR R0, [R1]`,
   },
