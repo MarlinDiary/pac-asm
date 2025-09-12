@@ -86,6 +86,13 @@ const LEVEL1_RAW_MAP = `
 %  .%
 %%%%%`;
 
+// Level 2: Turn required - move right then down
+const LEVEL2_RAW_MAP = `
+%%%%%%%
+%     %
+%%%%%.%
+%%%%%%%`;
+
 function parseMapFromString(mapString: string): TileSymbol[][] {
   const lines = mapString.trim().split('\n');
   return lines.map(line => line.split('') as TileSymbol[]);
@@ -103,6 +110,26 @@ export const MAPS: GameMap[] = [
     ghostPositions: [],
     waterBackground: { tilesX: 71, tilesY: 71 },
     initialCode: `MOV R0, #4
+LDR R1, =0x30000
+STR R0, [R1]`,
+  },
+  {
+    id: 'level2',
+    name: 'Level 2',
+    width: 7,
+    height: 4,
+    tileSize: 64,
+    tiles: parseMapFromString(LEVEL2_RAW_MAP),
+    playerPosition: { row: 1, col: 1, direction: 'right' },
+    ghostPositions: [],
+    waterBackground: { tilesX: 71, tilesY: 72 },
+    initialCode: `LDR R1, =0x30400
+LDR R2, [R1]
+CMP R2, #4
+MOVLT R0, #4
+MOVGE R0, #2
+ADD R2, R2, #1
+STR R2, [R1]
 LDR R1, =0x30000
 STR R0, [R1]`,
   },
