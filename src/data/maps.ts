@@ -167,7 +167,6 @@ CMP R3, #3
 BEQ check
 SUBS R2, R2, #1
 BNE loop
-B end
 check:
 LDRB R3, [R1, #-14]
 CMP R3, #2
@@ -181,7 +180,6 @@ MOVEQ R0, #3
 LDRB R3, [R1]
 CMP R3, #2
 MOVEQ R0, #4
-end:
 LDR R1, =0x30000
 STR R0, [R1]`,
   },
