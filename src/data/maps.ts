@@ -109,6 +109,22 @@ const LEVEL3_RAW_MAP = `
 %%%.....% %%%
 %%%%%%%%%%%%%`;
 
+// Level 4: Ghost avoidance - reach the dot while avoiding the ghost
+const LEVEL4_RAW_MAP = `
+%%%%%%%%%%%%%
+%           %
+%           %
+%           %
+%           %
+%           %
+%           %
+%           %
+%           %
+%           %
+%           %
+%          .%
+%%%%%%%%%%%%%`;
+
 function parseMapFromString(mapString: string): TileSymbol[][] {
   const lines = mapString.trim().split('\n');
   return lines.map(line => line.split('') as TileSymbol[]);
@@ -184,6 +200,18 @@ LDR R1, =0x30000
 STR R0, [R1]`,
   },
   {
+    id: 'level4',
+    name: 'Level 4',
+    width: 13,
+    height: 13,
+    tileSize: 32,
+    tiles: parseMapFromString(LEVEL4_RAW_MAP),
+    playerPosition: { row: 1, col: 1, direction: 'right' },
+    ghostPositions: [{ row: 6, col: 6 }],
+    waterBackground: { tilesX: 71, tilesY: 71 },
+    initialCode: ``,
+  },
+  {
     id: 'challenge',
     name: 'Challenge Mode',
     width: 20,
@@ -223,6 +251,43 @@ export function getDots(map: GameMap): { row: number; col: number }[] {
   return dots;
 }
 
+/**
+ * Randomize dot position for Level 4
+ * Places a single dot randomly in columns 8-11 on grass tiles
+ */
+export function randomizeLevel4Dot(map: GameMap): GameMap {
+  // Only apply to level4
+  if (map.id !== 'level4') {
+    return map;
+  }
+  
+  // Clear any existing dots
+  const newTiles = map.tiles.map(row => 
+    row.map(tile => tile === '.' ? ' ' : tile) as TileSymbol[]
+  );
+  
+  // Find all valid grass positions in columns 8-11
+  const validPositions: { row: number; col: number }[] = [];
+  for (let row = 1; row < map.height - 1; row++) { // Skip border rows
+    for (let col = 8; col <= 11; col++) {
+      if (newTiles[row][col] === ' ') { // Is grass
+        validPositions.push({ row, col });
+      }
+    }
+  }
+  
+  // Randomly select one position for the dot
+  if (validPositions.length > 0) {
+    const randomIndex = Math.floor(Math.random() * validPositions.length);
+    const { row, col } = validPositions[randomIndex];
+    newTiles[row][col] = '.';
+  }
+  
+  return {
+    ...map,
+    tiles: newTiles
+  };
+}
 
 export function getGhosts(map: GameMap): { row: number; col: number }[] {
   return map.ghostPositions;

@@ -1,5 +1,8 @@
 import { GameMap, PlayerDirection, GhostAnimationState } from '@/data/maps'
-import { smartPatrolGhostMove, bfsGhostMove } from './ghost-agents'
+import { smartPatrolGhostMove, bfsGhostMove, level4GhostMove, resetLevel4GhostHistory } from './ghost-agents'
+
+// Export reset function for Level 4
+export { resetLevel4GhostHistory };
 
 export interface PlayerAnimationState {
   direction: PlayerDirection
@@ -204,6 +207,11 @@ export function updateMapWithMovementAndGhosts(
   const nextGhostPositions = currentMap.ghostPositions.map((ghost, index) => {
     const previousPos = currentMap.ghostPreviousPositions?.[index];
     
+    // Check if this is Level 4 (single ghost in open space)
+    if (currentMap.id === 'level4') {
+      return level4GhostMove(currentMap, ghost);
+    }
+    
     if (index === 0) {
       // First ghost: Smart patrol movement
       return smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos);
@@ -382,6 +390,11 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
   // Update ghost positions using the two algorithms
   const updatedGhostPositions = mapState.ghostPositions.map((ghost, index) => {
     const previousPos = mapState.ghostPreviousPositions?.[index];
+    
+    // Check if this is Level 4 (single ghost in open space)
+    if (mapState.id === 'level4') {
+      return level4GhostMove(mapState, ghost);
+    }
     
     if (index === 0) {
       // First ghost: Smart patrol movement

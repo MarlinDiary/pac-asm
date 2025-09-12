@@ -133,3 +133,62 @@ export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPositi
   moveScores.sort((a, b) => b.score - a.score);
   return moveScores[0].move; // Take the best move
 }
+
+// Store ghost history for Level 4
+const level4GhostHistory: Position[] = [];
+
+/**
+ * Algorithm 3: Level 4 specific - 3-column limited random movement
+ * Ghost moves randomly within 3 columns (current, left, right)
+ * Avoids repeating positions within last 10 moves
+ */
+export function level4GhostMove(map: GameMap, ghostPosition: Position): Position {
+  const validMoves = getValidMoves(map, ghostPosition);
+  
+  if (validMoves.length === 0) {
+    return ghostPosition;
+  }
+  
+  // Get initial column (column where ghost started)
+  const initialCol = 6; // Ghost starts at col 6 in Level 4
+  
+  // Filter moves to stay within 3 columns
+  const columnLimitedMoves = validMoves.filter(move => {
+    return move.col >= initialCol - 1 && move.col <= initialCol + 1;
+  });
+  
+  // If no valid moves within column limit, stay in place
+  if (columnLimitedMoves.length === 0) {
+    return ghostPosition;
+  }
+  
+  // Filter out positions visited in last 10 moves
+  const availableMoves = columnLimitedMoves.filter(move => {
+    // Check last 10 positions in history
+    const recentHistory = level4GhostHistory.slice(-10);
+    return !recentHistory.some(pos => pos.row === move.row && pos.col === move.col);
+  });
+  
+  // If all moves are in recent history, use column limited moves anyway
+  const finalMoves = availableMoves.length > 0 ? availableMoves : columnLimitedMoves;
+  
+  // Random selection
+  const selectedMove = finalMoves[Math.floor(Math.random() * finalMoves.length)];
+  
+  // Update history
+  level4GhostHistory.push(selectedMove);
+  
+  // Keep history size manageable
+  if (level4GhostHistory.length > 20) {
+    level4GhostHistory.shift();
+  }
+  
+  return selectedMove;
+}
+
+/**
+ * Reset Level 4 ghost history (call when level resets)
+ */
+export function resetLevel4GhostHistory(): void {
+  level4GhostHistory.length = 0;
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { GameMap, getPlayerPosition } from '@/data/maps'
+import { GameMap, getPlayerPosition, randomizeLevel4Dot } from '@/data/maps'
 import { useDebugger } from './useDebugger'
 import { usePlayRunner } from './usePlayRunner'
 import { useGameState } from './useGameState'
@@ -31,9 +31,12 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
   } = gameState
 
   const handlePlayClick = useCallback(async () => {
+    // Randomize Level 4 dot position for each run
+    const randomizedMap = randomizeLevel4Dot(levelMap)
+    
     // Reset map to initial state before starting play with teleport animation
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
-    teleportPlayer(levelMap, currentPlayerPos)
+    teleportPlayer(randomizedMap, currentPlayerPos)
     setHighlightedLine(undefined)
     setCurrentPlayWon(false) // Reset current play victory status
     // Don't clear hasWon - keep Next button permanently after first victory
@@ -42,7 +45,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     setIsPlayMode(true)
     setPlayStatus('running') // Show "Running..." immediately
     
-    const result = await playState.startPlay(currentCode, levelMap)
+    const result = await playState.startPlay(currentCode, randomizedMap)
     if (!result.success && result.error) {
       // Handle error - reset UI state
       setIsCodeDisabled(false)
@@ -58,16 +61,19 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
   }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setCurrentPlayWon, setIsCodeDisabled, setIsPlayMode, setPlayStatus, playState])
 
   const handleDebugClick = useCallback(async () => {
+    // Randomize Level 4 dot position for each debug session
+    const randomizedMap = randomizeLevel4Dot(levelMap)
+    
     // Reset map to initial state before starting debug with teleport animation
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
-    teleportPlayer(levelMap, currentPlayerPos)
+    teleportPlayer(randomizedMap, currentPlayerPos)
     setHighlightedLine(undefined)
     // Don't clear hasWon - keep Next button permanently after first victory
     
     setIsDebugMode(true)
     setIsCodeDisabled(true)
     
-    const result = await debugState.startDebugLazy(currentCode, levelMap) // Use lazy debug initialization
+    const result = await debugState.startDebugLazy(currentCode, randomizedMap) // Use lazy debug initialization
     if (result.success && result.initialState) {
       setCurrentMap(result.initialState.mapState)
       setHighlightedLine(result.initialState.highlightedLine)
