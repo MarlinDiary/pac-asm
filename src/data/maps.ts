@@ -160,31 +160,28 @@ STR R0, [R1]`,
     ghostPositions: [],
     waterBackground: { tilesX: 71, tilesY: 71 },
     initialCode: `LDR R1, =0x30010
-MOV R2, #0
-MOV R3, #169
-scan:
-LDRB R4, [R1, R2]
-CMP R4, #3
-BEQ found
-ADD R2, R2, #1
-CMP R2, R3
-BLT scan
-B done
-found:
-ADD R5, R1, R2
-LDRB R6, [R5, #-13]
-CMP R6, #2
+MOV R2, #169
+loop:
+LDRB R3, [R1], #1
+CMP R3, #3
+BEQ check
+SUBS R2, R2, #1
+BNE loop
+B end
+check:
+LDRB R3, [R1, #-14]
+CMP R3, #2
 MOVEQ R0, #1
-LDRB R6, [R5, #13]
-CMP R6, #2
+LDRB R3, [R1, #12]
+CMP R3, #2
 MOVEQ R0, #2
-LDRB R6, [R5, #-1]
-CMP R6, #2
+LDRB R3, [R1, #-2]
+CMP R3, #2
 MOVEQ R0, #3
-LDRB R6, [R5, #1]
-CMP R6, #2
+LDRB R3, [R1]
+CMP R3, #2
 MOVEQ R0, #4
-done:
+end:
 LDR R1, =0x30000
 STR R0, [R1]`,
   },
