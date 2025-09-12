@@ -209,7 +209,35 @@ STR R0, [R1]`,
     playerPosition: { row: 1, col: 1, direction: 'right' },
     ghostPositions: [{ row: 6, col: 6 }],
     waterBackground: { tilesX: 71, tilesY: 71 },
-    initialCode: ``,
+    initialCode: `LDR R8, =0x30010
+MOV R12, #0
+row:
+MOV R1, #0
+col:
+LDRB R2, [R8], #1
+CMP R2, #3
+MOVEQ R0, R12
+MOVEQ R9, R1
+CMP R2, #2
+MOVEQ R3, R12
+MOVEQ R11, R1
+ADD R1, R1, #1
+CMP R1, #13
+BLT col
+ADD R12, R12, #1
+CMP R12, #13
+BLT row
+CMP R3, R0
+MOVGT R0, #2
+MOVLT R0, #1
+BNE store
+CMP R11, R9
+MOVGT R0, #4
+MOVLT R0, #3
+MOVEQ R0, #4
+store:
+LDR R1, =0x30000
+STR R0, [R1]`,
   },
   {
     id: 'challenge',
