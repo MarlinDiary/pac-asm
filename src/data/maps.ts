@@ -80,19 +80,11 @@ const CHALLENGE_RAW_MAP = `
 %....%... ....%....%
 %%%%%%%%%%%%%%%%%%%%`;
 
-// Temporary Level 1 data - will be replaced with new map design
+// Level 1: Basic movement - straight line to collect a dot
 const LEVEL1_RAW_MAP = `
-%%%%%%%%%%%%%%%%%%%%
-%....%........%....%
-%.%%.%.%%%%%%.%.%%.%
-%.%..............%.%
-%.%.%%.%%  %%.%%.%.%
-%......%    %......%
-%.%.%%.%%%%%%.%%.%.%
-%.%..............%.%
-%.%%.%.%%%%%%.%.%%.%
-%....%... ....%....%
-%%%%%%%%%%%%%%%%%%%%`;
+%%%%%
+%  .%
+%%%%%`;
 
 function parseMapFromString(mapString: string): TileSymbol[][] {
   const lines = mapString.trim().split('\n');
@@ -103,16 +95,16 @@ export const MAPS: GameMap[] = [
   {
     id: 'level1',
     name: 'Level 1',
-    width: 20,
-    height: 11,
-    tileSize: 20,
+    width: 5,
+    height: 3,
+    tileSize: 64,
     tiles: parseMapFromString(LEVEL1_RAW_MAP),
-    playerPosition: { row: 9, col: 9, direction: 'right' },
-    ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
-    waterBackground: { tilesX: 72, tilesY: 71 },
+    playerPosition: { row: 1, col: 1, direction: 'right' },
+    ghostPositions: [],
+    waterBackground: { tilesX: 71, tilesY: 71 },
     initialCode: `MOV R0, #4
 LDR R1, =0x30000
-STRB R0, [R1]`,
+STR R0, [R1]`,
   },
   {
     id: 'challenge',
