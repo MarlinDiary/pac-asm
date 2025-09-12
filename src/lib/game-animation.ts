@@ -209,7 +209,7 @@ export function updateMapWithMovementAndGhosts(
     
     // Check if this is Level 4 (single ghost in open space)
     if (currentMap.id === 'level4') {
-      return level4GhostMove(currentMap, ghost);
+      return level4GhostMove(currentMap, ghost, currentMap.playerPosition);
     }
     
     if (index === 0) {
