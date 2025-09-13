@@ -393,7 +393,7 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
     
     // Check if this is Level 4 (single ghost in open space)
     if (mapState.id === 'level4') {
-      return level4GhostMove(mapState, ghost);
+      return level4GhostMove(mapState, ghost, pacmanPosition);
     }
     
     if (index === 0) {
