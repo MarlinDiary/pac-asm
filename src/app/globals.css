@@ -150,6 +150,5 @@
 }
 
 .animate-teleport-fade-in {
-  animation: teleport-fade-in 0.1s ease-out;
+  animation: teleport-fade-in 0.1s ease-out forwards;
 }
-
