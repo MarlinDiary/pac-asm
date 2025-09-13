@@ -61,6 +61,9 @@ export default function MapRenderer({ map }: MapRendererProps) {
       >
         {map.tiles.flat().map((tileSymbol: TileSymbol, index: number) => {
           const tileType = TILE_MAPPING[tileSymbol];
+          const row = Math.floor(index / map.width);
+          const col = index % map.width;
+          const dotAnimation = map.dotAnimations?.find(a => a.row === row && a.col === col);
           
           return (
             <div
@@ -88,7 +91,14 @@ export default function MapRenderer({ map }: MapRendererProps) {
               
               {/* Entity overlays */}
               {tileType === 'dot' && (
-                <div className="absolute top-0 left-0">
+                <div className={`absolute top-0 left-0 ${
+                  dotAnimation?.teleportAnimation === 'fade-out'
+                    ? 'animate-teleport-fade-out'
+                    : dotAnimation?.teleportAnimation === 'fade-in'
+                    ? 'animate-teleport-fade-in'
+                    : ''
+                }`}
+                >
                   <Image
                     src="/res/dot.gif"
                     alt="Dot"

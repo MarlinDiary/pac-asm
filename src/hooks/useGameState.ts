@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { GameMap, getPlayerPosition, getGhosts } from '@/data/maps'
+import { GameMap, getPlayerPosition, getGhosts, getDots } from '@/data/maps'
 import { createGhostTeleportAnimation } from '@/lib/game-animation'
 
 export interface GameState {
@@ -54,6 +54,8 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     const targetPlayerPos = getPlayerPosition(targetMap)
     const currentGhostPositions = getGhosts(currentMap)
     const targetGhostPositions = getGhosts(targetMap)
+    const currentDots = getDots(currentMap)
+    const targetDots = getDots(targetMap)
     
     if (!targetPlayerPos) {
       setCurrentMap(targetMap)
@@ -75,13 +77,18 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
       )
     })
 
-    if (!isPlayerPositionChanging && !isAnyGhostPositionChanging) {
+    const removedDots = currentDots.filter(cd => !targetDots.some(td => td.row === cd.row && td.col === cd.col))
+    const addedDots = targetDots.filter(td => !currentDots.some(cd => cd.row === td.row && cd.col === td.col))
+
+    const isAnyDotChanging = removedDots.length > 0 || addedDots.length > 0
+
+    if (!isPlayerPositionChanging && !isAnyGhostPositionChanging && !isAnyDotChanging) {
       setCurrentMap(targetMap)
       return
     }
 
     // Start fade out at current positions
-    if (currentPlayerPos || isAnyGhostPositionChanging) {
+    if (currentPlayerPos || isAnyGhostPositionChanging || isAnyDotChanging) {
       // Create ghost fade-out animations for ghosts that are moving
       const ghostFadeOutAnimations = currentGhostPositions.map((currentGhost, index) => {
         const targetGhost = targetGhostPositions[index]
@@ -93,11 +100,12 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
 
       setCurrentMap({
         ...currentMap,
-        playerAnimation: currentPlayerPos ? {
+        playerAnimation: isPlayerPositionChanging ? {
           direction: (currentPlayerPos.direction as 'up' | 'down' | 'left' | 'right') || 'right',
           teleportAnimation: 'fade-out'
         } : undefined,
-        ghostAnimations: ghostFadeOutAnimations
+        ghostAnimations: ghostFadeOutAnimations,
+        dotAnimations: removedDots.map(d => ({ row: d.row, col: d.col, teleportAnimation: 'fade-out' }))
       })
 
       // After fade out, move to new position and fade in
@@ -117,12 +125,13 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
             direction: targetPlayerPos.direction,
             teleportAnimation: 'fade-in'
           } : undefined,
-          ghostAnimations: ghostFadeInAnimations
+          ghostAnimations: ghostFadeInAnimations,
+          dotAnimations: addedDots.map(d => ({ row: d.row, col: d.col, teleportAnimation: 'fade-in' }))
         })
 
         // Remove animation after fade in
         setTimeout(() => {
-          setCurrentMap(targetMap)
+          setCurrentMap({ ...targetMap, dotAnimations: undefined })
         }, 150)
       }, 150)
     } else {

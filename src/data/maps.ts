@@ -42,6 +42,12 @@ export interface GhostAnimationState {
   teleportAnimation?: 'fade-out' | 'fade-in';
 }
 
+export interface DotAnimationState {
+  row: number;
+  col: number;
+  teleportAnimation?: 'fade-out' | 'fade-in';
+}
+
 export interface GameMap {
   id: string;
   name: string;
@@ -64,6 +70,7 @@ export interface GameMap {
     teleportAnimation?: 'fade-out' | 'fade-in';
   };
   ghostAnimations?: GhostAnimationState[];
+  dotAnimations?: DotAnimationState[];
   gameOver?: boolean;
 }
 
