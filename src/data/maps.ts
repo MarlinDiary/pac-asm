@@ -233,18 +233,20 @@ BLT scan
 CMP R3, R0
 MOVGT R4, #2
 MOVLT R4, #1
-BNE test
+BNE start
 CMP R11, R9
 MOVGT R4, #4
 MOVLT R4, #3
 MOVEQ R4, #4
+start:
+MOV R3, #4
 test:
 MOV R5, R0
 MOV R10, R9
-CMP R4, #1
-SUBEQ R5, R5, #1
-CMP R4, #2
-ADDEQ R5, R5, #1
+TST R4, #1
+SUBNE R5, R0, #1
+TST R4, #2
+ADDNE R5, R0, #1
 CMP R4, #3
 SUBEQ R10, R10, #1
 CMP R4, #4
@@ -255,7 +257,7 @@ ADD R8, R8, R10
 LDR R1, =0x30010
 LDRB R2, [R1, R8]
 CMP R2, #0
-BEQ dodge
+BEQ next
 SUBS R2, R5, R6
 RSBMI R2, R2, #0
 CMP R2, #2
@@ -264,15 +266,14 @@ SUBS R2, R10, R7
 RSBMI R2, R2, #0
 CMP R2, #2
 BGE done
-dodge:
+next:
+SUBS R3, R3, #1
+BEQ done
 ADD R4, R4, #1
 CMP R4, #5
 MOVEQ R4, #1
-CMP R4, R11
-BEQ done
 B test
 done:
-MOV R11, R4
 MOV R0, R4
 LDR R1, =0x30000
 STR R0, [R1]`,
