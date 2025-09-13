@@ -47,6 +47,40 @@ export default function CodeEditor({
 
       // Define assembly language syntax highlighting
       monaco.languages.setMonarchTokensProvider('assembly', {
+        keywords: [
+          // Data movement instructions
+          'MOV', 'MOVS', 'MVN', 'MVNS', 'LDR', 'LDRB', 'LDRH', 'LDRSB', 'LDRSH',
+          'STR', 'STRB', 'STRH', 'LDM', 'LDMIA', 'LDMIB', 'LDMDA', 'LDMDB',
+          'STM', 'STMIA', 'STMIB', 'STMDA', 'STMDB', 'PUSH', 'POP',
+          // Arithmetic instructions
+          'ADD', 'ADDS', 'ADC', 'ADCS', 'SUB', 'SUBS', 'SBC', 'SBCS', 'RSB', 'RSBS',
+          'RSC', 'RSCS', 'MUL', 'MULS', 'MLA', 'MLAS', 'UMULL', 'UMULLS', 'UMLAL', 'UMLALS',
+          'SMULL', 'SMULLS', 'SMLAL', 'SMLALS',
+          // Logical instructions
+          'AND', 'ANDS', 'ORR', 'ORRS', 'EOR', 'EORS', 'BIC', 'BICS',
+          // Comparison instructions
+          'CMP', 'CMN', 'TST', 'TEQ',
+          // Shift instructions
+          'LSL', 'LSLS', 'LSR', 'LSRS', 'ASR', 'ASRS', 'ROR', 'RORS', 'RRX', 'RRXS',
+          // Branch instructions
+          'B', 'BL', 'BX', 'BLX', 'BEQ', 'BNE', 'BCS', 'BCC', 'BMI', 'BPL', 'BVS', 'BVC',
+          'BHI', 'BLS', 'BGE', 'BLT', 'BGT', 'BLE', 'BAL',
+          // Other instructions
+          'NOP', 'SWI', 'ADR', 'ADRL',
+          // Lowercase versions
+          'mov', 'movs', 'mvn', 'mvns', 'ldr', 'ldrb', 'ldrh', 'ldrsb', 'ldrsh',
+          'str', 'strb', 'strh', 'ldm', 'ldmia', 'ldmib', 'ldmda', 'ldmdb',
+          'stm', 'stmia', 'stmib', 'stmda', 'stmdb', 'push', 'pop',
+          'add', 'adds', 'adc', 'adcs', 'sub', 'subs', 'sbc', 'sbcs', 'rsb', 'rsbs',
+          'rsc', 'rscs', 'mul', 'muls', 'mla', 'mlas', 'umull', 'umulls', 'umlal', 'umlals',
+          'smull', 'smulls', 'smlal', 'smlals',
+          'and', 'ands', 'orr', 'orrs', 'eor', 'eors', 'bic', 'bics',
+          'cmp', 'cmn', 'tst', 'teq',
+          'lsl', 'lsls', 'lsr', 'lsrs', 'asr', 'asrs', 'ror', 'rors', 'rrx', 'rrxs',
+          'b', 'bl', 'bx', 'blx', 'beq', 'bne', 'bcs', 'bcc', 'bmi', 'bpl', 'bvs', 'bvc',
+          'bhi', 'bls', 'bge', 'blt', 'bgt', 'ble', 'bal',
+          'nop', 'swi', 'adr', 'adrl'
+        ],
         tokenizer: {
           root: [
             // Numbers (before comments to catch #4, #1, etc.)
@@ -75,8 +109,9 @@ export default function CodeEditor({
             // ARM registers (before instructions to be more specific)
             [/\b([rR][0-9]|[rR]1[0-5]|[sS][pP]|[lL][rR]|[pP][cC]|[cC][pP][sS][rR])\b/, 'variable.predefined'],
             
-            // ARM instructions (before general identifiers) - case insensitive
-            [/\b(?:mov|movs|movgt|movge|movlt|movle|movne|moveq|movcc|movcs|movhi|movls|movmi|movpl|movvs|movvc|add|adds|addgt|addge|addlt|addle|addne|addeq|addcc|addcs|addhi|addls|addmi|addpl|addvs|addvc|sub|subs|subgt|subge|sublt|suble|subne|subeq|subcc|subcs|subhi|subls|submi|subpl|subvs|subvc|mul|div|cmp|cmps|cmpgt|cmplt|cmpne|cmpeq|cmpcc|cmpcs|cmphi|cmpls|cmpmi|cmppl|cmpvs|cmpvc|b|bl|bx|blx|beq|bne|blt|ble|bgt|bge|bcc|bcs|bhi|bls|bmi|bpl|bvs|bvc|ldr|ldrb|ldrh|ldrgt|ldrge|ldrlt|ldrle|ldrne|ldreq|ldrcc|ldrcs|ldrhi|ldrls|ldrmi|ldrpl|ldrvs|ldrvc|str|strb|strh|strgt|strge|strlt|strle|strne|streq|strcc|strcs|strhi|strls|strmi|strpl|strvs|strvc|ldm|ldmia|ldmdb|ldmib|ldmda|stm|stmia|stmdb|stmib|stmda|push|pop|nop|adr|and|ands|orr|orrs|eor|eors|bic|bics|mvn|mvns|lsl|lsls|lsr|lsrs|asr|asrs|ror|rors|rrx|rrxs|eq|ne|gt|lt|ge|le|cc|cs|hi|ls|mi|pl|vs|vc|MOV|MOVS|MOVGT|MOVGE|MOVLT|MOVLE|MOVNE|MOVEQ|MOVCC|MOVCS|MOVHI|MOVLS|MOVMI|MOVPL|MOVVS|MOVVC|ADD|ADDS|ADDGT|ADDGE|ADDLT|ADDLE|ADDNE|ADDEQ|ADDCC|ADDCS|ADDHI|ADDLS|ADDMI|ADDPL|ADDVS|ADDVC|SUB|SUBS|SUBGT|SUBGE|SUBLT|SUBLE|SUBNE|SUBEQ|SUBCC|SUBCS|SUBHI|SUBLS|SUBMI|SUBPL|SUBVS|SUBVC|MUL|DIV|CMP|CMPS|CMPGT|CMPLT|CMPNE|CMPEQ|CMPCC|CMPCS|CMPHI|CMPLS|CMPMI|CMPPL|CMPVS|CMPVC|B|BL|BX|BLX|BEQ|BNE|BLT|BLE|BGT|BGE|BCC|BCS|BHI|BLS|BMI|BPL|BVS|BVC|LDR|LDRB|LDRH|LDRGT|LDRGE|LDRLT|LDRLE|LDRNE|LDREQ|LDRCC|LDRCS|LDRHI|LDRLS|LDRMI|LDRPL|LDRVS|LDRVC|STR|STRB|STRH|STRGT|STRGE|STRLT|STRLE|STRNE|STREQ|STRCC|STRCS|STRHI|STRLS|STRMI|STRPL|STRVS|STRVC|LDM|LDMIA|LDMDB|LDMIB|LDMDA|STM|STMIA|STMDB|STMIB|STMDA|PUSH|POP|NOP|ADR|AND|ANDS|ORR|ORRS|EOR|EORS|BIC|BICS|MVN|MVNS|LSL|LSLS|LSR|LSRS|ASR|ASRS|ROR|RORS|RRX|RRXS|EQ|NE|GT|LT|GE|LE|CC|CS|HI|LS|MI|PL|VS|VC)\b/, 'keyword'],
+            // ARM instructions - match base instruction + optional condition codes + optional S suffix
+            // This pattern matches: MOV, MOVEQ, MOVS, MOVEQS, RSBMI, TSTNE, etc.
+            [/\b(MOV|MOVS?|MVN|MVNS?|LDR|LDRB?|LDRH?|LDRSB?|LDRSH?|STR|STRB?|STRH?|LDM|LDMIA|LDMIB|LDMDA|LDMDB|STM|STMIA|STMIB|STMDA|STMDB|PUSH|POP|ADD|ADDS?|ADC|ADCS?|SUB|SUBS?|SBC|SBCS?|RSB|RSBS?|RSC|RSCS?|MUL|MULS?|MLA|MLAS?|UMULL|UMULLS?|UMLAL|UMLALS?|SMULL|SMULLS?|SMLAL|SMLALS?|AND|ANDS?|ORR|ORRS?|EOR|EORS?|BIC|BICS?|CMP|CMN|TST|TEQ|LSL|LSLS?|LSR|LSRS?|ASR|ASRS?|ROR|RORS?|RRX|RRXS?|B|BL|BX|BLX|BEQ|BNE|BCS|BCC|BMI|BPL|BVS|BVC|BHI|BLS|BGE|BLT|BGT|BLE|BAL|NOP|SWI|ADR|ADRL)(EQ|NE|CS|CC|MI|PL|VS|VC|HI|LS|GE|LT|GT|LE|AL|HS|LO)?S?\b/i, 'keyword'],
             
             // Identifiers (last to avoid conflicts)
             [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'],
