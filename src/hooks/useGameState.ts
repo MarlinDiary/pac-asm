@@ -50,12 +50,13 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Helper function to teleport player and ghosts with animation
-  const teleportPlayer = useCallback((targetMap: GameMap, currentPlayerPos?: { row: number; col: number; direction: string } | null) => {
-    const targetPlayerPos = getPlayerPosition(targetMap)
-    const currentGhostPositions = getGhosts(currentMap)
-    const targetGhostPositions = getGhosts(targetMap)
-    const currentDots = getDots(currentMap)
-    const targetDots = getDots(targetMap)
+  const teleportPlayer = useCallback(async (targetMap: GameMap, currentPlayerPos?: { row: number; col: number; direction: string } | null) => {
+    return await new Promise<void>((resolve) => {
+      const targetPlayerPos = getPlayerPosition(targetMap)
+      const currentGhostPositions = getGhosts(currentMap)
+      const targetGhostPositions = getGhosts(targetMap)
+      const currentDots = getDots(currentMap)
+      const targetDots = getDots(targetMap)
     
     if (!targetPlayerPos) {
       setCurrentMap(targetMap)
@@ -84,6 +85,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
 
     if (!isPlayerPositionChanging && !isAnyGhostPositionChanging && !isAnyDotChanging) {
       setCurrentMap(targetMap)
+      resolve()
       return
     }
 
@@ -132,11 +134,14 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
         // Remove animation after fade in
         setTimeout(() => {
           setCurrentMap({ ...targetMap, dotAnimations: undefined })
+          resolve()
         }, 150)
       }, 150)
     } else {
       setCurrentMap(targetMap)
+      resolve()
     }
+    })
   }, [currentMap])
 
   const toggleFullscreen = useCallback(() => {

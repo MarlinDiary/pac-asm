@@ -36,7 +36,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     
     // Reset map to initial state before starting play with teleport animation
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
-    teleportPlayer(randomizedMap, currentPlayerPos)
+    await teleportPlayer(randomizedMap, currentPlayerPos)
     setHighlightedLine(undefined)
     setCurrentPlayWon(false) // Reset current play victory status
     // Don't clear hasWon - keep Next button permanently after first victory
@@ -66,7 +66,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     
     // Reset map to initial state before starting debug with teleport animation
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
-    teleportPlayer(randomizedMap, currentPlayerPos)
+    await teleportPlayer(randomizedMap, currentPlayerPos)
     setHighlightedLine(undefined)
     // Don't clear hasWon - keep Next button permanently after first victory
     
@@ -108,7 +108,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     setHighlightedLine(undefined)
     
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
-    teleportPlayer(levelMap, currentPlayerPos) // Reset map with teleport animation
+    await teleportPlayer(levelMap, currentPlayerPos) // Reset map with teleport animation
     
     // Reset states to clear panels
     await Promise.all([
@@ -117,12 +117,11 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     ])
   }, [setIsCodeDisabled, setIsDebugMode, setHighlightedLine, teleportPlayer, levelMap, gameState.currentMap, debugState, playState])
 
-  const handleReplay = useCallback(() => {
+  const handleReplay = useCallback(async () => {
     const firstState = debugState.replay()
     if (firstState) {
-      // Teleport animation for replay
       const currentPlayerPos = getPlayerPosition(gameState.currentMap)
-      teleportPlayer(firstState.mapState, currentPlayerPos)
+      await teleportPlayer(firstState.mapState, currentPlayerPos)
       setHighlightedLine(firstState.highlightedLine)
     }
   }, [debugState, teleportPlayer, gameState.currentMap, setHighlightedLine])
