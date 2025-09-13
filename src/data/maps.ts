@@ -233,12 +233,12 @@ BLT scan
 CMP R3, R0
 MOVGT R4, #2
 MOVLT R4, #1
-BNE check
+BNE test
 CMP R11, R9
 MOVGT R4, #4
 MOVLT R4, #3
 MOVEQ R4, #4
-check:
+test:
 MOV R5, R0
 MOV R10, R9
 CMP R4, #1
@@ -259,48 +259,20 @@ BEQ dodge
 SUBS R2, R5, R6
 RSBMI R2, R2, #0
 CMP R2, #2
-BGE safe
+BGE done
 SUBS R2, R10, R7
 RSBMI R2, R2, #0
 CMP R2, #2
-BGE safe
+BGE done
 dodge:
-MOV R4, #1
-MOV R11, #4
-retry:
-MOV R5, R0
-MOV R10, R9
-CMP R4, #1
-SUBEQ R5, R5, #1
-CMP R4, #2
-ADDEQ R5, R5, #1
-CMP R4, #3
-SUBEQ R10, R10, #1
-CMP R4, #4
-ADDEQ R10, R10, #1
-MOV R2, #13
-MUL R8, R5, R2
-ADD R8, R8, R10
-LDR R1, =0x30010
-LDRB R2, [R1, R8]
-CMP R2, #0
-BEQ next
-SUBS R2, R5, R6
-RSBMI R2, R2, #0
-CMP R2, #2
-BGE safe
-SUBS R2, R10, R7
-RSBMI R2, R2, #0
-CMP R2, #2
-BGE safe
-next:
 ADD R4, R4, #1
 CMP R4, #5
 MOVEQ R4, #1
-SUBS R11, R11, #1
-BNE retry
-MOV R4, #1
-safe:
+CMP R4, R11
+BEQ done
+B test
+done:
+MOV R11, R4
 MOV R0, R4
 LDR R1, =0x30000
 STR R0, [R1]`,
