@@ -247,13 +247,14 @@ MOVLT R4, #3
 MOVEQ R4, #4
 start:
 MOV R3, #4
+MOV R11, #0
 test:
 MOV R5, R0
 MOV R10, R9
-TST R4, #1
-SUBNE R5, R0, #1
-TST R4, #2
-ADDNE R5, R0, #1
+CMP R4, #1
+SUBEQ R5, R5, #1
+CMP R4, #2
+ADDEQ R5, R5, #1
 CMP R4, #3
 SUBEQ R10, R10, #1
 CMP R4, #4
@@ -268,11 +269,14 @@ BEQ next
 SUBS R2, R5, R6
 RSBMI R2, R2, #0
 CMP R2, #2
-BGE done
+BGE safe
 SUBS R2, R10, R7
 RSBMI R2, R2, #0
 CMP R2, #2
-BGE done
+BLT next
+safe:
+MOV R11, R4
+B done
 next:
 SUBS R3, R3, #1
 BEQ done
@@ -281,9 +285,10 @@ CMP R4, #5
 MOVEQ R4, #1
 B test
 done:
-MOV R0, R4
+CMP R11, #0
+MOVNE R4, R11
 LDR R1, =0x30000
-STR R0, [R1]`,
+STR R4, [R1]`,
   },
   {
     id: 'challenge',
