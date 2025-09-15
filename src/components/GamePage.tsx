@@ -26,6 +26,7 @@ import { KeyboardControl } from '@/hooks/useKeyboardControl'
 import { useChallengeScore } from '@/hooks/useChallengeScore'
 import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2, Book } from 'lucide-react'
 import { GameMap } from '@/data/maps'
+import SettingsPanel from '@/components/SettingsPanel'
 
 interface GamePageProps {
   levelMap: GameMap
@@ -42,6 +43,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const executionControl = useExecutionControl({ gameState, levelMap })
   const [isMemoryFilterOpen, setIsMemoryFilterOpen] = React.useState(false)
   const [selectedMemoryRegion, setSelectedMemoryRegion] = React.useState<MemoryRegion>('all')
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   
   // Challenge mode scoring
   const { formattedScore } = useChallengeScore(isChallenge, gameState)
@@ -102,7 +104,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               onClick={gameState.toggleFullscreen}
               size={15}
             />
-            <IconButton icon={Settings2} />
+            <IconButton icon={Settings2} onClick={() => setIsSettingsOpen(true)} />
           </div>
         </div>
         <div className="flex-1 pt-2 overflow-hidden">
@@ -240,6 +242,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         </ResizablePanelGroup>
         </div>
       </div>
+      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       </div>
     </KeyboardControl>
   )
