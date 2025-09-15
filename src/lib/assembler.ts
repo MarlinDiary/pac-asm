@@ -80,7 +80,7 @@ export function extractMachineCode(elfData: Uint8Array): ELFParseResult {
 // GNU Assembler Implementation
 // ============================================================================
 
-export type GASTarget = 'armv7-linux-gnueabihf';
+export type GASTarget = 'armv7-linux-gnueabihf' | 'mipsel-linux-gnu' | 'mips-linux-gnu';
 
 export interface GASAssemblerOptions {
   target?: GASTarget;
@@ -135,8 +135,9 @@ export class GASAssembler {
       let objectFile: Uint8Array | null = null;
       let errorOutput = '';
 
-      // Assemble with debug info (-g) 
-      const args = ['-g', '-c', '-o', 'out.o', 'in.s'];
+      // Assemble with debug info (-g)
+      // Note: 'as' doesn't support '-c' (that's a gcc/ld option), so we omit it.
+      const args = ['-g', '-o', 'out.o', 'in.s'];
       if (this.baseAddress && this.baseAddress !== 0) {
         args.push('--defsym', `BASE_ADDR=0x${this.baseAddress.toString(16)}`);
       }
@@ -172,8 +173,8 @@ export class GASAssembler {
         const elfResult = extractMachineCode(objectFile);
         machineCode = elfResult.machineCode;
       } catch (error) {
-        // ELF parsing failed, use raw object file as fallback
-        machineCode = objectFile;
+        // If .text section is not found (e.g., empty input), return empty machine code
+        machineCode = new Uint8Array(0);
       }
 
       // Store object file for DWARF parsing

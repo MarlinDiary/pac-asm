@@ -5,7 +5,9 @@ import {
   EmulatorMessage, 
   EmulatorResponse, 
   WorkerSelf,
-  EmulatorConfig
+  EmulatorConfig,
+  UnicornGlobal,
+  Architecture
 } from './types';
 import { UnicornLoader } from './unicorn-loader';
 import { LiteralPoolDetector } from './literal-pool';
@@ -17,6 +19,8 @@ export class EmulatorWorker {
   private isInitialized = false;
   private config: EmulatorConfig;
   private currentMessageId: string | undefined;
+  private uc!: UnicornGlobal;
+  private arch: Architecture = 'ARM';
   
   // Module instances
   private unicornLoader: UnicornLoader;
@@ -36,7 +40,7 @@ export class EmulatorWorker {
     this.unicornLoader = new UnicornLoader(workerSelf);
     this.literalPoolDetector = new LiteralPoolDetector(this.config);
     
-    this.loadUnicornScript();
+    // wait for explicit init message to set arch and load Unicorn script
   }
 
   private async loadUnicornScript(): Promise<void> {
@@ -46,16 +50,25 @@ export class EmulatorWorker {
   private initialize(): void {
     try {
       const uc = this.unicornLoader.getUnicorn();
-      this.unicorn = new uc.Unicorn(uc.ARCH_ARM, uc.MODE_ARM);
+      this.uc = uc;
+      if (this.arch === 'MIPS') {
+        const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
+        // Match GAS target mips-linux-gnu (big-endian)
+        const modeConst = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
+        this.unicorn = new uc.Unicorn(archConst, modeConst);
+      } else {
+        this.unicorn = new uc.Unicorn(uc.ARCH_ARM, uc.MODE_ARM);
+      }
       
       // Initialize managers
-      this.memoryManager = new MemoryManager(this.unicorn, uc, this.config);
+      this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.arch);
       this.executionEngine = new ExecutionEngine(
         this.unicorn,
-        uc,
+        this.uc,
         this.config,
         this.literalPoolDetector,
-        this.memoryManager
+        this.memoryManager,
+        this.arch
       );
       
       // Setup memory and registers
@@ -312,7 +325,16 @@ export class EmulatorWorker {
     
     switch (message.type) {
       case 'init':
-        this.initialize();
+        // Optional: select architecture from payload
+        if (message.payload && typeof message.payload === 'object' && 'arch' in message.payload) {
+          const arch = (message.payload as { arch?: Architecture }).arch;
+          if (arch === 'ARM' || arch === 'MIPS') {
+            this.arch = arch;
+          }
+        }
+        // Load appropriate Unicorn build
+        this.unicornLoader.setArchitecture(this.arch);
+        this.loadUnicornScript().then(() => this.initialize());
         break;
       case 'load-code':
         this.loadCode(message.payload as number[]);

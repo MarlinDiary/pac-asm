@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { EmulatorMessage, EmulatorResponse, StepResult, RegisterInfo } from '@/workers/emulator/types';
+import { getGlobalSettings } from '@/hooks/useSettings';
 
 interface EmulatorState {
   isInitialized: boolean;
@@ -61,7 +62,8 @@ export const useEmulator = () => {
     };
 
     try {
-      await sendMessage({ type: 'init' });
+      const arch = getGlobalSettings().settings.architecture;
+      await sendMessage({ type: 'init', payload: { arch } });
       setState(prev => ({ ...prev, isInitialized: true, error: undefined }));
     } catch (error) {
       setState(prev => ({ 
@@ -71,6 +73,22 @@ export const useEmulator = () => {
       }));
     }
   }, [sendMessage]);
+
+  // React to global settings change for architecture: reset worker so it will be re-initialized next time
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { architecture?: 'ARM' | 'MIPS' } | undefined;
+      if (!detail || !('architecture' in detail)) return;
+      // Tear down current worker to force re-init with new arch on next use
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+      setState({ isInitialized: false, isRunning: false, currentPC: 0 });
+    };
+    window.addEventListener('pacasm-settings-changed', handler as EventListener);
+    return () => window.removeEventListener('pacasm-settings-changed', handler as EventListener);
+  }, []);
 
   const loadCode = useCallback(async (machineCode: number[]) => {
     try {

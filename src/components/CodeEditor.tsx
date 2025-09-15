@@ -79,7 +79,19 @@ export default function CodeEditor({
           'lsl', 'lsls', 'lsr', 'lsrs', 'asr', 'asrs', 'ror', 'rors', 'rrx', 'rrxs',
           'b', 'bl', 'bx', 'blx', 'beq', 'bne', 'bcs', 'bcc', 'bmi', 'bpl', 'bvs', 'bvc',
           'bhi', 'bls', 'bge', 'blt', 'bgt', 'ble', 'bal',
-          'nop', 'swi', 'adr', 'adrl'
+          'nop', 'swi', 'adr', 'adrl',
+          // MIPS common instructions
+          'ADD','ADDU','ADDI','ADDIU','SUB','SUBU','AND','ANDI','OR','ORI','XOR','XORI',
+          'SLT','SLTI','SLTU','SLTIU','SLL','SRL','SRA','SLLV','SRLV','SRAV',
+          'LW','SW','LB','LBU','LH','LHU','SB','SH','LUI',
+          'BEQ','BNE','BLEZ','BGTZ','BLTZ','BGEZ',
+          'J','JAL','JR','JALR','MFHI','MFLO','MTHI','MTLO','MULT','MULTU','DIV','DIVU','MOVE',
+          // lowercase mips
+          'add','addu','addi','addiu','sub','subu','and','andi','or','ori','xor','xori',
+          'slt','slti','sltu','sltiu','sll','srl','sra','sllv','srlv','srav',
+          'lw','sw','lb','lbu','lh','lhu','sb','sh','lui',
+          'beq','bne','blez','bgtz','bltz','bgez',
+          'j','jal','jr','jalr','mfhi','mflo','mthi','mtlo','mult','multu','div','divu','move'
         ],
         tokenizer: {
           root: [
@@ -99,6 +111,8 @@ export default function CodeEditor({
             
             // Memory references
             [/\[[^\]]+\]/, 'string.regexp'],
+            // MIPS offset(base) addressing
+            [/\b-?[0-9]+\s*\([^)]+\)/, 'string.regexp'],
             
             // Strings
             [/"([^"\\]|\\.)*$/, 'string.invalid'],
@@ -108,10 +122,14 @@ export default function CodeEditor({
             
             // ARM registers (before instructions to be more specific)
             [/\b([rR][0-9]|[rR]1[0-5]|[sS][pP]|[lL][rR]|[pP][cC]|[cC][pP][sS][rR])\b/, 'variable.predefined'],
+            // MIPS registers (with or without $)
+            [/\$?(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|s8|ra)\b/i, 'variable.predefined'],
             
             // ARM instructions - match base instruction + optional condition codes + optional S suffix
             // This pattern matches: MOV, MOVEQ, MOVS, MOVEQS, RSBMI, TSTNE, etc.
             [/\b(MOV|MOVS?|MVN|MVNS?|LDR|LDRB?|LDRH?|LDRSB?|LDRSH?|STR|STRB?|STRH?|LDM|LDMIA|LDMIB|LDMDA|LDMDB|STM|STMIA|STMIB|STMDA|STMDB|PUSH|POP|ADD|ADDS?|ADC|ADCS?|SUB|SUBS?|SBC|SBCS?|RSB|RSBS?|RSC|RSCS?|MUL|MULS?|MLA|MLAS?|UMULL|UMULLS?|UMLAL|UMLALS?|SMULL|SMULLS?|SMLAL|SMLALS?|AND|ANDS?|ORR|ORRS?|EOR|EORS?|BIC|BICS?|CMP|CMN|TST|TEQ|LSL|LSLS?|LSR|LSRS?|ASR|ASRS?|ROR|RORS?|RRX|RRXS?|B|BL|BX|BLX|BEQ|BNE|BCS|BCC|BMI|BPL|BVS|BVC|BHI|BLS|BGE|BLT|BGT|BLE|BAL|NOP|SWI|ADR|ADRL)(EQ|NE|CS|CC|MI|PL|VS|VC|HI|LS|GE|LT|GT|LE|AL|HS|LO)?S?\b/i, 'keyword'],
+            // MIPS instructions
+            [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|NOP|MOVE)\b/i, 'keyword'],
             
             // Identifiers (last to avoid conflicts)
             [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'],

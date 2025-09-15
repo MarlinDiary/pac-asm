@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Cog } from 'lucide-react'
 import {
   Select,
@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useSettings } from '@/hooks/useSettings'
 
 interface SettingsPanelProps {
   isOpen: boolean
@@ -27,7 +28,7 @@ const sidebarItems: SidebarItem[] = [
 
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [selectedSection, setSelectedSection] = React.useState('general')
-  const [architecture, setArchitecture] = useState('MIPS')
+  const { settings, updateSetting } = useSettings()
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Prevent body scroll when panel is open
@@ -117,7 +118,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Architecture
                     </label>
-                    <Select value={architecture} onValueChange={setArchitecture}>
+                    <Select value={settings.architecture} onValueChange={(value) => updateSetting('architecture', value as 'MIPS' | 'ARM')}>
                       <SelectTrigger className="w-auto border-0 bg-transparent dark:bg-transparent p-0 h-auto cursor-pointer focus:ring-0 focus-visible:ring-0 shadow-none hover:bg-transparent dark:hover:bg-transparent">
                         <SelectValue />
                       </SelectTrigger>

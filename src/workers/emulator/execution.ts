@@ -1,6 +1,6 @@
-// Execution engine for ARM instructions
+// Execution engine for ARM/MIPS instructions
 
-import { UnicornInstance, UnicornGlobal, StepResult, EmulatorConfig } from './types';
+import { UnicornInstance, UnicornGlobal, StepResult, EmulatorConfig, Architecture } from './types';
 import { LiteralPoolDetector } from './literal-pool';
 import { MemoryManager } from './memory-manager';
 
@@ -11,30 +11,37 @@ export class ExecutionEngine {
   private literalPoolDetector: LiteralPoolDetector;
   private memoryManager: MemoryManager;
   private literalPoolAddresses: Set<number> = new Set();
+  private arch: Architecture;
 
   constructor(
     unicorn: UnicornInstance,
     uc: UnicornGlobal,
     config: EmulatorConfig,
     literalPoolDetector: LiteralPoolDetector,
-    memoryManager: MemoryManager
+    memoryManager: MemoryManager,
+    arch: Architecture
   ) {
     this.unicorn = unicorn;
     this.uc = uc;
     this.config = config;
     this.literalPoolDetector = literalPoolDetector;
     this.memoryManager = memoryManager;
+    this.arch = arch;
   }
 
+  // Note: we use a fixed 4KB code window starting at codeAddress
+
   stepExecution(): void {
-    const pc = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+    const pcReg = this.arch === 'MIPS' ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)! : this.uc.ARM_REG_PC;
+    const pc = this.unicorn.reg_read_i32(pcReg);
     const endAddress = this.config.codeAddress + 4096;
     this.unicorn.emu_start(pc, endAddress, 0, 1);
   }
 
   stepDebugExecution(): StepResult {
     // Get state before execution
-    const pcBefore = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+    const pcReg = this.arch === 'MIPS' ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)! : this.uc.ARM_REG_PC;
+    const pcBefore = this.unicorn.reg_read_i32(pcReg);
     const registersBefore = this.memoryManager.getAllRegisters();
     let memWriteEvent: { address: number; value: number; size: number } | undefined;
     
@@ -91,7 +98,7 @@ export class ExecutionEngine {
           };
         }
         
-        this.unicorn.reg_write_i32(this.uc.ARM_REG_PC, pcAfter);
+        this.unicorn.reg_write_i32(pcReg, pcAfter);
         stepMessage = 'Skipped literal pool data';
         
         // Mark this address as literal pool for future reference
@@ -133,7 +140,7 @@ export class ExecutionEngine {
       // Execute one instruction normally
       const endAddress = this.config.codeAddress + 4096;
       this.unicorn.emu_start(pcBefore, endAddress, 0, 1);
-      pcAfter = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+      pcAfter = this.unicorn.reg_read_i32(pcReg);
 
       // Remove hook if present
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
@@ -168,7 +175,8 @@ export class ExecutionEngine {
 
     // Safe execution loop - check each instruction before executing
     while (executedInstructions < maxInstructions) {
-      const pc = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+      const pcReg = this.arch === 'MIPS' ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)! : this.uc.ARM_REG_PC;
+      const pc = this.unicorn.reg_read_i32(pcReg);
       
       // Check if we've reached the end of code space
       if (pc >= this.config.codeAddress + 4096) {
@@ -181,7 +189,7 @@ export class ExecutionEngine {
       
       try {
         instructionBytes = Array.from(this.unicorn.mem_read(pc, 4));
-        isLiteralPool = this.literalPoolDetector.isLikelyLiteralPool(instructionBytes);
+        isLiteralPool = this.arch === 'ARM' ? this.literalPoolDetector.isLikelyLiteralPool(instructionBytes) : false;
       } catch {
         break;
       }
@@ -200,17 +208,17 @@ export class ExecutionEngine {
             break;
           }
           
-          this.unicorn.reg_write_i32(this.uc.ARM_REG_PC, nextPc);
+          this.unicorn.reg_write_i32(pcReg, nextPc);
           continue; // Don't count this as an executed instruction
-        }
-      } else {
-        // Execute one instruction normally
+      }
+    } else {
+      // Execute one instruction normally
         const endAddress = this.config.codeAddress + 4096;
         this.unicorn.emu_start(pc, endAddress, 0, 1);
         executedInstructions++;
         
-        const newPc = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
-        
+        const newPc = this.unicorn.reg_read_i32(pcReg);
+       
         // If PC didn't change, we might be stuck
         if (newPc === pc) {
           break;
@@ -232,7 +240,8 @@ export class ExecutionEngine {
     timeoutUs: number = 3_000_000
   ): { message: string; executedInstructions: number; stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown'; memEvent?: { address: number; value: number } } {
     const endAddress = this.config.codeAddress + 4096;
-    const pc = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+    const pcReg = this.arch === 'MIPS' ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)! : this.uc.ARM_REG_PC;
+    const pc = this.unicorn.reg_read_i32(pcReg);
 
     let memEvent: { address: number; value: number } | undefined;
 
@@ -256,8 +265,9 @@ export class ExecutionEngine {
       memEvent = { address: addr, value };
       // Advance PC to next instruction to avoid re-executing the same STR on resume (ARM state = 4 bytes)
       try {
-        const pcNow = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
-        this.unicorn.reg_write_i32(this.uc.ARM_REG_PC, (pcNow + 4) >>> 0);
+        const pcNow = this.unicorn.reg_read_i32(pcReg);
+        // MIPS and ARM both use 4-byte fixed length (MIPS32 and ARM state), so add 4
+        this.unicorn.reg_write_i32(pcReg, (pcNow + 4) >>> 0);
       } catch {}
       // Stop emulation immediately
       try { this.unicorn.emu_stop(); } catch {}
@@ -296,7 +306,7 @@ export class ExecutionEngine {
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
     }
 
-    const pcAfter = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+    const pcAfter = this.unicorn.reg_read_i32(pcReg);
     let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' = 'unknown';
     if (memEvent) {
       stopReason = 'mem-write';

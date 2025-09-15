@@ -27,6 +27,7 @@ import { useChallengeScore } from '@/hooks/useChallengeScore'
 import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2, Book } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 import SettingsPanel from '@/components/SettingsPanel'
+import { useSettings } from '@/hooks/useSettings'
 
 interface GamePageProps {
   levelMap: GameMap
@@ -41,6 +42,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const gameState = useGameState(levelMap, levelMap.initialCode || '')
   const panelLayout = usePanelLayout()
   const executionControl = useExecutionControl({ gameState, levelMap })
+  const { settings } = useSettings()
   const [isMemoryFilterOpen, setIsMemoryFilterOpen] = React.useState(false)
   const [selectedMemoryRegion, setSelectedMemoryRegion] = React.useState<MemoryRegion>('all')
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
@@ -203,6 +205,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                   <RegisterPanel 
                     registers={executionControl.currentDebugState?.registers} 
                     previousRegisters={executionControl.previousDebugState?.registers}
+                    architecture={settings.architecture}
                   />
                 </div>
               </div>,

@@ -1,8 +1,9 @@
-import { ARMAssembler } from '@/lib/assembler'
+import { ARMAssembler, GASTarget } from '@/lib/assembler'
 import { CodeHighlighter, createHighlighter } from '@/lib/highlighter'
 import { RegisterInfo } from '@/workers/emulator/types'
 import { GameMap } from '@/data/maps'
 import { writeCompleteMapToMemory } from './map-memory'
+import { getGlobalSettings } from '@/hooks/useSettings'
 
 // Type for emulator objects (avoiding 'any')
 interface EmulatorInstance {
@@ -56,7 +57,9 @@ export async function resetEmulatorWithMemory(emulator: EmulatorInstance): Promi
  * Assemble source code and return machine code
  */
 export async function assembleCode(sourceCode: string): Promise<number[]> {
-  const assembler = new ARMAssembler()
+  const arch = getGlobalSettings().settings.architecture
+  const target: GASTarget = arch === 'MIPS' ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+  const assembler = new ARMAssembler({ target })
   try {
     await assembler.initialize()
     const result = await assembler.assemble(sourceCode)
@@ -103,7 +106,9 @@ export async function initializeEmulatorWithCode(
   await writeCompleteMapToMemory(emulator, initialMap)
   
   // Create code highlighter
-  const codeHighlighter = createHighlighter()
+  const arch = getGlobalSettings().settings.architecture
+  const target: GASTarget = arch === 'MIPS' ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+  const codeHighlighter = createHighlighter({ target })
   await codeHighlighter.initialize(sourceCode)
   
   // Final abort check
