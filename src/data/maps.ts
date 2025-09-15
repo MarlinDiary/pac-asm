@@ -150,6 +150,7 @@ export const MAPS: GameMap[] = [
     waterBackground: { tilesX: 71, tilesY: 71 },
     initialCode: `MOV R0, #4
 LDR R1, =0x30000
+STR R0, [R1]
 STR R0, [R1]`,
   },
   {
@@ -162,7 +163,8 @@ STR R0, [R1]`,
     playerPosition: { row: 1, col: 1, direction: 'right' },
     ghostPositions: [],
     waterBackground: { tilesX: 71, tilesY: 72 },
-    initialCode: `LDR R1, =0x30400
+    initialCode: `main:
+LDR R1, =0x30400
 LDR R2, [R1]
 CMP R2, #4
 MOVLT R0, #4
@@ -170,7 +172,8 @@ MOVGE R0, #2
 ADD R2, R2, #1
 STR R2, [R1]
 LDR R1, =0x30000
-STR R0, [R1]`,
+STR R0, [R1]
+B main`,
   },
   {
     id: 'level3',
@@ -182,7 +185,8 @@ STR R0, [R1]`,
     playerPosition: { row: 11, col: 9, direction: 'right' },
     ghostPositions: [],
     waterBackground: { tilesX: 71, tilesY: 71 },
-    initialCode: `LDR R1, =0x30010
+    initialCode: `main:
+LDR R1, =0x30010
 MOV R2, #169
 loop:
 LDRB R3, [R1], #1
@@ -204,7 +208,8 @@ LDRB R3, [R1]
 CMP R3, #2
 MOVEQ R0, #4
 LDR R1, =0x30000
-STR R0, [R1]`,
+STR R0, [R1]
+B main`,
   },
   {
     id: 'level4',
@@ -216,7 +221,8 @@ STR R0, [R1]`,
     playerPosition: { row: 1, col: 1, direction: 'right' },
     ghostPositions: [{ row: 6, col: 6 }],
     waterBackground: { tilesX: 71, tilesY: 71 },
-    initialCode: `LDR R8, =0x30010
+    initialCode: `main:
+LDR R8, =0x30010
 MOV R12, #0
 scan:
 MOV R1, #0
@@ -288,7 +294,8 @@ done:
 CMP R11, #0
 MOVNE R4, R11
 LDR R1, =0x30000
-STR R4, [R1]`,
+STR R4, [R1]
+B main`,
   },
   {
     id: 'challenge',
