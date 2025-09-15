@@ -9,12 +9,8 @@ import {
   initializeEmulatorWithCode, 
   getEmulatorMemoryState
 } from '@/lib/emulator-utils'
-import { 
-  handleDebugCycleEnd, 
-  clearMovementCommand, 
-  isCodeExecutionComplete,
-  hasValidMovementCommand 
-} from '@/lib/cycle-management'
+import { isCodeExecutionComplete } from '@/lib/cycle-management'
+import { writeMapUpdatesToMemory } from '@/lib/map-memory'
 
 export interface PlaybackState {
   mapState: GameMap
@@ -148,42 +144,44 @@ export const useDebugger = () => {
 
   // Pre-execute all steps for standard debug mode
   const executeAllSteps = async (codeHighlighter: CodeHighlighter, initialState: PlaybackState, abortController: AbortController): Promise<PlaybackState[]> => {
+    // Keep standard mode simple: step sequentially, update map only when 0x30000 is written.
     const history: PlaybackState[] = [initialState]
     let currentMapState = { ...initialState.mapState }
-    
+    let previousMapState = { ...initialState.mapState }
+
     while (true) {
-      if (abortController.signal.aborted) {
-        break
-      }
-      
+      if (abortController.signal.aborted) break
+
       const stepResult = await emulator.step()
-      if (!stepResult || !stepResult.success) {
-        break
-      }
-      
-      if (isCodeExecutionComplete(stepResult)) {
-        break
-      }
-      
-      const highlight = getHighlightFromStepResult(stepResult, codeHighlighter)
+      if (!stepResult || !stepResult.success) break
+
+      let highlight = getHighlightFromStepResult(stepResult, codeHighlighter)
       const memoryState = await getMemoryState()
-      
       if (!memoryState) continue
-      
-      // Handle movement
-      if (hasValidMovementCommand(memoryState.dataMemory)) {
-        currentMapState = updateMapWithMovementAndGhosts(currentMapState, memoryState.dataMemory[0])
-        await clearMovementCommand(emulator)
+
+      // Apply movement only if this step wrote to 0x30000 with value 1..4
+      const ev = stepResult.memWriteEvent
+      if (ev && ev.address === 0x30000 && ev.value >= 1 && ev.value <= 4) {
+        currentMapState = updateMapWithMovementAndGhosts(currentMapState, ev.value)
+        await writeMapUpdatesToMemory(emulator, previousMapState, currentMapState)
+        previousMapState = { ...currentMapState }
       }
-      
+
+      // If code completed on this step, clear highlight immediately
+      if (isCodeExecutionComplete(stepResult)) {
+        highlight = undefined
+      }
+
       history.push({
         mapState: { ...currentMapState },
         highlightedLine: highlight?.lineNumber,
         ...memoryState,
         stepResult
       })
+
+      if (isCodeExecutionComplete(stepResult)) break
     }
-    
+
     return history
   }
 
@@ -252,62 +250,38 @@ export const useDebugger = () => {
       let currentHighlight: number | undefined = undefined
       let isCodeComplete = false
       
-      if (isCodeExecutionComplete(stepResult)) {
-        isCodeComplete = true
-        setHasReachedEnd(true)
-        
-        // Handle cycle end using common logic
-        const cycleResult = await handleDebugCycleEnd(
-          emulator, 
-          newMapState,
-          currentState.mapState, // previousMapState
-          originalCodeMemoryRef.current, 
-          setIsGameComplete
-        )
-        newMapState = cycleResult.newMapState
-        
-        // Get actual emulator state after reset to show in panels
-        const resetMemoryState = await getMemoryState()
-        const resetState: PlaybackState = {
-          mapState: newMapState,
-          highlightedLine: undefined,
-          registers: resetMemoryState?.registers || [], // Show actual reset state
-          codeMemory: resetMemoryState?.codeMemory || [], // Show actual reset state
-          stackMemory: resetMemoryState?.stackMemory || [], 
-          dataMemory: resetMemoryState?.dataMemory || [],
-          stepResult
-        }
-        
-        const newHistory = [...executionHistory, resetState]
-        setExecutionHistory(newHistory)
-        setCurrentPlaybackIndex(currentPlaybackIndex + 1)
-        
-        // If code execution is complete, allow continuing to next cycle
-        if (isCodeComplete) {
-          setHasReachedEnd(false)
-        }
-        
-        return resetState
-      } else {
-        const highlight = highlighter ? getHighlightFromStepResult(stepResult, highlighter) : null
-        currentHighlight = highlight?.lineNumber
-        
-        const memoryState = await getMemoryState()
-        if (!memoryState) return null
-        
-        const newState: PlaybackState = {
-          mapState: newMapState,
-          highlightedLine: currentHighlight,
-          ...memoryState,
-          stepResult
-        }
-        
-        const newHistory = [...executionHistory, newState]
-        setExecutionHistory(newHistory)
-        setCurrentPlaybackIndex(currentPlaybackIndex + 1)
-        
-        return newState
+      // Movement only when current step wrote to 0x30000 with 1..4
+      const ev = stepResult.memWriteEvent
+      if (ev && ev.address === 0x30000 && ev.value >= 1 && ev.value <= 4) {
+        newMapState = updateMapWithMovementAndGhosts(newMapState, ev.value)
+        await writeMapUpdatesToMemory(emulator, currentState.mapState, newMapState)
       }
+
+      const highlight = highlighter ? getHighlightFromStepResult(stepResult, highlighter) : null
+      // If code completed on this step, clear highlight immediately
+      currentHighlight = isCodeExecutionComplete(stepResult) ? undefined : highlight?.lineNumber
+      
+      const memoryState = await getMemoryState()
+      if (!memoryState) return null
+      
+      const newState: PlaybackState = {
+        mapState: newMapState,
+        highlightedLine: currentHighlight,
+        ...memoryState,
+        stepResult
+      }
+      
+      const newHistory = [...executionHistory, newState]
+      setExecutionHistory(newHistory)
+      setCurrentPlaybackIndex(currentPlaybackIndex + 1)
+
+      // Stop stepping if code has completed
+      if (isCodeExecutionComplete(stepResult)) {
+        setHasReachedEnd(true)
+        setIsGameComplete(true)
+      }
+      
+      return newState
     } catch (error) {
       setHasError(true)
       const errorMessage = error instanceof Error ? error.message : String(error)

@@ -36,6 +36,7 @@ export class ExecutionEngine {
     // Get state before execution
     const pcBefore = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
     const registersBefore = this.memoryManager.getAllRegisters();
+    let memWriteEvent: { address: number; value: number; size: number } | undefined;
     
     // Read the instruction at current PC
     let instructionBytes: number[] = [];
@@ -97,10 +98,43 @@ export class ExecutionEngine {
         this.literalPoolAddresses.add(pcBefore);
       }
     } else {
+      // Register a temporary memory-write hook for the command byte address
+      let hookHandle: unknown | undefined;
+      const cb = (
+        _handle: unknown,
+        type: number,
+        addr_lo: number,
+        _addr_hi: number,
+        size: number,
+        value_lo: number,
+        _value_hi: number
+      ) => {
+        if (type !== this.uc.MEM_WRITE) return;
+        const addr = addr_lo >>> 0;
+        if (addr !== this.config.dataAddress) return; // 0x30000
+        const written = (value_lo >>> 0) & (size >= 1 ? 0xff : 0xffffffff);
+        const value = size === 1 ? written : (written & 0xff);
+        memWriteEvent = { address: addr, value, size };
+      };
+
+      try {
+        const begin = this.config.dataAddress >>> 0;
+        const end = (this.config.dataAddress + 1) >>> 0;
+        hookHandle = (this.unicorn as any).hook_add(
+          this.uc.HOOK_MEM_WRITE,
+          cb as unknown as (...args: unknown[]) => unknown,
+          begin,
+          end
+        );
+      } catch {}
+
       // Execute one instruction normally
       const endAddress = this.config.codeAddress + 4096;
       this.unicorn.emu_start(pcBefore, endAddress, 0, 1);
       pcAfter = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+
+      // Remove hook if present
+      try { if (hookHandle) (this.unicorn as any).hook_del(hookHandle); } catch {}
     }
     
     // Get state after execution
@@ -121,7 +155,8 @@ export class ExecutionEngine {
         bytes: instructionBytes,
         hex: instructionHex.toUpperCase() + (isLiteralPool ? ' (LITERAL POOL)' : '')
       },
-      registers: changedRegisters.length > 0 ? changedRegisters : undefined
+      registers: changedRegisters.length > 0 ? changedRegisters : undefined,
+      memWriteEvent
     };
   }
 

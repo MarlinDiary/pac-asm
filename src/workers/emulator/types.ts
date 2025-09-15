@@ -115,6 +115,12 @@ export interface StepResult {
     hex: string;
   };
   registers?: RegisterInfo[];
+  // Optional: memory write event captured during this step (used by debugger)
+  memWriteEvent?: {
+    address: number;
+    value: number;
+    size: number;
+  };
 }
 
 export interface EmulatorResponse {
