@@ -80,7 +80,7 @@ export function extractMachineCode(elfData: Uint8Array): ELFParseResult {
 // GNU Assembler Implementation
 // ============================================================================
 
-export type GASTarget = 'armv7-linux-gnueabihf' | 'mipsel-linux-gnu' | 'mips-linux-gnu';
+export type GASTarget = 'armv7-linux-gnueabihf' | 'mips-linux-gnu';
 
 export interface GASAssemblerOptions {
   target?: GASTarget;
@@ -137,7 +137,10 @@ export class GASAssembler {
 
       // Assemble with debug info (-g)
       // Note: 'as' doesn't support '-c' (that's a gcc/ld option), so we omit it.
-      const args = ['-g', '-o', 'out.o', 'in.s'];
+      // For MIPS, we need to specify --gdwarf-2 to generate DWARF debug info
+      const args = this.target === 'mips-linux-gnu'
+        ? ['-g', '--gdwarf-2', '-o', 'out.o', 'in.s']
+        : ['-g', '-o', 'out.o', 'in.s'];
       if (this.baseAddress && this.baseAddress !== 0) {
         args.push('--defsym', `BASE_ADDR=0x${this.baseAddress.toString(16)}`);
       }
