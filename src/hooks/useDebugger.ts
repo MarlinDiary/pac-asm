@@ -169,7 +169,7 @@ export const useDebugger = () => {
 
       // If code completed on this step, clear highlight immediately
       if (isCodeExecutionComplete(stepResult)) {
-        highlight = undefined
+        highlight = null
       }
 
       history.push({
@@ -248,7 +248,6 @@ export const useDebugger = () => {
       const currentState = executionHistory[currentPlaybackIndex]
       let newMapState = { ...currentState.mapState }
       let currentHighlight: number | undefined = undefined
-      let isCodeComplete = false
       
       // Movement only when current step wrote to 0x30000 with 1..4
       const ev = stepResult.memWriteEvent

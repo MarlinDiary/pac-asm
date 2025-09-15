@@ -120,7 +120,9 @@ export class ExecutionEngine {
       try {
         const begin = this.config.dataAddress >>> 0;
         const end = (this.config.dataAddress + 1) >>> 0;
-        hookHandle = (this.unicorn as any).hook_add(
+        hookHandle = (this.unicorn as unknown as {
+          hook_add: (type: number, cb: (...args: unknown[]) => unknown, begin: number, end: number) => unknown
+        }).hook_add(
           this.uc.HOOK_MEM_WRITE,
           cb as unknown as (...args: unknown[]) => unknown,
           begin,
@@ -134,7 +136,7 @@ export class ExecutionEngine {
       pcAfter = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
 
       // Remove hook if present
-      try { if (hookHandle) (this.unicorn as any).hook_del(hookHandle); } catch {}
+      try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
     }
     
     // Get state after execution
