@@ -51,10 +51,10 @@ export class EmulatorWorker {
       // Initialize managers
       this.memoryManager = new MemoryManager(this.unicorn, uc, this.config);
       this.executionEngine = new ExecutionEngine(
-        this.unicorn, 
-        uc, 
-        this.config, 
-        this.literalPoolDetector, 
+        this.unicorn,
+        uc,
+        this.config,
+        this.literalPoolDetector,
         this.memoryManager
       );
       
@@ -220,6 +220,26 @@ export class EmulatorWorker {
     }
   }
 
+  private runUntilMemWrite(address: number, validValues?: number[], timeoutUs?: number): void {
+    try {
+      if (!this.executionEngine || !this.isInitialized) {
+        throw new Error('Emulator not initialized');
+      }
+
+      const result = this.executionEngine.runUntilMemoryWrite(address, validValues, timeoutUs);
+
+      this.postMessage({
+        type: 'execution-complete',
+        payload: result
+      });
+    } catch (error) {
+      this.postMessage({
+        type: 'error',
+        payload: String(error)
+      });
+    }
+  }
+
   private getMemory(address: number, size: number): void {
     try {
       if (!this.memoryManager || !this.isInitialized) {
@@ -315,8 +335,15 @@ export class EmulatorWorker {
         this.stepDebugExecution();
         break;
       case 'run':
-        if (typeof message.payload === 'object' && message.payload && 'instructionCount' in message.payload) {
-          this.runExecution(message.payload.instructionCount);
+        if (typeof message.payload === 'object' && message.payload) {
+          const p = message.payload as { instructionCount?: number; untilMemWriteAt?: number; validValues?: number[]; timeoutUs?: number };
+          if (p.untilMemWriteAt !== undefined) {
+            this.runUntilMemWrite(p.untilMemWriteAt, p.validValues, p.timeoutUs);
+          } else if (p.instructionCount !== undefined) {
+            this.runExecution(p.instructionCount);
+          } else {
+            this.runExecution();
+          }
         } else {
           this.runExecution();
         }

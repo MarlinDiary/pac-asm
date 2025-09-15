@@ -1,19 +1,15 @@
 import { useState, useRef, useCallback } from 'react'
 import { useEmulator } from './useEmulator'
 import { GameMap, getPlayerPosition } from '@/data/maps'
-import { CodeHighlighter } from '@/lib/highlighter'
 import { RegisterInfo } from '@/workers/emulator/types'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { checkVictoryCondition } from '@/lib/game-logic'
-import { updateMapAfterMovement, updateMapWithMovementAndGhosts, updateGhostsOnly } from '@/lib/game-animation'
+import { updateMapWithMovementAndGhosts, updateGhostsOnly } from '@/lib/game-animation'
 import { 
   initializeEmulatorWithCode, 
-  resetAndReloadCode, 
-  assembleCode,
   getEmulatorMemoryState,
   MEMORY_CONFIG 
 } from '@/lib/emulator-utils'
-import { hasValidMovementCommand } from '@/lib/cycle-management'
 
 interface MovementAction {
   instructionCount: number
@@ -68,7 +64,7 @@ export const usePlayRunner = () => {
         return { success: false, error: null }
       }
       
-      const { codeHighlighter } = await initializeEmulatorWithCode(emulator, sourceCode, initialMap, abortController)
+      await initializeEmulatorWithCode(emulator, sourceCode, initialMap, abortController)
       
       if (abortController.signal.aborted) {
         setIsPlaying(false)
@@ -77,7 +73,7 @@ export const usePlayRunner = () => {
       }
       
       await updateSystemState()
-      await executeWithDelays(initialMap, codeHighlighter, abortController)
+      await executeWithDelays(initialMap, abortController)
       
       setIsInitializing(false)
       return { success: true }
@@ -105,131 +101,109 @@ export const usePlayRunner = () => {
     }
   }
 
-  const executeWithDelays = async (initialMap: GameMap, codeHighlighter: CodeHighlighter, abortController: AbortController) => {
+  const executeWithDelays = async (initialMap: GameMap, abortController: AbortController) => {
     let currentMapState = { ...initialMap }
+    let previousMapState = { ...initialMap }
     let movementCount = 0
     const actions: MovementAction[] = []
-    
-    // Execute game loop - each iteration runs the complete user code to get next action
+
+    // Continuous execution: emulator runs until it writes a command to 0x30000
     while (movementCount < 300) {
       if (abortController.signal.aborted) {
         setIsPlaying(false)
         return
       }
-      
+
       try {
-        // Reset emulator state and load fresh code for each iteration
-        const machineCode = await assembleCode(currentCodeRef.current)
-        await resetAndReloadCode(emulator, machineCode)
-        
-        // Write current map state to memory after reset
-        const { writeCompleteMapToMemory } = await import('@/lib/map-memory')
-        await writeCompleteMapToMemory(emulator, currentMapState)
-        
-        // Run the complete user code with 3-second timeout
-        const startTime = Date.now()
-        const maxExecutionTime = 3000 // 3 seconds in milliseconds
-        
-        let nextAction = 0
-        let executionCompleted = false
-        
-        // Execute the code completely to get the next action
-        while (!executionCompleted && (Date.now() - startTime) < maxExecutionTime) {
-          if (abortController.signal.aborted) {
-            setIsPlaying(false)
-            return
-          }
-          
-          // Run a batch of instructions
-          const runResult = await emulator.run(10000) // Run up to 10000 instructions at once
-          if (!runResult || runResult.executedInstructions === 0) {
-            executionCompleted = true
-            break
-          }
-          
-          // Check if we have an action in data memory
-          const dataMemory = await emulator.getMemory(MEMORY_CONFIG.DATA_BASE, 1)
-          if (dataMemory && hasValidMovementCommand(dataMemory.data)) {
-            nextAction = dataMemory.data[0]
-            executionCompleted = true
-            break
-          }
-        }
-        
-        // Check for timeout
-        if ((Date.now() - startTime) >= maxExecutionTime) {
-          const errorMessage = 'Code execution timeout (3 seconds exceeded)'
+        const result = await emulator.runUntilMemWrite(MEMORY_CONFIG.DATA_BASE, [1,2,3,4], 3_000_000)
+
+        if (!result) {
+          const errorMessage = 'RUNTIME_ERROR: No result from emulator'
           addError(errorMessage, currentCodeRef.current)
           setIsPlaying(false)
           return { success: false, error: errorMessage }
         }
-        
-        // Always move on each cycle - both player and ghosts
+
+        if (result.stopReason === 'timeout') {
+          // Gracefully stop if no further actions are produced by user code
+          break
+        }
+
+        if (result.stopReason === 'end-of-code' || result.stopReason === 'unknown') {
+          // No more code or unknown stop; stop play gracefully
+          break
+        }
+
+        const nextAction = result.memEvent?.value ?? 0
+
+        // Always move on each cycle - both player and ghosts (if action invalid, move ghosts only)
         movementCount++
-        
-        // Get register state before movement for debugging
-        const memoryState = await getEmulatorMemoryState(emulator)
-        
+
         if (nextAction >= 1 && nextAction <= 4) {
-          // Valid player action - move both player and ghosts
           currentMapState = updateMapWithMovementAndGhosts(currentMapState, nextAction)
         } else {
-          // No valid player action - only move ghosts
           currentMapState = updateGhostsOnly(currentMapState)
         }
-        
-        
+
         // Check for game over (collision)
         if (currentMapState.gameOver) {
-          // Game over due to collision - stop execution
           setCurrentMap({ ...currentMapState })
           setHighlightedLine(undefined)
           setIsPlaying(false)
           return { success: false, error: 'Game Over: Collision with ghost!' }
         }
-        
-        // Update UI - no specific line highlighting for complete runs
+
+        // Update UI
         setCurrentMap({ ...currentMapState })
         setHighlightedLine(undefined)
-        
-        actions.push({
-          instructionCount: movementCount,
-          mapState: { ...currentMapState },
-          highlightedLine: undefined
-        })
-        
-        await updateSystemState()
-        
-        // Check victory condition after movement
-        if (checkVictoryCondition(currentMapState)) {
-          // Victory achieved! Stop the game loop
-          break
-        }
-        
-        // If no valid action for too many cycles, end the game
-        if (nextAction < 1 || nextAction > 4) {
-          // Still allow some cycles without player movement for ghosts to move
-          // This could be expanded with a counter if needed
-          break
-        }
-        
-        // Wait 100ms before next iteration
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
+
+      
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Code execution failed'
         addError(errorMessage, currentCodeRef.current)
         setIsPlaying(false)
         return { success: false, error: errorMessage }
       }
+
+      // After updating map state, write differences to memory and update panels, then auto-continue
+      try {
+        // Write diffs using the previous map snapshot
+        const { writeMapUpdatesToMemory } = await import('@/lib/map-memory')
+        await writeMapUpdatesToMemory(emulator, previousMapState, currentMapState)
+
+        await updateSystemState()
+
+        // Record action after writing diffs
+        actions.push({
+          instructionCount: movementCount,
+          mapState: { ...currentMapState },
+          highlightedLine: undefined
+        })
+
+        // Advance previous snapshot
+        previousMapState = { ...currentMapState }
+
+        // Check victory condition after movement
+        if (checkVictoryCondition(currentMapState)) {
+          break
+        }
+
+        // Small delay for UI smoothness
+        await new Promise(resolve => setTimeout(resolve, 100))
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : 'Post-move update failed'
+        addError(errorMessage, currentCodeRef.current)
+        setIsPlaying(false)
+        return { success: false, error: errorMessage }
+      }
     }
-    
+
     // Clean up after execution
     setPreviousRegisters([])
     setCurrentRegisters([])
     currentRegistersRef.current = []
     setCurrentMemory({ codeMemory: [], stackMemory: [], dataMemory: [] })
-    
+
     setMovementActions(actions)
     setHighlightedLine(undefined)
     setIsPlaying(false)

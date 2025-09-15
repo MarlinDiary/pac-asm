@@ -85,7 +85,7 @@ export async function initializeEmulatorWithCode(
   // Ensure emulator is initialized
   await ensureEmulatorInitialized(emulator)
   
-  // Reset emulator and memory
+  // Reset emulator and zero all memory regions before loading code and map
   await resetEmulatorWithMemory(emulator)
   
   // Check for abort before continuing

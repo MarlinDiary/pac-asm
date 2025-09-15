@@ -9,9 +9,8 @@ export interface PlayerMovement {
 }
 
 export const movePlayer = async (
-  currentMap: GameMap, 
-  command: number, 
-  writeMemoryFn: (address: number, data: number[]) => Promise<boolean>
+  currentMap: GameMap,
+  command: number
 ): Promise<PlayerMovement | null> => {
   const playerPos = getPlayerPosition(currentMap)
   if (!playerPos) return null
@@ -60,9 +59,6 @@ export const movePlayer = async (
       direction: newDirection
     }
   }
-  
-  // Reset the command memory to 0
-  await writeMemoryFn(0x30000, [0])
   
   return {
     newRow,

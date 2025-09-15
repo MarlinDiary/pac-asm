@@ -186,4 +186,90 @@ export class ExecutionEngine {
       executedInstructions
     };
   }
+
+  // Continuous run until a specific memory address is written by emulated code.
+  // Uses Unicorn's HOOK_MEM_WRITE and a single emu_start call with timeout.
+  runUntilMemoryWrite(
+    untilAddress: number,
+    validValues: number[] = [1, 2, 3, 4],
+    timeoutUs: number = 3_000_000
+  ): { message: string; executedInstructions: number; stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown'; memEvent?: { address: number; value: number } } {
+    const endAddress = this.config.codeAddress + 4096;
+    const pc = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+
+    let memEvent: { address: number; value: number } | undefined;
+
+    const cb = (
+      _handle: unknown,
+      type: number,
+      addr_lo: number,
+      _addr_hi: number,
+      size: number,
+      value_lo: number,
+      _value_hi: number
+    ) => {
+      // Only care about write events (use MEM_WRITE, not HOOK flag)
+      if (type !== this.uc.MEM_WRITE) return;
+      const addr = addr_lo >>> 0;
+      if (addr !== untilAddress) return;
+      // Extract the written value (for 1-byte writes use LSB)
+      const written = (value_lo >>> 0) & (size >= 1 ? 0xff : 0xffffffff);
+      const value = size === 1 ? written : (written & 0xff);
+      if (!validValues.includes(value)) return;
+      memEvent = { address: addr, value };
+      // Advance PC to next instruction to avoid re-executing the same STR on resume (ARM state = 4 bytes)
+      try {
+        const pcNow = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+        this.unicorn.reg_write_i32(this.uc.ARM_REG_PC, (pcNow + 4) >>> 0);
+      } catch {}
+      // Stop emulation immediately
+      try { this.unicorn.emu_stop(); } catch {}
+    };
+
+    // Register hook only for the data command byte address range
+    let hookHandle: unknown | undefined;
+    try {
+      // Only register for the single command byte address: [0x30000, 0x30001)
+      const begin = untilAddress >>> 0;
+      const end = (untilAddress + 1) >>> 0;
+      hookHandle = (this.unicorn as any).hook_add(
+        this.uc.HOOK_MEM_WRITE,
+        cb as unknown as (...args: unknown[]) => unknown,
+        begin,
+        end
+      );
+    } catch (e) {
+      // If hook registration fails, fallback to immediate stop to avoid deadlock
+      return {
+        message: `Failed to register memory hook: ${String(e)}`,
+        executedInstructions: 0,
+        stopReason: 'unknown'
+      };
+    }
+
+    // Run continuously with timeout (microseconds). count=0 means unlimited instructions.
+    try {
+      const count = 0x7fffffff; // large instruction budget to allow continuous run; hook will stop it
+      this.unicorn.emu_start(pc, endAddress, 0, count);
+    } catch (_) {
+      // Some bindings may throw on timeout; we'll classify below using PC.
+    } finally {
+      try { if (hookHandle) (this.unicorn as any).hook_del(hookHandle); } catch {}
+    }
+
+    const pcAfter = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
+    let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' = 'unknown';
+    if (memEvent) {
+      stopReason = 'mem-write';
+    } else if (pcAfter >= endAddress) {
+      stopReason = 'end-of-code';
+    }
+
+    return {
+      message: `Run stopped: ${stopReason}${memEvent ? ` @0x${memEvent.address.toString(16)}=${memEvent.value}` : ''}`,
+      executedInstructions: 0,
+      stopReason,
+      memEvent
+    };
+  }
 }

@@ -52,7 +52,7 @@ export const useEmulator = () => {
     
     workerRef.current.onmessage = (event: MessageEvent<EmulatorResponse>) => {
       const response = event.data;
-      
+
       if (response.messageId && pendingMessages.current.has(response.messageId)) {
         const resolver = pendingMessages.current.get(response.messageId);
         pendingMessages.current.delete(response.messageId);
@@ -131,6 +131,45 @@ export const useEmulator = () => {
       return null;
     }
   }, [sendMessage]);
+
+  const runUntilMemWrite = useCallback(
+    async (
+      address: number,
+      validValues: number[] = [1, 2, 3, 4],
+      timeoutUs: number = 3_000_000
+    ): Promise<
+      | {
+          message: string;
+          executedInstructions?: number;
+          stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown';
+          memEvent?: { address: number; value: number };
+        }
+      | null
+    > => {
+      try {
+        const response = await sendMessage({
+          type: 'run',
+          payload: { untilMemWriteAt: address, validValues, timeoutUs }
+        });
+        if (response.type === 'execution-complete' && response.payload) {
+          return response.payload as {
+            message: string;
+            executedInstructions?: number;
+            stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown';
+            memEvent?: { address: number; value: number };
+          };
+        }
+        return null;
+      } catch (error) {
+        setState(prev => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'RUNTIME_ERROR: Run Failed'
+        }));
+        return null;
+      }
+    },
+    [sendMessage]
+  );
 
   const reset = useCallback(async () => {
     try {
@@ -245,6 +284,7 @@ export const useEmulator = () => {
     loadCode,
     step,
     run,
+    runUntilMemWrite,
     reset,
     cleanup,
     getMemory,
