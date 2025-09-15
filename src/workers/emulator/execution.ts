@@ -232,7 +232,9 @@ export class ExecutionEngine {
       // Only register for the single command byte address: [0x30000, 0x30001)
       const begin = untilAddress >>> 0;
       const end = (untilAddress + 1) >>> 0;
-      hookHandle = (this.unicorn as any).hook_add(
+      hookHandle = (this.unicorn as unknown as {
+        hook_add: (type: number, cb: (...args: unknown[]) => unknown, begin: number, end: number) => unknown
+      }).hook_add(
         this.uc.HOOK_MEM_WRITE,
         cb as unknown as (...args: unknown[]) => unknown,
         begin,
@@ -251,10 +253,10 @@ export class ExecutionEngine {
     try {
       const count = 0x7fffffff; // large instruction budget to allow continuous run; hook will stop it
       this.unicorn.emu_start(pc, endAddress, 0, count);
-    } catch (_) {
+    } catch (_e) {
       // Some bindings may throw on timeout; we'll classify below using PC.
     } finally {
-      try { if (hookHandle) (this.unicorn as any).hook_del(hookHandle); } catch {}
+      try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
     }
 
     const pcAfter = this.unicorn.reg_read_i32(this.uc.ARM_REG_PC);
