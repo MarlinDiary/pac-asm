@@ -58,7 +58,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     if (errors.length > 0) {
       gameState.setRightPanelTab(2) // Switch to Diagnostics tab (index 2)
     }
-  }, [errors.length, gameState])
+  }, [errors.length, gameState.setRightPanelTab])
 
   return (
     <KeyboardControl
