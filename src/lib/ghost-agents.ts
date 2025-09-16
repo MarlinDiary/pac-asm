@@ -136,6 +136,8 @@ export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPositi
 
 // Store ghost history for Level 4
 const level4GhostHistory: Position[] = [];
+// Persist initial column for Level 4 ghost (set on first use, reset on level reset)
+let level4InitialCol: number | null = null;
 
 /**
  * Algorithm 3: Level 4 specific - 3-column limited movement with 40% pursuit
@@ -144,91 +146,29 @@ const level4GhostHistory: Position[] = [];
  * - 60% chance for random movement
  * - Avoids repeating positions within last 10 moves
  */
-export function level4GhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position): Position {
-  const validMoves = getValidMoves(map, ghostPosition);
-  
-  if (validMoves.length === 0) {
-    return ghostPosition;
+export function level4GhostMove(map: GameMap, ghostPosition: Position, _pacmanPosition: Position): Position {
+  // Level 4 rule: ghost moves only along its initial column (random up/down), never left/right.
+  // Record initial column at first call
+  if (level4InitialCol === null) {
+    level4InitialCol = ghostPosition.col;
   }
-  
-  // Get initial column (column where ghost started)
-  const initialCol = 6; // Ghost starts at col 6 in Level 4
-  
-  // Filter moves to stay within 3 columns (5-7)
-  const columnLimitedMoves = validMoves.filter(move => {
-    return move.col >= initialCol - 1 && move.col <= initialCol + 1;
-  });
-  
-  // If no valid moves within column limit, stay in place
-  if (columnLimitedMoves.length === 0) {
-    return ghostPosition;
-  }
-  
-  // 40% chance to pursue, 60% random
-  if (Math.random() < 0.4) {
-    // Pursuit mode - choose move that gets closer to Pacman
-    const moveScores = columnLimitedMoves.map(move => {
-      const currentDistance = Math.abs(ghostPosition.row - pacmanPosition.row) + 
-                             Math.abs(ghostPosition.col - pacmanPosition.col);
-      const newDistance = Math.abs(move.row - pacmanPosition.row) + 
-                         Math.abs(move.col - pacmanPosition.col);
-      
-      // Prefer moves that reduce distance
-      let score = 0;
-      if (newDistance < currentDistance) {
-        score = 100;
-      } else if (newDistance === currentDistance) {
-        score = 50;
-      } else {
-        score = 10;
-      }
-      
-      // Penalty for recent positions (last 10 moves)
-      const recentHistory = level4GhostHistory.slice(-10);
-      if (recentHistory.some(pos => pos.row === move.row && pos.col === move.col)) {
-        score -= 30;
-      }
-      
-      return { move, score };
-    });
-    
-    // Sort by score and pick the best
-    moveScores.sort((a, b) => b.score - a.score);
-    const selectedMove = moveScores[0].move;
-    
-    // Update history
-    level4GhostHistory.push(selectedMove);
-    
-    // Keep history size manageable
-    if (level4GhostHistory.length > 20) {
-      level4GhostHistory.shift();
-    }
-    
-    return selectedMove;
-  } else {
-    // Random mode (60% of the time)
-    // Filter out positions visited in last 10 moves
-    const availableMoves = columnLimitedMoves.filter(move => {
-      const recentHistory = level4GhostHistory.slice(-10);
-      return !recentHistory.some(pos => pos.row === move.row && pos.col === move.col);
-    });
-    
-    // If all moves are in recent history, use column limited moves anyway
-    const finalMoves = availableMoves.length > 0 ? availableMoves : columnLimitedMoves;
-    
-    // Random selection
-    const selectedMove = finalMoves[Math.floor(Math.random() * finalMoves.length)];
-    
-    // Update history
-    level4GhostHistory.push(selectedMove);
-    
-    // Keep history size manageable
-    if (level4GhostHistory.length > 20) {
-      level4GhostHistory.shift();
-    }
-    
-    return selectedMove;
-  }
+
+  const col = level4InitialCol;
+  const candidates: Position[] = [];
+  const up = { row: ghostPosition.row - 1, col };
+  const down = { row: ghostPosition.row + 1, col };
+
+  if (isValidPosition(map, up.row, up.col)) candidates.push(up);
+  if (isValidPosition(map, down.row, down.col)) candidates.push(down);
+
+  if (candidates.length === 0) return ghostPosition;
+
+  const next = candidates[Math.floor(Math.random() * candidates.length)];
+
+  level4GhostHistory.push(next);
+  if (level4GhostHistory.length > 20) level4GhostHistory.shift();
+
+  return next;
 }
 
 /**
@@ -236,4 +176,5 @@ export function level4GhostMove(map: GameMap, ghostPosition: Position, pacmanPos
  */
 export function resetLevel4GhostHistory(): void {
   level4GhostHistory.length = 0;
+  level4InitialCol = null;
 }

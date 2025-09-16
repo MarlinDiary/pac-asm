@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { GameMap, getPlayerPosition, randomizeLevel4Dot } from '@/data/maps'
+import { GameMap, getPlayerPosition } from '@/data/maps'
 import { useDebugger } from './useDebugger'
 import { usePlayRunner } from './usePlayRunner'
 import { useGameState } from './useGameState'
@@ -31,9 +31,9 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
   } = gameState
 
   const handlePlayClick = useCallback(async () => {
-    // Randomize Level 4 dot position for each run
-    const randomizedMap = randomizeLevel4Dot(levelMap)
-    
+    // Use level map as-is (disable Level 4 dot randomization)
+    const randomizedMap = levelMap
+
     // Reset map to initial state before starting play with teleport animation
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
     await teleportPlayer(randomizedMap, currentPlayerPos)
@@ -61,9 +61,9 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
   }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setCurrentPlayWon, setIsCodeDisabled, setIsPlayMode, setPlayStatus, playState])
 
   const handleDebugClick = useCallback(async () => {
-    // Randomize Level 4 dot position for each debug session
-    const randomizedMap = randomizeLevel4Dot(levelMap)
-    
+    // Use level map as-is (disable Level 4 dot randomization)
+    const randomizedMap = levelMap
+
     // Reset map to initial state before starting debug with teleport animation
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
     await teleportPlayer(randomizedMap, currentPlayerPos)
