@@ -384,14 +384,20 @@ export class ExecutionEngine {
       };
     }
 
-    // Run continuously with timeout (microseconds). count=0 means unlimited instructions.
+    // Run continuously with timeout using instruction count limit
     let didTimeout = false;
+    const startTime = Date.now();
+    const maxInstructions = Math.floor(timeoutUs / 1000) * 1000000; // Approximate instructions in timeout period
+
     try {
-      const count = 0x7fffffff; // large instruction budget to allow continuous run; hook will stop it
-      this.unicorn.emu_start(pc, endAddress, timeoutUs, count);
+      this.unicorn.emu_start(pc, endAddress, 0, maxInstructions);
+      // Check if we hit instruction limit (timeout)
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= timeoutUs / 1000 && !memEvent) {
+        didTimeout = true;
+      }
     } catch (_e) {
-      // Unicorn throws on timeout - mark it
-      didTimeout = true;
+      // Emulation stopped for some reason
     } finally {
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
     }

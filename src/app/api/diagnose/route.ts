@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const { error, code } = await req.json()
 
-    const prompt = `You are a helpful and professional assembly programming assistant. Be respectful, patient, and constructive in your responses.
+xm z    const prompt = `You are a helpful and professional assembly programming assistant. Be respectful, patient, and constructive in your responses.
 They got this error: ${error}
 Their code: ${code}
 
