@@ -231,7 +231,12 @@ export const useDebugger = () => {
     // Check if debugger is properly initialized for NEW step execution
     if (!highlighter || executionHistory.length === 0 || currentPlaybackIndex < 0) {
       console.error('[DEBUGGER] Debugger not properly initialized for step operation')
-      addError('Debugger not ready for step operation', currentCodeRef.current)
+      const reasons: string[] = []
+      if (!highlighter) reasons.push('highlighter not initialized')
+      if (executionHistory.length === 0) reasons.push('no execution history')
+      if (currentPlaybackIndex < 0) reasons.push('invalid playback index')
+      const errorMessage = `DEBUG_ERROR: Debugger not ready for step (${reasons.join(', ') || 'unknown reason'})`
+      addError(errorMessage, currentCodeRef.current)
       return null
     }
     
@@ -240,7 +245,7 @@ export const useDebugger = () => {
       const stepResult = await emulator.step()
       if (!stepResult || !stepResult.success) {
         setHasError(true)
-        const errorMessage = stepResult?.message || 'Step execution failed'
+        const errorMessage = stepResult?.message || 'RUNTIME_ERROR: No step result from emulator (step-debug)'
         addError(errorMessage, currentCodeRef.current)
         return null
       }

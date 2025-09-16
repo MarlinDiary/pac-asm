@@ -119,7 +119,9 @@ export const useEmulator = () => {
     } catch (error) {
       setState(prev => ({ 
         ...prev, 
-        error: error instanceof Error ? error.message : 'RUNTIME_ERROR: Step Failed' 
+        error: error instanceof Error 
+          ? error.message 
+          : 'RUNTIME_ERROR: step-debug request failed (no error message)'
       }));
       return null;
     }
@@ -143,7 +145,9 @@ export const useEmulator = () => {
     } catch (error) {
       setState(prev => ({ 
         ...prev, 
-        error: error instanceof Error ? error.message : 'RUNTIME_ERROR: Run Failed' 
+        error: error instanceof Error 
+          ? error.message 
+          : 'RUNTIME_ERROR: run request failed (no error message)'
       }));
       return null;
     }
@@ -180,7 +184,9 @@ export const useEmulator = () => {
       } catch (error) {
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'RUNTIME_ERROR: Run Failed'
+          error: error instanceof Error 
+            ? error.message 
+            : `RUNTIME_ERROR: runUntilMemWrite failed (addr=0x${address.toString(16)}, timeoutUs=${timeoutUs})`
         }));
         return null;
       }
