@@ -385,11 +385,13 @@ export class ExecutionEngine {
     }
 
     // Run continuously with timeout (microseconds). count=0 means unlimited instructions.
+    let didTimeout = false;
     try {
       const count = 0x7fffffff; // large instruction budget to allow continuous run; hook will stop it
-      this.unicorn.emu_start(pc, endAddress, 0, count);
+      this.unicorn.emu_start(pc, endAddress, timeoutUs, count);
     } catch (_e) {
-      // Some bindings may throw on timeout; we'll classify below using PC.
+      // Unicorn throws on timeout - mark it
+      didTimeout = true;
     } finally {
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
     }
@@ -398,6 +400,8 @@ export class ExecutionEngine {
     let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' = 'unknown';
     if (memEvent) {
       stopReason = 'mem-write';
+    } else if (didTimeout) {
+      stopReason = 'timeout';
     } else if (pcAfter >= endAddress) {
       stopReason = 'end-of-code';
     }

@@ -129,8 +129,11 @@ export const usePlayRunner = () => {
         }
 
         if (result.stopReason === 'timeout') {
-          // Gracefully stop if no further actions are produced by user code
-          break
+          // Report timeout error to diagnostics
+          const errorMessage = `TIMEOUT_ERROR: No movement command written within ${timeoutUs/1000}ms. addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}`
+          addError(errorMessage, currentCodeRef.current)
+          setIsPlaying(false)
+          return { success: false, error: errorMessage }
         }
 
         if (result.stopReason === 'end-of-code' || result.stopReason === 'unknown') {
