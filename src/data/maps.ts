@@ -295,7 +295,8 @@ NOP`
     playerPosition: { row: 1, col: 1, direction: 'right' },
     ghostPositions: [{ row: 6, col: 6 }],
     waterBackground: { tilesX: 71, tilesY: 71 },
-    initialCode: `main:
+    initialCode: {
+      ARM: `main:
 LDR R8, =0x30010
 MOV R12, #0
 scan:
@@ -370,6 +371,143 @@ MOVNE R4, R11
 LDR R1, =0x30000
 STR R4, [R1]
 B main`,
+      MIPS: `main:
+LUI $t8, 0x0003
+ORI $t8, $t8, 0x0010
+LI $s4, 0
+scan:
+LI $t1, 0
+loop:
+LBU $t2, 0($t8)
+ADDIU $t8, $t8, 1
+LI $t5, 3
+BNE $t2, $t5, skip1
+NOP
+MOVE $s0, $s4
+MOVE $s1, $t1
+skip1:
+LI $t5, 2
+BNE $t2, $t5, skip2
+NOP
+MOVE $s2, $s4
+MOVE $s3, $t1
+skip2:
+LI $t5, 4
+BNE $t2, $t5, skip3
+NOP
+MOVE $s6, $s4
+MOVE $s7, $t1
+skip3:
+ADDIU $t1, $t1, 1
+SLTI $t5, $t1, 13
+BNE $t5, $zero, loop
+NOP
+ADDIU $s4, $s4, 1
+SLTI $t5, $s4, 13
+BNE $t5, $zero, scan
+NOP
+BEQ $s2, $s0, same_row
+NOP
+SLT $t5, $s0, $s2
+BNE $t5, $zero, dir_down
+NOP
+LI $t4, 1
+B start
+NOP
+dir_down:
+LI $t4, 2
+B start
+NOP
+same_row:
+BEQ $s3, $s1, dir_right
+NOP
+SLT $t5, $s1, $s3
+BNE $t5, $zero, dir_right
+NOP
+LI $t4, 3
+B start
+NOP
+dir_right:
+LI $t4, 4
+start:
+LI $t3, 4
+LI $s5, 0
+test:
+MOVE $t5, $s0
+MOVE $t9, $s1
+LI $t2, 1
+BNE $t4, $t2, try2
+NOP
+ADDIU $t5, $t5, -1
+try2:
+LI $t2, 2
+BNE $t4, $t2, try3
+NOP
+ADDIU $t5, $t5, 1
+try3:
+LI $t2, 3
+BNE $t4, $t2, try4
+NOP
+ADDIU $t9, $t9, -1
+try4:
+LI $t2, 4
+BNE $t4, $t2, calc
+NOP
+ADDIU $t9, $t9, 1
+calc:
+SLL $t8, $t5, 3
+SLL $t2, $t5, 2
+ADDU $t8, $t8, $t2
+ADDU $t8, $t8, $t5
+ADDU $t8, $t8, $t9
+LUI $t1, 0x0003
+ORI $t1, $t1, 0x0010
+ADDU $t1, $t1, $t8
+LBU $t2, 0($t1)
+BEQ $t2, $zero, next
+NOP
+SUBU $t2, $t5, $s6
+BGEZ $t2, pos_r
+NOP
+SUBU $t2, $zero, $t2
+pos_r:
+SLTI $t1, $t2, 2
+BEQ $t1, $zero, safe
+NOP
+SUBU $t2, $t9, $s7
+BGEZ $t2, pos_c
+NOP
+SUBU $t2, $zero, $t2
+pos_c:
+SLTI $t1, $t2, 2
+BNE $t1, $zero, next
+NOP
+safe:
+MOVE $s5, $t4
+B done
+NOP
+next:
+ADDIU $t3, $t3, -1
+BEQ $t3, $zero, done
+NOP
+ADDIU $t4, $t4, 1
+SLTI $t2, $t4, 5
+BNE $t2, $zero, test
+NOP
+LI $t4, 1
+B test
+NOP
+done:
+BEQ $s5, $zero, write
+NOP
+MOVE $t4, $s5
+write:
+LUI $t1, 0x0003
+ORI $t1, $t1, 0x0000
+SW $t4, 0($t1)
+B main
+NOP`
+    },
   },
   {
     id: 'challenge',
