@@ -126,12 +126,11 @@ export const createHighlighter = (options?: { baseAddress?: number; target?: GAS
 
 // Utility function to get highlight info from step result
 export const getHighlightFromStepResult = (
-  stepResult: { instruction?: { address: number } },
+  stepResult: { pc?: number; instruction?: { address: number } },
   highlighter: CodeHighlighter
 ): HighlightInfo | null => {
-  if (!stepResult.instruction || !stepResult.instruction.address) {
-    return null;
-  }
-  
-  return highlighter.getHighlightLine(stepResult.instruction.address);
+  // Highlight the instruction that was just executed (pcBefore)
+  const addr = stepResult.instruction?.address;
+  if (typeof addr !== 'number') return null;
+  return highlighter.getHighlightLine(addr);
 };

@@ -53,7 +53,6 @@ export const useEmulator = () => {
     
     workerRef.current.onmessage = (event: MessageEvent<EmulatorResponse>) => {
       const response = event.data;
-
       if (response.messageId && pendingMessages.current.has(response.messageId)) {
         const resolver = pendingMessages.current.get(response.messageId);
         pendingMessages.current.delete(response.messageId);

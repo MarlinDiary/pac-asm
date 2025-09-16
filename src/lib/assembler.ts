@@ -108,6 +108,8 @@ export class GASAssembler {
   private isInitialized = false;
   private gasInstance: unknown = null;
   private lastObjectFile: Uint8Array | null = null;
+  // If we preprocess input (e.g., add .set noreorder for MIPS), record line offset
+  private preprocessedLineOffset: number = 0;
 
   constructor(options: GASAssemblerOptions = {}) {
     this.target = options.target || 'armv7-linux-gnueabihf';
@@ -134,6 +136,20 @@ export class GASAssembler {
     try {
       let objectFile: Uint8Array | null = null;
       let errorOutput = '';
+      // Preprocess assembly for target quirks without breaking source mapping
+      // For MIPS: prevent GAS from reordering and moving instructions (e.g., filling branch delay slots)
+      // which causes confusing step/highlight behavior. We add 
+      //   .set noreorder
+      // as a 1-line prologue if not already present, and remember the line offset
+      let processed = assembly;
+      this.preprocessedLineOffset = 0;
+      if (this.target === 'mips-linux-gnu') {
+        const hasNoReorder = /(^|\n)\s*\.set\s+no\s*reorder\b/i.test(assembly);
+        if (!hasNoReorder) {
+          processed = `.set noreorder\n${assembly}`;
+          this.preprocessedLineOffset = 1;
+        }
+      }
 
       // Assemble with debug info (-g)
       // Note: 'as' doesn't support '-c' (that's a gcc/ld option), so we omit it.
@@ -148,7 +164,7 @@ export class GASAssembler {
       await (this.gasInstance as CallableFunction)({
         arguments: args,
         preRun: [(module: unknown) => {
-          (module as { FS: { writeFile: (name: string, content: string) => void } }).FS.writeFile('in.s', assembly);
+          (module as { FS: { writeFile: (name: string, content: string) => void } }).FS.writeFile('in.s', processed);
         }],
         postRun: [(module: unknown) => {
           try {
@@ -246,16 +262,28 @@ export class GASAssembler {
 
       // Map to actual addresses with base address
       const sourceLineCount = assembly.split('\n').length;
-      const lineTable = rows
-        .filter(r => r.line > 0 && r.line <= sourceLineCount)
-        .map(r => ({
-          address: this.baseAddress + r.off,
-          lineNumber: r.line,
-          fileName: r.file,
-          isStmt: r.isStmt,
-          discr: r.discr,
-        }))
-        .sort((a, b) => a.address - b.address);
+      let lineTable = rows.map(r => ({
+        address: this.baseAddress + r.off,
+        lineNumber: r.line,
+        fileName: r.file,
+        isStmt: r.isStmt,
+        discr: r.discr,
+      }));
+
+      // Adjust for any preprocessed prologue we inserted (e.g., .set noreorder)
+      if (this.preprocessedLineOffset > 0) {
+        lineTable = lineTable
+          .map(entry => ({
+            ...entry,
+            lineNumber: Math.max(1, entry.lineNumber - this.preprocessedLineOffset),
+          }))
+          .filter(entry => entry.lineNumber >= 1 && entry.lineNumber <= sourceLineCount);
+      } else {
+        lineTable = lineTable
+          .filter(entry => entry.lineNumber > 0 && entry.lineNumber <= sourceLineCount);
+      }
+
+      lineTable.sort((a, b) => a.address - b.address);
 
       return lineTable;
 

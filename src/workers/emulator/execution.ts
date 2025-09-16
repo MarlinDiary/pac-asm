@@ -29,6 +29,16 @@ export class ExecutionEngine {
     this.arch = arch;
   }
 
+  private decodeInstr32(bytes: number[]): number {
+    if (bytes.length !== 4) return 0;
+    if (this.arch === 'MIPS') {
+      // MIPS32 big-endian in our configuration
+      return (((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0);
+    }
+    // ARM little-endian (ARM state, 32-bit)
+    return (((bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0]) >>> 0);
+  }
+
   // Note: we use a fixed 4KB code window starting at codeAddress
 
   stepExecution(): void {
@@ -53,8 +63,10 @@ export class ExecutionEngine {
     try {
       instructionBytes = Array.from(this.unicorn.mem_read(pcBefore, 4));
       instructionHex = instructionBytes.map(b => b.toString(16).padStart(2, '0')).join(' ');
-      isLiteralPool = this.literalPoolDetector.isLikelyLiteralPool(instructionBytes);
-    } catch {
+      // Only apply literal-pool detection for ARM. MIPS has no literal pool in our usage
+      // and ARM-specific heuristics can misclassify valid MIPS instructions.
+      isLiteralPool = this.arch === 'ARM' ? this.literalPoolDetector.isLikelyLiteralPool(instructionBytes) : false;
+    } catch (e) {
       instructionHex = 'INVALID';
     }
     
@@ -128,18 +140,80 @@ export class ExecutionEngine {
         const begin = this.config.dataAddress >>> 0;
         const end = (this.config.dataAddress + 1) >>> 0;
         hookHandle = (this.unicorn as unknown as {
-          hook_add: (type: number, cb: (...args: unknown[]) => unknown, begin: number, end: number) => unknown
+          hook_add: (
+            type: number,
+            cb: (...args: unknown[]) => unknown,
+            user_data: unknown,
+            begin: number,
+            end: number
+          ) => unknown
         }).hook_add(
           this.uc.HOOK_MEM_WRITE,
           cb as unknown as (...args: unknown[]) => unknown,
+          undefined,
           begin,
           end
         );
-      } catch {}
+      } catch (e) {}
 
-      // Execute one instruction normally
+      // Execute instruction(s) via native HOOK_CODE counting (more "native" step)
       const endAddress = this.config.codeAddress + 4096;
-      this.unicorn.emu_start(pcBefore, endAddress, 0, 1);
+      let desiredCount = 1;
+      if (this.arch === 'MIPS') {
+        try {
+          const ins = this.decodeInstr32(instructionBytes);
+          const op = (ins >>> 26) & 0x3f;
+          const isRegImm = op === 0x01; // BLTZ/BGEZ and variants
+          const isJ = op === 0x02 || op === 0x03; // J, JAL
+          const isBranch = op === 0x04 || op === 0x05 || op === 0x06 || op === 0x07 ||
+                           op === 0x14 || op === 0x15 || op === 0x16 || op === 0x17 || isRegImm; // BEQ/BNE/BLEZ/BGTZ and likely variants
+          const isRType = op === 0x00;
+          const funct = ins & 0x3f;
+          const isJR = isRType && (funct === 0x08 || funct === 0x09); // JR/JALR
+          if (isJ || isBranch || isJR) {
+            desiredCount = 2; // include delay slot
+          }
+        } catch (e) {}
+      }
+
+      let executed = 0;
+      const targetHookCount = (desiredCount >>> 0) + 1; // HOOK_CODE fires before exec; stop on (executed >= desired+1)
+      let codeHook: unknown | undefined;
+      try {
+        // Listen for all code addresses to avoid missing callbacks due to range mismatch
+        const begin = 1 >>> 0;
+        const end = 0 >>> 0; // special meaning in wrapper: full-range
+        codeHook = (this.unicorn as unknown as {
+          hook_add: (
+            type: number,
+            cb: (...args: unknown[]) => unknown,
+            user_data: unknown,
+            begin: number,
+            end: number
+          ) => unknown
+        }).hook_add(
+          this.uc.HOOK_CODE,
+          ((...args: unknown[]) => {
+            executed++;
+            if (executed >= targetHookCount) {
+              try { this.unicorn.emu_stop(); } catch {}
+            }
+          }) as unknown as (...args: unknown[]) => unknown,
+          undefined,
+          begin,
+          end
+        );
+      } catch (e) {}
+
+      try {
+        // Large budget; hook will stop us after desired instructions
+        const maxCount = 0x7fffffff;
+        this.unicorn.emu_start(pcBefore, endAddress, 0, maxCount);
+      } catch (e) {}
+      finally {
+        try { if (codeHook) (this.unicorn as unknown as { hook_del: (h: unknown) => void }).hook_del(codeHook); } catch {}
+      }
+
       pcAfter = this.unicorn.reg_read_i32(pcReg);
 
       // Remove hook if present
@@ -280,10 +354,17 @@ export class ExecutionEngine {
       const begin = untilAddress >>> 0;
       const end = (untilAddress + 1) >>> 0;
       hookHandle = (this.unicorn as unknown as {
-        hook_add: (type: number, cb: (...args: unknown[]) => unknown, begin: number, end: number) => unknown
+        hook_add: (
+          type: number,
+          cb: (...args: unknown[]) => unknown,
+          user_data: unknown,
+          begin: number,
+          end: number
+        ) => unknown
       }).hook_add(
         this.uc.HOOK_MEM_WRITE,
         cb as unknown as (...args: unknown[]) => unknown,
+        undefined,
         begin,
         end
       );

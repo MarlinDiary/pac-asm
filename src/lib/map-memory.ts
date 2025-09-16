@@ -1,12 +1,13 @@
 // Map information memory layout and writing utilities
 
 import { GameMap, TileSymbol } from '@/data/maps'
+import { getGlobalSettings } from '@/hooks/useSettings'
 
 /**
  * Simplified memory layout for map data:
  * 
- * 0x30004: Map width (4 bytes, little endian)
- * 0x30008: Map height (4 bytes, little endian) 
+ * 0x30004: Map width (4 bytes, endian depends on architecture)
+ * 0x30008: Map height (4 bytes, endian depends on architecture)
  * 0x30010: Map tiles start (width * height bytes)
  *   Each tile: 1 byte representing the current tile type with entities
  */
@@ -77,14 +78,26 @@ function createRuntimeMap(map: GameMap): number[] {
 }
 
 /**
- * Convert 32-bit integer to little endian byte array
+ * Convert 32-bit integer to byte array using selected endianness.
+ * ARM uses little-endian. MIPS (our target) uses big-endian.
  */
-function toLittleEndian32(value: number): number[] {
+function toEndian32(value: number): number[] {
+  const arch = getGlobalSettings().settings.architecture
+  if (arch === 'MIPS') {
+    // Big-endian: most-significant byte first
+    return [
+      (value >> 24) & 0xFF,
+      (value >> 16) & 0xFF,
+      (value >> 8) & 0xFF,
+      value & 0xFF,
+    ]
+  }
+  // Little-endian: least-significant byte first (ARM)
   return [
     value & 0xFF,
     (value >> 8) & 0xFF,
     (value >> 16) & 0xFF,
-    (value >> 24) & 0xFF
+    (value >> 24) & 0xFF,
   ]
 }
 
@@ -99,12 +112,12 @@ export function generateMapMemoryData(map: GameMap): { address: number; data: nu
     // Write width at 0x30004
     {
       address: MAP_MEMORY_LAYOUT.WIDTH_ADDRESS,
-      data: toLittleEndian32(width)
+      data: toEndian32(width)
     },
     // Write height at 0x30008 
     {
       address: MAP_MEMORY_LAYOUT.HEIGHT_ADDRESS,
-      data: toLittleEndian32(height)
+      data: toEndian32(height)
     },
     // Write map tiles at 0x30010
     {
