@@ -53,8 +53,8 @@ export const usePlayRunner = () => {
     setHighlightedLine(undefined)
     setIsPlaying(true)
     
-    // Wait for teleport animation to complete
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Wait briefly before starting play
+    await new Promise(resolve => setTimeout(resolve, 125))
     
     setCurrentMap(initialMap)
     
@@ -188,8 +188,8 @@ export const usePlayRunner = () => {
           break
         }
 
-        // Small delay for UI smoothness
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Small delay between steps
+        await new Promise(resolve => setTimeout(resolve, 125))
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'Post-move update failed'
         addError(errorMessage, currentCodeRef.current)
