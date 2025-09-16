@@ -494,7 +494,7 @@ export default function CodeEditor({
           // fallback identifiers
           [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'],
           // then append common patterns
-          ...commonRoot as unknown as any
+          ...commonRoot
         ],
         string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
         string_single: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
@@ -515,7 +515,7 @@ export default function CodeEditor({
           // fallback identifiers
           [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'],
           // then append common patterns
-          ...commonRoot as unknown as any
+          ...commonRoot
         ],
         string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
         string_single: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
@@ -523,7 +523,7 @@ export default function CodeEditor({
     }
 
     const provider = settings.architecture === 'MIPS' ? mipsProvider : armProvider
-    monaco.languages.setMonarchTokensProvider('assembly', provider as any)
+    monaco.languages.setMonarchTokensProvider('assembly', provider as import('monaco-editor').languages.IMonarchLanguage)
   }, [settings.architecture, mounted])
 
   // Effect to handle line highlighting
