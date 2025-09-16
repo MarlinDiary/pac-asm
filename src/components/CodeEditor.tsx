@@ -3,6 +3,7 @@
 import { Editor } from '@monaco-editor/react'
 import { useRef, useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
+import { useSettings } from '@/hooks/useSettings'
 
 interface CodeEditorProps {
   value?: string
@@ -29,6 +30,56 @@ export default function CodeEditor({
   const { theme, systemTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
+  const { settings } = useSettings()
+
+  // Ensure languages and token providers are registered before editor mounts
+  function handleEditorWillMount(monaco: typeof import('monaco-editor')) {
+    // ARM language
+    if (!monaco.languages.getLanguages().some((l) => l.id === 'assembly-arm')) {
+      monaco.languages.register({ id: 'assembly-arm' })
+      monaco.languages.setMonarchTokensProvider('assembly-arm', {
+        ignoreCase: true,
+        tokenizer: {
+          root: [
+            [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],[/\b0b[01]+\b/, 'number.binary'],[/#-?[0-9]+\b/, 'number'],[/\b[0-9]+\b/, 'number'],
+            [/;.*$/, 'comment'],[/#.*$/, 'comment'],[/\/\/.*$/, 'comment'],[/@.*$/, 'comment'],
+            [/\b([rR][0-9]|[rR]1[0-5]|[sS][pP]|[lL][rR]|[pP][cC]|[cC][pP][sS][rR])\b/, 'variable.predefined'],
+            [/^\s*\.(globl|global|text|data|bss|section|type|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|set|macro|endm|equ|include|file|size|loc)\b/i, 'keyword'],
+            [/\b(MOV|MOVS?|MVN|MVNS?|LDR|LDRB?|LDRH?|LDRSB?|LDRSH?|STR|STRB?|STRH?|LDM|LDMIA|LDMIB|LDMDA|LDMDB|STM|STMIA|STMIB|STMDA|STMDB|PUSH|POP|ADD|ADDS?|ADC|ADCS?|SUB|SUBS?|SBC|SBCS?|RSB|RSBS?|RSC|RSCS?|MUL|MULS?|MLA|MLAS?|UMULL|UMULLS?|UMLAL|UMLALS?|SMULL|SMULLS?|SMLAL|SMLALS?|AND|ANDS?|ORR|ORRS?|EOR|EORS?|BIC|BICS?|CMP|CMN|TST|TEQ|LSL|LSLS?|LSR|LSRS?|ASR|ASRS?|ROR|RORS?|RRX|RRXS?|B|BL|BX|BLX|BEQ|BNE|BCS|BCC|BMI|BPL|BVS|BVC|BHI|BLS|BGE|BLT|BGT|BLE|BAL|NOP|SWI|ADR|ADRL)(EQ|NE|CS|CC|MI|PL|VS|VC|HI|LS|GE|LT|GT|LE|AL|HS|LO)?S?\b/i, 'keyword'],
+            [/^[a-zA-Z_][a-zA-Z0-9_]*:/, 'type'],
+            [/\[[^\]]+\]/, 'string.regexp'],
+            [/\"([^\"\\]|\\.)*$/, 'string.invalid'],[/\"/, 'string', '@string'],[/'([^'\\]|\\.)*$/, 'string.invalid'],[/'/, 'string', '@sstring'],
+            [/\b[a-zA-Z_][a-zA-Z0-9_]*\b/, 'identifier']
+          ],
+          string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
+          sstring: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
+        }
+      })
+    }
+
+    // MIPS language
+    if (!monaco.languages.getLanguages().some((l) => l.id === 'assembly-mips')) {
+      monaco.languages.register({ id: 'assembly-mips' })
+      monaco.languages.setMonarchTokensProvider('assembly-mips', {
+        ignoreCase: true,
+        tokenizer: {
+          root: [
+            [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],[/\b0b[01]+\b/, 'number.binary'],[/#-?[0-9]+\b/, 'number'],[/\b[0-9]+\b/, 'number'],
+            [/;.*$/, 'comment'],[/#.*$/, 'comment'],[/\/\/.*$/, 'comment'],[/@.*$/, 'comment'],
+            [/\$?(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|s8|ra|hi|lo|f(?:[0-9]|[12][0-9]|3[01]))\b/i, 'variable.predefined'],
+            [/^\s*\.(globl|global|text|data|bss|section|type|ent|end|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|option|set|macro|endm|equ|include|file|size|loc|frame|mask|fmask|cpload|cprestore|comm|lcomm|end|endr|rept|irpc|if|else|elseif|endif|altmacro|noreorder|reorder)\b/i, 'keyword'],
+            [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|NOP|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU)\b/i, 'keyword'],
+            [/\b-?[0-9]+\s*\([^)]+\)/, 'string.regexp'],
+            [/^[a-zA-Z_][a-zA-Z0-9_]*:/, 'type'],
+            [/\"([^\"\\]|\\.)*$/, 'string.invalid'],[/\"/, 'string', '@string'],[/'([^'\\]|\\.)*$/, 'string.invalid'],[/'/, 'string', '@sstring'],
+            [/\b[a-zA-Z_][a-zA-Z0-9_]*\b/, 'identifier']
+          ],
+          string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
+          sstring: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
+        }
+      })
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -80,23 +131,30 @@ export default function CodeEditor({
           'b', 'bl', 'bx', 'blx', 'beq', 'bne', 'bcs', 'bcc', 'bmi', 'bpl', 'bvs', 'bvc',
           'bhi', 'bls', 'bge', 'blt', 'bgt', 'ble', 'bal',
           'nop', 'swi', 'adr', 'adrl',
-          // MIPS common instructions
-          'ADD','ADDU','ADDI','ADDIU','SUB','SUBU','AND','ANDI','OR','ORI','XOR','XORI',
-          'SLT','SLTI','SLTU','SLTIU','SLL','SRL','SRA','SLLV','SRLV','SRAV',
-          'LW','SW','LB','LBU','LH','LHU','SB','SH','LUI',
-          'BEQ','BNE','BLEZ','BGTZ','BLTZ','BGEZ',
-          'J','JAL','JR','JALR','MFHI','MFLO','MTHI','MTLO','MULT','MULTU','DIV','DIVU','MOVE',
-          // lowercase mips
-          'add','addu','addi','addiu','sub','subu','and','andi','or','ori','xor','xori',
-          'slt','slti','sltu','sltiu','sll','srl','sra','sllv','srlv','srav',
-          'lw','sw','lb','lbu','lh','lhu','sb','sh','lui',
-          'beq','bne','blez','bgtz','bltz','bgez',
-          'j','jal','jr','jalr','mfhi','mflo','mthi','mtlo','mult','multu','div','divu','move'
+          // MIPS core + extended set (uppercase)
+          'ADD','ADDU','ADDI','ADDIU','SUB','SUBU','AND','ANDI','OR','ORI','XOR','XORI','NOR','NOT','NEG','NEGU',
+          'SLT','SLTI','SLTU','SLTIU','SLL','SRL','SRA','SLLV','SRLV','SRAV','ROTR','ROTRV',
+          'LW','SW','LB','LBU','LH','LHU','SB','SH','LUI','LWL','LWR','SWL','SWR','LL','SC',
+          'BEQ','BNE','BLEZ','BGTZ','BLTZ','BGEZ','BEQL','BNEL','BLEZL','BGTZL',
+          'BLTZL','BGEZL','BLTZAL','BGEZAL','BLTZALL','BGEZALL','BEQZ','BNEZ','BAL',
+          'J','JAL','JR','JALR','MFHI','MFLO','MTHI','MTLO','MULT','MULTU','DIV','DIVU','MUL','MOVN','MOVZ','MOVE','LI','LA',
+          'MFC0','MTC0','ERET','CACHE','PREF','SYNC','SYSCALL','BREAK',
+          'EXT','INS','SEB','SEH','CLO','CLZ','MADD','MADDU','MSUB','MSUBU',
+          // MIPS core + extended set (lowercase)
+          'add','addu','addi','addiu','sub','subu','and','andi','or','ori','xor','xori','nor','not','neg','negu',
+          'slt','slti','sltu','sltiu','sll','srl','sra','sllv','srlv','srav','rotr','rotrv',
+          'lw','sw','lb','lbu','lh','lhu','sb','sh','lui','lwl','lwr','swl','swr','ll','sc',
+          'beq','bne','blez','bgtz','bltz','bgez','beql','bnel','blezl','bgtzl',
+          'bltzl','bgezl','bltzal','bgezal','bltzall','bgezall','beqz','bnez','bal',
+          'j','jal','jr','jalr','mfhi','mflo','mthi','mtlo','mult','multu','div','divu','mul','movn','movz','move','li','la',
+          'mfc0','mtc0','eret','cache','pref','sync','syscall','break',
+          'ext','ins','seb','seh','clo','clz','madd','maddu','msub','msubu'
         ],
         tokenizer: {
           root: [
             // Numbers (before comments to catch #4, #1, etc.)
             [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],
+            [/\b0b[01]+\b/, 'number.binary'],
             [/#-?[0-9]+\b/, 'number'],
             [/\b[0-9]+\b/, 'number'],
             
@@ -106,6 +164,12 @@ export default function CodeEditor({
             [/\/\/.*$/, 'comment'],
             [/@.*$/, 'comment'],
             
+            // MIPS registers (e.g., $t0, $a1, $sp, $ra, $zero, $hi, $lo)
+            [/\$(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|ra|hi|lo)\b/i, 'variable.predefined'],
+
+            // Assembler directives (ARM/MIPS common)
+            [/^\s*\.(globl|global|text|data|bss|section|type|ent|end|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|option|set|macro|endm|equ|include|file|size|loc)\b/i, 'keyword'],
+
             // Labels
             [/^[a-zA-Z_][a-zA-Z0-9_]*:/, 'type'],
             
@@ -170,6 +234,65 @@ export default function CodeEditor({
           { open: '"', close: '"' },
           { open: "'", close: "'" }
         ]
+      })
+    }
+
+    // Also register split languages for per-arch accuracy
+    if (!monaco.languages.getLanguages().some((l) => l.id === 'assembly-arm')) {
+      monaco.languages.register({ id: 'assembly-arm' })
+      monaco.languages.setMonarchTokensProvider('assembly-arm', {
+        ignoreCase: true,
+        tokenizer: {
+          root: [
+            [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],[/\b0b[01]+\b/, 'number.binary'],[/#-?[0-9]+\b/, 'number'],[/\b[0-9]+\b/, 'number'],
+            [/;.*$/, 'comment'],[/#.*$/, 'comment'],[/\/\/.*$/, 'comment'],[/@.*$/, 'comment'],
+            // ARM registers
+            [/\b([rR][0-9]|[rR]1[0-5]|[sS][pP]|[lL][rR]|[pP][cC]|[cC][pP][sS][rR])\b/, 'variable.predefined'],
+            // directives
+            [/^\s*\.(globl|global|text|data|bss|section|type|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|set|macro|endm|equ|include|file|size|loc)\b/i, 'keyword'],
+            // ARM instruction + cond + optional S
+            [/\b(MOV|MOVS?|MVN|MVNS?|LDR|LDRB?|LDRH?|LDRSB?|LDRSH?|STR|STRB?|STRH?|LDM|LDMIA|LDMIB|LDMDA|LDMDB|STM|STMIA|STMIB|STMDA|STMDB|PUSH|POP|ADD|ADDS?|ADC|ADCS?|SUB|SUBS?|SBC|SBCS?|RSB|RSBS?|RSC|RSCS?|MUL|MULS?|MLA|MLAS?|UMULL|UMULLS?|UMLAL|UMLALS?|SMULL|SMULLS?|SMLAL|SMLALS?|AND|ANDS?|ORR|ORRS?|EOR|EORS?|BIC|BICS?|CMP|CMN|TST|TEQ|LSL|LSLS?|LSR|LSRS?|ASR|ASRS?|ROR|RORS?|RRX|RRXS?|B|BL|BX|BLX|BEQ|BNE|BCS|BCC|BMI|BPL|BVS|BVC|BHI|BLS|BGE|BLT|BGT|BLE|BAL|NOP|SWI|ADR|ADRL)(EQ|NE|CS|CC|MI|PL|VS|VC|HI|LS|GE|LT|GT|LE|AL|HS|LO)?S?\b/i, 'keyword'],
+            // labels
+            [/^[a-zA-Z_][a-zA-Z0-9_]*:/, 'type'],
+            // memory
+            [/\[[^\]]+\]/, 'string.regexp'],
+            // strings
+            [/\"([^\"\\]|\\.)*$/, 'string.invalid'],[/\"/, 'string', '@string'],[/'([^'\\]|\\.)*$/, 'string.invalid'],[/'/, 'string', '@sstring'],
+            // identifiers
+            [/\b[a-zA-Z_][a-zA-Z0-9_]*\b/, 'identifier']
+          ],
+          string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
+          sstring: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
+        }
+      })
+    }
+
+    if (!monaco.languages.getLanguages().some((l) => l.id === 'assembly-mips')) {
+      monaco.languages.register({ id: 'assembly-mips' })
+      monaco.languages.setMonarchTokensProvider('assembly-mips', {
+        ignoreCase: true,
+        tokenizer: {
+          root: [
+            [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],[/\b0b[01]+\b/, 'number.binary'],[/#-?[0-9]+\b/, 'number'],[/\b[0-9]+\b/, 'number'],
+            [/;.*$/, 'comment'],[/#.*$/, 'comment'],[/\/\/.*$/, 'comment'],[/@.*$/, 'comment'],
+            // MIPS registers (GPR/FPR/HI/LO)
+            [/\$?(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|s8|ra|hi|lo|f(?:[0-9]|[12][0-9]|3[01]))\b/i, 'variable.predefined'],
+            // directives (extended)
+            [/^\s*\.(globl|global|text|data|bss|section|type|ent|end|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|option|set|macro|endm|equ|include|file|size|loc|frame|mask|fmask|cpload|cprestore|comm|lcomm|end|endr|rept|irpc|if|else|elseif|endif|altmacro|noreorder|reorder)\b/i, 'keyword'],
+            // MIPS instructions incl. likely + pseudo (case-insensitive)
+            [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|NOP|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU)\b/i, 'keyword'],
+            // addressing offset(base)
+            [/\b-?[0-9]+\s*\([^)]+\)/, 'string.regexp'],
+            // labels
+            [/^[a-zA-Z_][a-zA-Z0-9_]*:/, 'type'],
+            // strings
+            [/\"([^\"\\]|\\.)*$/, 'string.invalid'],[/\"/, 'string', '@string'],[/'([^'\\]|\\.)*$/, 'string.invalid'],[/'/, 'string', '@sstring'],
+            // identifiers
+            [/\b[a-zA-Z_][a-zA-Z0-9_]*\b/, 'identifier']
+          ],
+          string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
+          sstring: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
+        }
       })
     }
 
@@ -334,6 +457,75 @@ export default function CodeEditor({
     monaco.editor.setTheme(themeName)
   }, [theme, systemTheme, mounted])
 
+  // Effect to (re)configure syntax highlighting based on architecture
+  useEffect(() => {
+    if (!monacoRef.current || !mounted) return
+    const monaco = monacoRef.current
+
+    const commonRoot = [
+      [/\b0x[0-9a-fA-F]+\b/, 'number.hex'],
+      [/\b0b[01]+\b/, 'number.binary'],
+      [/#-?[0-9]+\b/, 'number'],
+      [/\b[0-9]+\b/, 'number'],
+      [/;.*$/, 'comment'],
+      [/#.*$/, 'comment'],
+      [/\/\/.*$/, 'comment'],
+      [/@.*$/, 'comment'],
+      // Labels
+      [/^[a-zA-Z_][a-zA-Z0-9_]*:/, 'type'],
+      // Memory references
+      [/\[[^\]]+\]/, 'string.regexp'],
+      // Strings
+      [/\"([^\"\\]|\\.)*$/, 'string.invalid'],
+      [/\"/, 'string', '@string'],
+      [/'([^'\\]|\\.)*$/, 'string.invalid'],
+      [/'/, 'string', '@string_single'],
+    ] as const
+
+    const armProvider = {
+      tokenizer: {
+        root: [
+          // ARM registers first
+          [/\b([rR][0-9]|[rR]1[0-5]|[sS][pP]|[lL][rR]|[pP][cC]|[cC][pP][sS][rR])\b/, 'variable.predefined'],
+          // Directives (common subset)
+          [/^\s*\.(globl|global|text|data|bss|section|type|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|set|macro|endm|equ|include|file|size|loc)\b/i, 'keyword'],
+          // ARM instruction + cond + optional S
+          [/\b(MOV|MOVS?|MVN|MVNS?|LDR|LDRB?|LDRH?|LDRSB?|LDRSH?|STR|STRB?|STRH?|LDM|LDMIA|LDMIB|LDMDA|LDMDB|STM|STMIA|STMIB|STMDA|STMDB|PUSH|POP|ADD|ADDS?|ADC|ADCS?|SUB|SUBS?|SBC|SBCS?|RSB|RSBS?|RSC|RSCS?|MUL|MULS?|MLA|MLAS?|UMULL|UMULLS?|UMLAL|UMLALS?|SMULL|SMULLS?|SMLAL|SMLALS?|AND|ANDS?|ORR|ORRS?|EOR|EORS?|BIC|BICS?|CMP|CMN|TST|TEQ|LSL|LSLS?|LSR|LSRS?|ASR|ASRS?|ROR|RORS?|RRX|RRXS?|B|BL|BX|BLX|BEQ|BNE|BCS|BCC|BMI|BPL|BVS|BVC|BHI|BLS|BGE|BLT|BGT|BLE|BAL|NOP|SWI|ADR|ADRL)(EQ|NE|CS|CC|MI|PL|VS|VC|HI|LS|GE|LT|GT|LE|AL|HS|LO)?S?\b/i, 'keyword'],
+          // fallback identifiers
+          [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'],
+          // then append common patterns
+          ...commonRoot as unknown as any
+        ],
+        string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
+        string_single: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
+      }
+    }
+
+    const mipsProvider = {
+      tokenizer: {
+        root: [
+          // MIPS registers (GPR/FPR/HI/LO)
+          [/\$?(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|s8|ra|hi|lo|f(?:[0-9]|[12][0-9]|3[01]))\b/i, 'variable.predefined'],
+          // Directives (extended)
+          [/^\s*\.(globl|global|text|data|bss|section|type|ent|end|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|option|set|macro|endm|equ|include|file|size|loc|frame|mask|fmask|cpload|cprestore|comm|lcomm|end|endr|rept|irpc|if|else|elseif|endif|altmacro|noreorder|reorder)\b/i, 'keyword'],
+          // MIPS instructions incl. likely + pseudo
+          [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU)\b/i, 'keyword'],
+          // MIPS addressing offset(base)
+          [/\b-?[0-9]+\s*\([^)]+\)/, 'string.regexp'],
+          // fallback identifiers
+          [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'],
+          // then append common patterns
+          ...commonRoot as unknown as any
+        ],
+        string: [[/[^\\\"]+/, 'string'],[/\\./, 'string.escape'],[/\"/, 'string', '@pop']],
+        string_single: [[/[^\\']+/, 'string'],[/\\./, 'string.escape'],[/'/, 'string', '@pop']]
+      }
+    }
+
+    const provider = settings.architecture === 'MIPS' ? mipsProvider : armProvider
+    monaco.languages.setMonarchTokensProvider('assembly', provider as any)
+  }, [settings.architecture, mounted])
+
   // Effect to handle line highlighting
   useEffect(() => {
     if (!editorRef.current || highlightedLine === undefined) {
@@ -489,9 +681,10 @@ export default function CodeEditor({
       <Editor
         height={height}
         width={width}
-        language="assembly"
+        language={settings.architecture === 'MIPS' ? 'assembly-mips' : 'assembly-arm'}
         value={value}
         onChange={onChange}
+        beforeMount={handleEditorWillMount}
         onMount={handleEditorDidMount}
         theme={mounted && (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) ? 'custom-assembly-dark' : 'custom-assembly-light'}
         loading=""
