@@ -39,13 +39,31 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   // Initialize hooks
   const emulator = useEmulator()
   const errors = useDiagnosticsStore((state) => state.errors)
-  const gameState = useGameState(levelMap, levelMap.initialCode || '')
+  const { settings } = useSettings()
+
+  // Get architecture-specific initial code
+  const getInitialCode = (code: string | { ARM: string; MIPS: string } | undefined): string => {
+    if (!code) return ''
+    if (typeof code === 'string') return code
+    return settings.architecture === 'MIPS' ? code.MIPS : code.ARM
+  }
+
+  const initialCode = React.useMemo(
+    () => getInitialCode(levelMap.initialCode),
+    [levelMap.initialCode, settings.architecture]
+  )
+
+  const gameState = useGameState(levelMap, initialCode)
   const panelLayout = usePanelLayout()
   const executionControl = useExecutionControl({ gameState, levelMap })
-  const { settings } = useSettings()
   const [isMemoryFilterOpen, setIsMemoryFilterOpen] = React.useState(false)
   const [selectedMemoryRegion, setSelectedMemoryRegion] = React.useState<MemoryRegion>('all')
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+
+  // Reset code when architecture changes
+  React.useEffect(() => {
+    gameState.setCurrentCode(initialCode)
+  }, [settings.architecture])
   
   // Challenge mode scoring
   const { formattedScore } = useChallengeScore(isChallenge, gameState)

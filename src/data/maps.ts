@@ -56,7 +56,7 @@ export interface GameMap {
   tileSize?: number;
   tiles: TileSymbol[][];
   waterBackground?: WaterBackground;
-  initialCode?: string;
+  initialCode?: string | { ARM: string; MIPS: string };
   playerPosition: { row: number; col: number; direction: PlayerDirection };
   ghostPositions: { row: number; col: number }[];
   ghostPreviousPositions?: { row: number; col: number }[];
@@ -148,10 +148,16 @@ export const MAPS: GameMap[] = [
     playerPosition: { row: 1, col: 1, direction: 'right' },
     ghostPositions: [],
     waterBackground: { tilesX: 71, tilesY: 71 },
-    initialCode: `MOV R0, #4
+    initialCode: {
+      ARM: `MOV R0, #4
 LDR R1, =0x30000
 STR R0, [R1]
 STR R0, [R1]`,
+      MIPS: `LI $t0, 4
+LI $t1, 0x30000
+SW $t0, 0($t1)
+SW $t0, 0($t1)`
+    },
   },
   {
     id: 'level2',
@@ -163,7 +169,8 @@ STR R0, [R1]`,
     playerPosition: { row: 1, col: 1, direction: 'right' },
     ghostPositions: [],
     waterBackground: { tilesX: 71, tilesY: 72 },
-    initialCode: `main:
+    initialCode: {
+      ARM: `main:
 LDR R1, =0x30400
 LDR R2, [R1]
 CMP R2, #4
@@ -174,6 +181,32 @@ STR R2, [R1]
 LDR R1, =0x30000
 STR R0, [R1]
 B main`,
+      MIPS: `main:
+LUI $t1, 0x3
+ORI $t1, $t1, 0x0400
+LW $t2, 0($t1)
+
+SLTI $t3, $t2, 4
+BEQ $t3, $zero, down
+NOP
+
+LI $t0, 4
+B continue
+NOP
+
+down:
+LI $t0, 2
+
+continue:
+ADDI $t2, $t2, 1
+SW $t2, 0($t1)
+
+LUI $t1, 0x3
+SW $t0, 0($t1)
+
+B main
+NOP`
+    },
   },
   {
     id: 'level3',
@@ -185,7 +218,8 @@ B main`,
     playerPosition: { row: 11, col: 9, direction: 'right' },
     ghostPositions: [],
     waterBackground: { tilesX: 71, tilesY: 71 },
-    initialCode: `main:
+    initialCode: {
+      ARM: `main:
 LDR R1, =0x30010
 MOV R2, #169
 loop:
@@ -210,6 +244,46 @@ MOVEQ R0, #4
 LDR R1, =0x30000
 STR R0, [R1]
 B main`,
+      MIPS: `main:
+LUI $t1, 0x3
+ORI $t1, $t1, 0x0010
+LI $t2, 169
+loop:
+LBU $t3, 0($t1)
+ADDI $t1, $t1, 1
+LI $t4, 3
+BEQ $t3, $t4, check
+NOP
+ADDI $t2, $t2, -1
+BNE $t2, $zero, loop
+NOP
+check:
+LBU $t3, -14($t1)
+LI $t4, 2
+BNE $t3, $t4, next1
+NOP
+LI $t0, 1
+next1:
+LBU $t3, 12($t1)
+BNE $t3, $t4, next2
+NOP
+LI $t0, 2
+next2:
+LBU $t3, -2($t1)
+BNE $t3, $t4, next3
+NOP
+LI $t0, 3
+next3:
+LBU $t3, 0($t1)
+BNE $t3, $t4, done
+NOP
+LI $t0, 4
+done:
+LUI $t1, 0x3
+SW $t0, 0($t1)
+B main
+NOP`
+    },
   },
   {
     id: 'level4',
