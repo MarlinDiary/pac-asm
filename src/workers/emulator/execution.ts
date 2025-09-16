@@ -384,20 +384,13 @@ export class ExecutionEngine {
       };
     }
 
-    // Run continuously with timeout using instruction count limit
-    let didTimeout = false;
-    const startTime = Date.now();
-    const maxInstructions = Math.floor(timeoutUs / 1000) * 1000000; // Approximate instructions in timeout period
+    // Run with instruction count limit as timeout mechanism
+    const maxInstructions = Math.floor(timeoutUs / 1000) * 1000000; // ~1M instructions per second estimate
 
     try {
       this.unicorn.emu_start(pc, endAddress, 0, maxInstructions);
-      // Check if we hit instruction limit (timeout)
-      const elapsed = Date.now() - startTime;
-      if (elapsed >= timeoutUs / 1000 && !memEvent) {
-        didTimeout = true;
-      }
     } catch (_e) {
-      // Emulation stopped for some reason
+      // Emulation stopped (reached instruction limit or other reason)
     } finally {
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
     }
@@ -406,10 +399,11 @@ export class ExecutionEngine {
     let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' = 'unknown';
     if (memEvent) {
       stopReason = 'mem-write';
-    } else if (didTimeout) {
-      stopReason = 'timeout';
     } else if (pcAfter >= endAddress) {
       stopReason = 'end-of-code';
+    } else {
+      // If stopped without mem-write or reaching end, it must be timeout (instruction limit reached)
+      stopReason = 'timeout';
     }
 
     return {
