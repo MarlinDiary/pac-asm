@@ -384,8 +384,14 @@ export class ExecutionEngine {
       };
     }
 
-    // Run with instruction count limit as timeout mechanism
-    const maxInstructions = Math.floor(timeoutUs / 1000) * 1000000; // ~1M instructions per second estimate
+    // Run with instruction count limit as timeout mechanism. timeoutUs is in microseconds,
+    // so convert to seconds first and then estimate roughly 1M instructions per second.
+    const estimatedInstructionsPerSecond = 1_000_000;
+    const timeoutSeconds = timeoutUs / 1_000_000;
+    const maxInstructions = Math.max(
+      1,
+      Math.ceil(timeoutSeconds * estimatedInstructionsPerSecond)
+    );
 
     try {
       this.unicorn.emu_start(pc, endAddress, 0, maxInstructions);
