@@ -121,7 +121,7 @@ export default function MapRenderer({ map }: MapRendererProps) {
           <div
             key={`ghost-${index}`}
             className={`absolute top-0 left-0 pointer-events-none z-5 ${
-              ghostAnimation?.shouldAnimate ? 'transition-transform duration-100 linear' : ''
+              ghostAnimation?.shouldAnimate ? 'transition-transform duration-75 linear' : ''
             }`}
             style={{
               transform: ghostAnimation?.animationPosition 
@@ -165,7 +165,7 @@ export default function MapRenderer({ map }: MapRendererProps) {
       })() && (
         <div
           className={`absolute top-0 left-0 pointer-events-none z-10 ${
-            map.playerAnimation?.shouldAnimate ? 'transition-transform duration-100 linear' : ''
+            map.playerAnimation?.shouldAnimate ? 'transition-transform duration-75 linear' : ''
           }`}
           style={{
             transform: map.playerAnimation?.animationPosition 
