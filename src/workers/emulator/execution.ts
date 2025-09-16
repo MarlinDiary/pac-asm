@@ -156,10 +156,17 @@ export class ExecutionEngine {
         );
       } catch (e) {}
 
-      // Execute instruction(s) via native HOOK_CODE counting (more "native" step)
       const endAddress = this.config.codeAddress + 4096;
-      let desiredCount = 1;
-      if (this.arch === 'MIPS') {
+
+      // For ARM: Use simple single-instruction execution
+      if (this.arch === 'ARM') {
+        try {
+          this.unicorn.emu_start(pcBefore, endAddress, 0, 1);
+        } catch (e) {}
+        pcAfter = this.unicorn.reg_read_i32(pcReg);
+      } else {
+        // For MIPS: Use HOOK_CODE counting to handle delay slots correctly
+        let desiredCount = 1;
         try {
           const ins = this.decodeInstr32(instructionBytes);
           const op = (ins >>> 26) & 0x3f;
@@ -174,47 +181,47 @@ export class ExecutionEngine {
             desiredCount = 2; // include delay slot
           }
         } catch (e) {}
+
+        let executed = 0;
+        const targetHookCount = (desiredCount >>> 0) + 1; // HOOK_CODE fires before exec; stop on (executed >= desired+1)
+        let codeHook: unknown | undefined;
+        try {
+          // Listen for all code addresses to avoid missing callbacks due to range mismatch
+          const begin = 1 >>> 0;
+          const end = 0 >>> 0; // special meaning in wrapper: full-range
+          codeHook = (this.unicorn as unknown as {
+            hook_add: (
+              type: number,
+              cb: (...args: unknown[]) => unknown,
+              user_data: unknown,
+              begin: number,
+              end: number
+            ) => unknown
+          }).hook_add(
+            this.uc.HOOK_CODE,
+            ((...args: unknown[]) => {
+              executed++;
+              if (executed >= targetHookCount) {
+                try { this.unicorn.emu_stop(); } catch {}
+              }
+            }) as unknown as (...args: unknown[]) => unknown,
+            undefined,
+            begin,
+            end
+          );
+        } catch (e) {}
+
+        try {
+          // Large budget; hook will stop us after desired instructions
+          const maxCount = 0x7fffffff;
+          this.unicorn.emu_start(pcBefore, endAddress, 0, maxCount);
+        } catch (e) {}
+        finally {
+          try { if (codeHook) (this.unicorn as unknown as { hook_del: (h: unknown) => void }).hook_del(codeHook); } catch {}
+        }
+
+        pcAfter = this.unicorn.reg_read_i32(pcReg);
       }
-
-      let executed = 0;
-      const targetHookCount = (desiredCount >>> 0) + 1; // HOOK_CODE fires before exec; stop on (executed >= desired+1)
-      let codeHook: unknown | undefined;
-      try {
-        // Listen for all code addresses to avoid missing callbacks due to range mismatch
-        const begin = 1 >>> 0;
-        const end = 0 >>> 0; // special meaning in wrapper: full-range
-        codeHook = (this.unicorn as unknown as {
-          hook_add: (
-            type: number,
-            cb: (...args: unknown[]) => unknown,
-            user_data: unknown,
-            begin: number,
-            end: number
-          ) => unknown
-        }).hook_add(
-          this.uc.HOOK_CODE,
-          ((...args: unknown[]) => {
-            executed++;
-            if (executed >= targetHookCount) {
-              try { this.unicorn.emu_stop(); } catch {}
-            }
-          }) as unknown as (...args: unknown[]) => unknown,
-          undefined,
-          begin,
-          end
-        );
-      } catch (e) {}
-
-      try {
-        // Large budget; hook will stop us after desired instructions
-        const maxCount = 0x7fffffff;
-        this.unicorn.emu_start(pcBefore, endAddress, 0, maxCount);
-      } catch (e) {}
-      finally {
-        try { if (codeHook) (this.unicorn as unknown as { hook_del: (h: unknown) => void }).hook_del(codeHook); } catch {}
-      }
-
-      pcAfter = this.unicorn.reg_read_i32(pcReg);
 
       // Remove hook if present
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
