@@ -27,7 +27,16 @@ export const useEmulator = () => {
   
   const workerRef = useRef<Worker | null>(null);
   const messageIdCounter = useRef(0);
-  const pendingMessages = useRef<Map<string, (response: EmulatorResponse) => void>>(new Map());
+  const pendingMessages = useRef<
+    Map<
+      string,
+      {
+        resolve: (response: EmulatorResponse) => void;
+        reject: (error: Error) => void;
+        timeoutId: ReturnType<typeof setTimeout>;
+      }
+    >
+  >(new Map());
   
   const sendMessage = useCallback((message: EmulatorMessage): Promise<EmulatorResponse> => {
     return new Promise((resolve, reject) => {
@@ -39,15 +48,15 @@ export const useEmulator = () => {
       const messageId = `msg_${messageIdCounter.current++}`;
       message.messageId = messageId;
       
-      pendingMessages.current.set(messageId, resolve);
-      
-      // Set timeout for message
-      setTimeout(() => {
-        if (pendingMessages.current.has(messageId)) {
+      const timeoutId = setTimeout(() => {
+        const pending = pendingMessages.current.get(messageId);
+        if (pending) {
           pendingMessages.current.delete(messageId);
-          reject(new Error(formatTimeoutError('Message response', EMULATOR_MESSAGE_TIMEOUT_MS)));
+          pending.reject(new Error(formatTimeoutError('Message response', EMULATOR_MESSAGE_TIMEOUT_MS)));
         }
       }, EMULATOR_MESSAGE_TIMEOUT_MS);
+
+      pendingMessages.current.set(messageId, { resolve, reject, timeoutId });
 
       workerRef.current.postMessage(message);
     });
@@ -63,9 +72,12 @@ export const useEmulator = () => {
     workerRef.current.onmessage = (event: MessageEvent<EmulatorResponse>) => {
       const response = event.data;
       if (response.messageId && pendingMessages.current.has(response.messageId)) {
-        const resolver = pendingMessages.current.get(response.messageId);
-        pendingMessages.current.delete(response.messageId);
-        resolver?.(response);
+        const pending = pendingMessages.current.get(response.messageId);
+        if (pending) {
+          clearTimeout(pending.timeoutId);
+          pendingMessages.current.delete(response.messageId);
+          pending.resolve(response);
+        }
       }
     };
 
@@ -252,6 +264,10 @@ export const useEmulator = () => {
       isInitialized: false,
       isRunning: false,
       currentPC: 0,
+    });
+    pendingMessages.current.forEach(({ reject, timeoutId }, messageId) => {
+      clearTimeout(timeoutId);
+      reject(new Error(formatSystemError('Emulator worker terminated before response', messageId)));
     });
     pendingMessages.current.clear();
   }, []);

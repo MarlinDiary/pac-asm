@@ -167,7 +167,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
 
   // Listen for play completion
   useEffect(() => {
-    if (isPlayMode && !playState.isPlaying && playState.movementActions.length >= 0) {
+    if (isPlayMode && !playState.isPlaying && playState.movementActions.length > 0) {
       // Play has finished - reset everything
       setTimeout(() => {
         setIsPlayMode(false)

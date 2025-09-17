@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { GameMap, getPlayerPosition, getGhosts, getDots } from '@/data/maps'
 import { createGhostTeleportAnimation } from '@/lib/game-animation'
 
@@ -49,9 +49,17 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [hideZeroRows, setHideZeroRows] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  const teleportTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  const clearTeleportTimeouts = useCallback(() => {
+    teleportTimeoutsRef.current.forEach(clearTimeout)
+    teleportTimeoutsRef.current = []
+  }, [])
+
   // Helper function to teleport player and ghosts with animation
   const teleportPlayer = useCallback(async (targetMap: GameMap, currentPlayerPos?: { row: number; col: number; direction: string } | null) => {
     return await new Promise<void>((resolve) => {
+      clearTeleportTimeouts()
       const targetPlayerPos = getPlayerPosition(targetMap)
       const currentGhostPositions = getGhosts(currentMap)
       const targetGhostPositions = getGhosts(targetMap)
@@ -60,6 +68,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     
     if (!targetPlayerPos) {
       setCurrentMap(targetMap)
+      resolve()
       return
     }
 
@@ -111,7 +120,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
       })
 
       // After fade out, move to new position and fade in
-      setTimeout(() => {
+      const fadeOutTimeout = setTimeout(() => {
         // Create ghost fade-in animations
         const ghostFadeInAnimations = targetGhostPositions.map((targetGhost, index) => {
           const currentGhost = currentGhostPositions[index]
@@ -132,17 +141,27 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
         })
 
         // Remove animation after fade in
-        setTimeout(() => {
+        const settleTimeout = setTimeout(() => {
           setCurrentMap({ ...targetMap, dotAnimations: undefined })
+          clearTeleportTimeouts()
           resolve()
         }, 150)
+        teleportTimeoutsRef.current.push(settleTimeout)
       }, 150)
+      teleportTimeoutsRef.current.push(fadeOutTimeout)
     } else {
       setCurrentMap(targetMap)
+      clearTeleportTimeouts()
       resolve()
     }
     })
-  }, [currentMap])
+  }, [clearTeleportTimeouts, currentMap])
+
+  useEffect(() => {
+    return () => {
+      clearTeleportTimeouts()
+    }
+  }, [clearTeleportTimeouts])
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
