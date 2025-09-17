@@ -275,32 +275,6 @@ export const useEmulator = () => {
     }
   }, [sendMessage]);
 
-  const restoreState = useCallback(async (registers: RegisterInfo[], memoryData: number[]): Promise<boolean> => {
-    try {
-      // Restore registers
-      for (const reg of registers) {
-        await sendMessage({
-          type: 'set-register',
-          payload: { register: reg.register, value: reg.value }
-        });
-      }
-      
-      // Restore memory
-      await sendMessage({
-        type: 'write-memory',
-        payload: { address: 0x30000, data: memoryData }
-      });
-      
-      return true;
-    } catch (error) {
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'SYSTEM_ERROR: State Restore Failed' 
-      }));
-      return false;
-    }
-  }, [sendMessage]);
-
   return {
     state,
     initializeEmulator,
@@ -313,6 +287,5 @@ export const useEmulator = () => {
     getMemory,
     writeMemory,
     getAllRegisters,
-    restoreState,
   };
 };

@@ -170,7 +170,7 @@ export class GASAssembler {
           try {
             const fileData = (module as { FS: { readFile: (name: string) => ArrayBuffer } }).FS.readFile('out.o');
             objectFile = new Uint8Array(fileData);
-          } catch (e) {
+          } catch {
             // Failed to read object file - error will be handled by throwing below
           }
         }],
@@ -191,7 +191,7 @@ export class GASAssembler {
       try {
         const elfResult = extractMachineCode(objectFile);
         machineCode = elfResult.machineCode;
-      } catch (error) {
+      } catch {
         // If .text section is not found (e.g., empty input), return empty machine code
         machineCode = new Uint8Array(0);
       }
@@ -287,7 +287,7 @@ export class GASAssembler {
 
       return lineTable;
 
-    } catch (error) {
+    } catch {
       // objdump failed - return empty array, error handling is done at higher level
       return [];
     }

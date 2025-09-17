@@ -28,12 +28,9 @@ function ResizablePanel({
 }
 
 function ResizableHandle({
-  withHandle,
   className,
   ...props
-}: React.ComponentProps<typeof ResizablePrimitive.PanelResizeHandle> & {
-  withHandle?: boolean
-}) {
+}: React.ComponentProps<typeof ResizablePrimitive.PanelResizeHandle>) {
   return (
     <ResizablePrimitive.PanelResizeHandle
       data-slot="resizable-handle"

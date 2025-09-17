@@ -7,7 +7,6 @@ interface ExecutionBarProps {
   onDebugClick?: () => void
   onPlayClick?: () => void
   isDebugMode?: boolean
-  isPlayMode?: boolean
   playStatus?: 'running'
   hasWon?: boolean
   currentLevel?: string
@@ -15,7 +14,7 @@ interface ExecutionBarProps {
   challengeScore?: string
 }
 
-export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, isPlayMode, playStatus, hasWon, currentLevel, isChallenge = false, challengeScore = '0000' }: ExecutionBarProps) {
+export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, playStatus, hasWon, currentLevel, isChallenge = false, challengeScore = '0000' }: ExecutionBarProps) {
   const router = useRouter()
   const [showStatusBar, setShowStatusBar] = useState(false)
 

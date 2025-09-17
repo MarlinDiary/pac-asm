@@ -32,7 +32,7 @@ Respond with 2-3 concise sentences providing objective guidance on how to fix th
     })
 
     return result.toTextStreamResponse()
-  } catch (error) {
+  } catch {
     // Silently handle API error
     return new Response('SERVICE_ERROR: Failed to Generate Diagnosis', { status: 500 })
   }

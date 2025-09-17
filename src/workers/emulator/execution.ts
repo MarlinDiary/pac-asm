@@ -10,7 +10,6 @@ export class ExecutionEngine {
   private config: EmulatorConfig;
   private literalPoolDetector: LiteralPoolDetector;
   private memoryManager: MemoryManager;
-  private literalPoolAddresses: Set<number> = new Set();
   private arch: Architecture;
 
   constructor(
@@ -66,7 +65,7 @@ export class ExecutionEngine {
       // Only apply literal-pool detection for ARM. MIPS has no literal pool in our usage
       // and ARM-specific heuristics can misclassify valid MIPS instructions.
       isLiteralPool = this.arch === 'ARM' ? this.literalPoolDetector.isLikelyLiteralPool(instructionBytes) : false;
-    } catch (e) {
+    } catch {
       instructionHex = 'INVALID';
     }
     
@@ -112,9 +111,6 @@ export class ExecutionEngine {
         
         this.unicorn.reg_write_i32(pcReg, pcAfter);
         stepMessage = 'Skipped literal pool data';
-        
-        // Mark this address as literal pool for future reference
-        this.literalPoolAddresses.add(pcBefore);
       }
     } else {
       // Register a temporary memory-write hook for the command byte address
@@ -125,8 +121,7 @@ export class ExecutionEngine {
         addr_lo: number,
         _addr_hi: number,
         size: number,
-        value_lo: number,
-        _value_hi: number
+        value_lo: number
       ) => {
         if (type !== this.uc.MEM_WRITE) return;
         const addr = addr_lo >>> 0;
@@ -154,7 +149,7 @@ export class ExecutionEngine {
           begin,
           end
         );
-      } catch (e) {}
+      } catch {}
 
       const endAddress = this.config.codeAddress + 4096;
 
@@ -162,7 +157,7 @@ export class ExecutionEngine {
       if (this.arch === 'ARM') {
         try {
           this.unicorn.emu_start(pcBefore, endAddress, 0, 1);
-        } catch (e) {}
+        } catch {}
         pcAfter = this.unicorn.reg_read_i32(pcReg);
       } else {
         // For MIPS: Use HOOK_CODE counting to handle delay slots correctly
@@ -180,7 +175,7 @@ export class ExecutionEngine {
           if (isJ || isBranch || isJR) {
             desiredCount = 2; // include delay slot
           }
-        } catch (e) {}
+        } catch {}
 
         let executed = 0;
         const targetHookCount = (desiredCount >>> 0) + 1; // HOOK_CODE fires before exec; stop on (executed >= desired+1)
@@ -199,7 +194,7 @@ export class ExecutionEngine {
             ) => unknown
           }).hook_add(
             this.uc.HOOK_CODE,
-            ((...args: unknown[]) => {
+            (() => {
               executed++;
               if (executed >= targetHookCount) {
                 try { this.unicorn.emu_stop(); } catch {}
@@ -209,13 +204,13 @@ export class ExecutionEngine {
             begin,
             end
           );
-        } catch (e) {}
+        } catch {}
 
         try {
           // Large budget; hook will stop us after desired instructions
           const maxCount = 0x7fffffff;
           this.unicorn.emu_start(pcBefore, endAddress, 0, maxCount);
-        } catch (e) {}
+        } catch {}
         finally {
           try { if (codeHook) (this.unicorn as unknown as { hook_del: (h: unknown) => void }).hook_del(codeHook); } catch {}
         }
@@ -332,8 +327,7 @@ export class ExecutionEngine {
       addr_lo: number,
       _addr_hi: number,
       size: number,
-      value_lo: number,
-      _value_hi: number
+      value_lo: number
     ) => {
       // Only care about write events (use MEM_WRITE, not HOOK flag)
       if (type !== this.uc.MEM_WRITE) return;
@@ -395,7 +389,7 @@ export class ExecutionEngine {
 
     try {
       this.unicorn.emu_start(pc, endAddress, 0, maxInstructions);
-    } catch (_e) {
+    } catch {
       // Emulation stopped (reached instruction limit or other reason)
     } finally {
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}

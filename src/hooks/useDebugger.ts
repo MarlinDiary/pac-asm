@@ -9,8 +9,16 @@ import {
   initializeEmulatorWithCode, 
   getEmulatorMemoryState
 } from '@/lib/emulator-utils'
-import { isCodeExecutionComplete } from '@/lib/cycle-management'
 import { writeMapUpdatesToMemory } from '@/lib/map-memory'
+
+const isCodeExecutionComplete = (stepResult: { message?: string }): boolean => {
+  return (
+    stepResult?.message?.includes('Execution completed') ||
+    stepResult?.message?.includes('reached end of code') ||
+    stepResult?.message?.includes('no more instructions') ||
+    false
+  )
+}
 
 export interface PlaybackState {
   mapState: GameMap
@@ -52,11 +60,6 @@ export const useDebugger = () => {
   }
 
 
-
-  // Standard debug mode - pre-execute all steps
-  const startDebug = async (sourceCode: string, currentMap: GameMap) => {
-    return await initializeDebugger(sourceCode, currentMap, false)
-  }
 
   // Lazy debug mode - only prepare emulator without pre-execution
   const startDebugLazy = async (sourceCode: string, currentMap: GameMap) => {
@@ -376,7 +379,6 @@ export const useDebugger = () => {
         (currentPlaybackIndex < executionHistory.length - 1 || !isGameComplete) : // In lazy mode, allow if in history OR if game not complete
         (!isGameComplete && currentPlaybackIndex < executionHistory.length - 1)
     ),
-    startDebug,
     startDebugLazy,
     stepDown,
     stepDownLazy,

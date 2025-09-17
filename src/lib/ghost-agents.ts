@@ -143,7 +143,7 @@ let level4InitialRow: number | null = null;
  * Algorithm 3: Level 4 specific - row-based movement
  * Ghost moves only along its initial row (random left/right), never up/down.
  */
-export function level4GhostMove(map: GameMap, ghostPosition: Position, _pacmanPosition: Position): Position {
+export function level4GhostMove(map: GameMap, ghostPosition: Position): Position {
   // Level 4 rule: ghost moves only along its initial row (random left/right), never up/down.
   // Record initial row at first call
   if (level4InitialRow === null) {
@@ -166,12 +166,4 @@ export function level4GhostMove(map: GameMap, ghostPosition: Position, _pacmanPo
   if (level4GhostHistory.length > 20) level4GhostHistory.shift();
 
   return next;
-}
-
-/**
- * Reset Level 4 ghost history (call when level resets)
- */
-export function resetLevel4GhostHistory(): void {
-  level4GhostHistory.length = 0;
-  level4InitialRow = null;
 }

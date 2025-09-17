@@ -166,6 +166,7 @@ export function useChallengeScore(
     isChallenge,
     gameState.currentMap,
     gameState.isPlayMode,
+    previousMapState,
     detectScoreEvents,
     updateScore
   ])

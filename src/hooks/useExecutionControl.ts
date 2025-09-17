@@ -3,12 +3,26 @@ import { GameMap, getPlayerPosition } from '@/data/maps'
 import { useDebugger } from './useDebugger'
 import { usePlayRunner } from './usePlayRunner'
 import { useGameState } from './useGameState'
-import { handleVictoryCheck } from '@/lib/game-logic'
-import { ensurePlayerAnimation } from '@/lib/game-animation'
+import { ensurePlayerAnimation, checkVictoryCondition } from '@/lib/game-animation'
 
 interface UseExecutionControlProps {
   gameState: ReturnType<typeof useGameState>
   levelMap: GameMap
+}
+
+const handleVictoryCheck = (
+  map: GameMap,
+  setHasWon: (won: boolean) => void,
+  setCurrentPlayWon: (won: boolean) => void,
+  isPlayMode: boolean
+) => {
+  if (!isPlayMode) {
+    return
+  }
+  if (checkVictoryCondition(map)) {
+    setHasWon(true)
+    setCurrentPlayWon(true)
+  }
 }
 
 export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControlProps) => {
@@ -133,7 +147,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
       return playState.getCurrentState()
     }
     return debugState.getCurrentState()
-  }, [playState.isPlaying, isPlayMode, playState, debugState])
+  }, [playState, isPlayMode, debugState])
   
   const currentDebugState = getCurrentState()
   const previousDebugState = (playState.isPlaying && !isPlayMode) ? playState.getPreviousState() : debugState.getPreviousState()

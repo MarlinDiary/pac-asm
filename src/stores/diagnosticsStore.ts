@@ -31,7 +31,7 @@ async function fetchDiagnosis(error: string, code: string): Promise<string> {
     const fullText = await response.text()
     
     return fullText
-  } catch (err) {
+  } catch {
     // Silently handle diagnosis failure
     return 'SERVICE_ERROR: Unable to Generate Diagnosis'
   }

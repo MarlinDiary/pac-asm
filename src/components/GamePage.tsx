@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import Confetti from 'react-confetti'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import Card from '@/components/Card'
@@ -40,30 +40,32 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const emulator = useEmulator()
   const errors = useDiagnosticsStore((state) => state.errors)
   const { settings } = useSettings()
+  const { cleanup } = emulator
 
   // Get architecture-specific initial code
-  const getInitialCode = (code: string | { ARM: string; MIPS: string } | undefined): string => {
+  const getInitialCode = useCallback((code: string | { ARM: string; MIPS: string } | undefined): string => {
     if (!code) return ''
     if (typeof code === 'string') return code
     return settings.architecture === 'MIPS' ? code.MIPS : code.ARM
-  }
+  }, [settings.architecture])
 
-  const initialCode = React.useMemo(
+  const initialCode = useMemo(
     () => getInitialCode(levelMap.initialCode),
-    [levelMap.initialCode, settings.architecture]
+    [levelMap.initialCode, getInitialCode]
   )
 
   const gameState = useGameState(levelMap, initialCode)
   const panelLayout = usePanelLayout()
   const executionControl = useExecutionControl({ gameState, levelMap })
-  const [isMemoryFilterOpen, setIsMemoryFilterOpen] = React.useState(false)
-  const [selectedMemoryRegion, setSelectedMemoryRegion] = React.useState<MemoryRegion>('all')
-  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+  const [isMemoryFilterOpen, setIsMemoryFilterOpen] = useState(false)
+  const [selectedMemoryRegion, setSelectedMemoryRegion] = useState<MemoryRegion>('all')
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const { setCurrentCode, setRightPanelTab } = gameState
 
   // Reset code when architecture changes
-  React.useEffect(() => {
-    gameState.setCurrentCode(initialCode)
-  }, [settings.architecture])
+  useEffect(() => {
+    setCurrentCode(initialCode)
+  }, [initialCode, setCurrentCode])
   
   // Challenge mode scoring
   const { formattedScore } = useChallengeScore(isChallenge, gameState)
@@ -71,16 +73,16 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   // Cleanup emulator on unmount
   useEffect(() => {
     return () => {
-      emulator.cleanup()
+      cleanup()
     }
-  }, [emulator.cleanup])
+  }, [cleanup])
   
   // Switch to Diagnostics tab when new error appears
   useEffect(() => {
     if (errors.length > 0) {
-      gameState.setRightPanelTab(2) // Switch to Diagnostics tab (index 2)
+      setRightPanelTab(2) // Switch to Diagnostics tab (index 2)
     }
-  }, [errors.length, gameState.setRightPanelTab])
+  }, [errors.length, setRightPanelTab])
 
   return (
     <KeyboardControl
@@ -99,7 +101,6 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               onDebugClick={executionControl.handleDebugClick}
               onPlayClick={executionControl.handlePlayClick}
               isDebugMode={gameState.isDebugMode}
-              isPlayMode={gameState.isPlayMode}
               playStatus={gameState.playStatus}
               hasWon={gameState.hasWon}
               currentLevel={levelId}

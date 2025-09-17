@@ -5,6 +5,7 @@ import ErrorCard from '../ErrorCard'
 import QueryBar from '../bar/QueryBar'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 // Props type will be added when needed
 type DiagnosticsPanelProps = Record<string, never>
@@ -58,10 +59,13 @@ export default function DiagnosticsPanel({}: DiagnosticsPanelProps) {
       >
         {!hasData ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-            <img 
+            <Image 
               src={currentTheme === 'dark' ? '/res/null-dark.png' : '/res/null.png'} 
               alt="No diagnostics" 
-              style={{ width: '200px', flexShrink: 0, pointerEvents: 'none', userSelect: 'none' }}
+              width={200}
+              height={200}
+              className="pointer-events-none select-none"
+              priority={false}
             />
             <div className="text-[#c4c4c6] dark:text-[#626265] text-sm">
               No diagnostics data available
@@ -85,10 +89,13 @@ export default function DiagnosticsPanel({}: DiagnosticsPanelProps) {
             ))}
             {searchQuery && filteredErrors.length === 0 && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-                <img 
+                <Image 
                   src={currentTheme === 'dark' ? '/res/null-dark.png' : '/res/null.png'} 
                   alt="No results" 
-                  style={{ width: '200px', flexShrink: 0, pointerEvents: 'none', userSelect: 'none' }}
+                  width={200}
+                  height={200}
+                  className="pointer-events-none select-none"
+                  priority={false}
                 />
                 <div className="text-[#c4c4c6] dark:text-[#626265] text-sm">
                   No diagnostics data found

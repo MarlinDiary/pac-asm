@@ -6,6 +6,7 @@ import {
   TableCell,
   TableRow,
 } from "@/components/ui/table"
+import Image from 'next/image'
 import { useTheme } from 'next-themes'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import MemoryFilter, { MemoryRegion } from '@/components/MemoryFilter'
@@ -177,10 +178,13 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
       }
       return (
         <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-          <img 
+          <Image 
             src={currentTheme === 'dark' ? '/res/null-dark.png' : '/res/null.png'} 
             alt="No results" 
-            style={{ width: '200px', flexShrink: 0, pointerEvents: 'none', userSelect: 'none' }}
+            width={200}
+            height={200}
+            className="pointer-events-none select-none"
+            priority={false}
           />
           <div className="text-[#c4c4c6] dark:text-[#626265] text-sm">
             {message}

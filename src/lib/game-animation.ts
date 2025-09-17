@@ -1,8 +1,5 @@
 import { GameMap, PlayerDirection, GhostAnimationState } from '@/data/maps'
-import { smartPatrolGhostMove, bfsGhostMove, level4GhostMove, resetLevel4GhostHistory } from './ghost-agents'
-
-// Export reset function for Level 4
-export { resetLevel4GhostHistory };
+import { smartPatrolGhostMove, bfsGhostMove, level4GhostMove } from './ghost-agents'
 
 export interface PlayerAnimationState {
   direction: PlayerDirection
@@ -17,6 +14,17 @@ export interface PlayerAnimationState {
 export interface AnimatedGameState {
   mapState: GameMap
   [key: string]: unknown
+}
+
+export const checkVictoryCondition = (map: GameMap): boolean => {
+  for (let row = 0; row < map.height; row++) {
+    for (let col = 0; col < map.width; col++) {
+      if (map.tiles[row][col] === '.') {
+        return false
+      }
+    }
+  }
+  return true
 }
 
 /**
@@ -128,22 +136,9 @@ export function ensurePlayerAnimation<T extends AnimatedGameState>(
 
 
 /**
- * Creates teleport animation state
- */
-export function createTeleportAnimation(
-  direction: PlayerDirection,
-  animationType: 'fade-out' | 'fade-in'
-): PlayerAnimationState {
-  return {
-    direction,
-    teleportAnimation: animationType
-  }
-}
-
-/**
  * Creates ghost animation state based on movement
  */
-export function createGhostAnimation(oldPos: {row: number, col: number}, newPos: {row: number, col: number}): GhostAnimationState {
+export function createGhostAnimation(): GhostAnimationState {
   return {
     shouldAnimate: true
   };
@@ -209,7 +204,7 @@ export function updateMapWithMovementAndGhosts(
     
     // Check if this is Level 4 (single ghost in open space)
     if (currentMap.id === 'level4') {
-      return level4GhostMove(currentMap, ghost, currentMap.playerPosition);
+      return level4GhostMove(currentMap, ghost);
     }
     
     if (index === 0) {
@@ -257,10 +252,7 @@ export function updateMapWithMovementAndGhosts(
     );
     
     if (wallCollisionResult.hasCollision) {
-      const ghostAnimations = nextGhostPositions.map((newPos, index) => {
-        const oldPos = currentMap.ghostPositions[index];
-        return createGhostAnimation(oldPos, newPos);
-      });
+      const ghostAnimations = nextGhostPositions.map(() => createGhostAnimation());
 
       const gameOverMap = {
         ...currentMap,
@@ -278,10 +270,7 @@ export function updateMapWithMovementAndGhosts(
     }
     
     // Cannot move to air/wall, only update direction and move ghosts
-    const ghostAnimations = nextGhostPositions.map((newPos, index) => {
-      const oldPos = currentMap.ghostPositions[index];
-      return createGhostAnimation(oldPos, newPos);
-    });
+    const ghostAnimations = nextGhostPositions.map(() => createGhostAnimation());
 
     return {
       ...currentMap,
@@ -294,10 +283,7 @@ export function updateMapWithMovementAndGhosts(
 
   if (collisionResult.hasCollision) {
     // Create ghost animations based on movement
-    const ghostAnimations = nextGhostPositions.map((newPos, index) => {
-      const oldPos = currentMap.ghostPositions[index];
-      return createGhostAnimation(oldPos, newPos);
-    });
+    const ghostAnimations = nextGhostPositions.map(() => createGhostAnimation());
 
     let playerFinalPosition, playerAnimation;
     
@@ -354,10 +340,7 @@ export function updateMapWithMovementAndGhosts(
   }
 
   // Create ghost animations based on movement
-  const ghostAnimations = nextGhostPositions.map((newPos, index) => {
-    const oldPos = currentMap.ghostPositions[index];
-    return createGhostAnimation(oldPos, newPos);
-  });
+  const ghostAnimations = nextGhostPositions.map(() => createGhostAnimation());
 
   return {
     ...currentMap,
@@ -393,7 +376,7 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
     
     // Check if this is Level 4 (single ghost in open space)
     if (mapState.id === 'level4') {
-      return level4GhostMove(mapState, ghost, pacmanPosition);
+      return level4GhostMove(mapState, ghost);
     }
     
     if (index === 0) {
@@ -406,10 +389,7 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
   });
 
   // Create ghost animations based on movement
-  const ghostAnimations = updatedGhostPositions.map((newPos, index) => {
-    const oldPos = mapState.ghostPositions[index];
-    return createGhostAnimation(oldPos, newPos);
-  });
+  const ghostAnimations = updatedGhostPositions.map(() => createGhostAnimation());
 
   return {
     ...mapState,
@@ -417,53 +397,4 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
     ghostPreviousPositions: mapState.ghostPositions, // Save current positions as previous
     ghostAnimations: ghostAnimations
   };
-}
-
-/**
- * Updates map after movement for play/debug scenarios
- */
-export function updateMapAfterMovement(
-  mapState: GameMap, 
-  oldRow: number, 
-  oldCol: number, 
-  newRow: number, 
-  newCol: number, 
-  direction: number
-): GameMap {
-  // Check if new position is valid (not air/wall)
-  if (mapState.tiles[newRow][newCol] === '%') {
-    // Cannot move to air/wall, only update direction
-    return {
-      ...mapState,
-      playerAnimation: createPlayerAnimation(direction)
-    }
-  }
-
-  // Create updated tiles array
-  const updatedTiles = mapState.tiles.map(row => [...row])
-  
-  // Check for dot collision and collect it
-  if (updatedTiles[newRow][newCol] === '.') {
-    updatedTiles[newRow][newCol] = ' ' // Replace dot with grass
-  }
-  
-  // Get direction for player movement
-  let newDirection = mapState.playerPosition.direction
-  switch (direction) {
-    case 1: newDirection = 'up'; break
-    case 2: newDirection = 'down'; break
-    case 3: newDirection = 'left'; break
-    case 4: newDirection = 'right'; break
-  }
-  
-  return {
-    ...mapState,
-    tiles: updatedTiles,
-    playerPosition: {
-      row: newRow,
-      col: newCol,
-      direction: newDirection
-    },
-    playerAnimation: createPlayerAnimation(direction)
-  }
 }

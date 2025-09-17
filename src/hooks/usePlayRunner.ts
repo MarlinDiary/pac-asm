@@ -1,10 +1,9 @@
 import { useState, useRef, useCallback } from 'react'
 import { useEmulator } from './useEmulator'
-import { GameMap, getPlayerPosition } from '@/data/maps'
+import { GameMap } from '@/data/maps'
 import { RegisterInfo } from '@/workers/emulator/types'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { checkVictoryCondition } from '@/lib/game-logic'
-import { updateMapWithMovementAndGhosts, updateGhostsOnly } from '@/lib/game-animation'
+import { updateMapWithMovementAndGhosts, updateGhostsOnly, checkVictoryCondition } from '@/lib/game-animation'
 import { 
   initializeEmulatorWithCode, 
   getEmulatorMemoryState,
@@ -220,25 +219,6 @@ export const usePlayRunner = () => {
     setIsPlaying(false)
   }
 
-  const calculateNewPosition = (mapState: GameMap, direction: number) => {
-    const playerPos = getPlayerPosition(mapState)
-    if (!playerPos) return { newRow: 0, newCol: 0 }
-    
-    const { row, col } = playerPos
-    let newRow = row
-    let newCol = col
-    
-    switch (direction) {
-      case 1: newRow = Math.max(0, row - 1); break
-      case 2: newRow = Math.min(mapState.height - 1, row + 1); break
-      case 3: newCol = Math.max(0, col - 1); break
-      case 4: newCol = Math.min(mapState.width - 1, col + 1); break
-    }
-    
-    return { newRow, newCol }
-  }
-
-
   const stopPlay = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -260,7 +240,7 @@ export const usePlayRunner = () => {
     
     try {
       await emulator.reset()
-    } catch (error) {}
+    } catch {}
   }, [emulator, stopPlay])
 
   const getCurrentState = () => {
