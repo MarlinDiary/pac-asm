@@ -22,7 +22,6 @@ import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { KeyboardControl } from '@/hooks/useKeyboardControl'
 import { useChallengeScore } from '@/hooks/useChallengeScore'
 import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2, Book } from 'lucide-react'
 import { GameMap } from '@/data/maps'
@@ -85,12 +84,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   }, [errors.length, setRightPanelTab])
 
   return (
-    <KeyboardControl
-      enabled={process.env.NODE_ENV === 'development' && !gameState.isPlayMode && !gameState.isDebugMode}
-      currentMap={gameState.currentMap}
-      onMapUpdate={gameState.setCurrentMap}
-    >
-      <div className="h-screen w-full overflow-hidden bg-[#f0f0f0] dark:bg-[#0f0f0f]">
+    <div className="h-screen w-full overflow-hidden bg-[#f0f0f0] dark:bg-[#0f0f0f]">
       <div className="p-2 h-full flex flex-col">
         <div className="flex justify-center relative">
           <div className="absolute left-0 top-0">
@@ -262,10 +256,9 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
           />
         </ResizablePanel>
         </ResizablePanelGroup>
-        </div>
       </div>
-      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      </div>
-    </KeyboardControl>
+    </div>
+    <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+  </div>
   )
 }
