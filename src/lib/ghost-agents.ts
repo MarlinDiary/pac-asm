@@ -136,30 +136,27 @@ export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPositi
 
 // Store ghost history for Level 4
 const level4GhostHistory: Position[] = [];
-// Persist initial column for Level 4 ghost (set on first use, reset on level reset)
-let level4InitialCol: number | null = null;
+// Persist initial row for Level 4 ghost (set on first use, reset on level reset)
+let level4InitialRow: number | null = null;
 
 /**
- * Algorithm 3: Level 4 specific - 3-column limited movement with 40% pursuit
- * Ghost moves within 3 columns (5-7) with:
- * - 40% chance to pursue Pacman
- * - 60% chance for random movement
- * - Avoids repeating positions within last 10 moves
+ * Algorithm 3: Level 4 specific - row-based movement
+ * Ghost moves only along its initial row (random left/right), never up/down.
  */
 export function level4GhostMove(map: GameMap, ghostPosition: Position, _pacmanPosition: Position): Position {
-  // Level 4 rule: ghost moves only along its initial column (random up/down), never left/right.
-  // Record initial column at first call
-  if (level4InitialCol === null) {
-    level4InitialCol = ghostPosition.col;
+  // Level 4 rule: ghost moves only along its initial row (random left/right), never up/down.
+  // Record initial row at first call
+  if (level4InitialRow === null) {
+    level4InitialRow = ghostPosition.row;
   }
 
-  const col = level4InitialCol;
+  const row = level4InitialRow;
   const candidates: Position[] = [];
-  const up = { row: ghostPosition.row - 1, col };
-  const down = { row: ghostPosition.row + 1, col };
+  const left = { row, col: ghostPosition.col - 1 };
+  const right = { row, col: ghostPosition.col + 1 };
 
-  if (isValidPosition(map, up.row, up.col)) candidates.push(up);
-  if (isValidPosition(map, down.row, down.col)) candidates.push(down);
+  if (isValidPosition(map, left.row, left.col)) candidates.push(left);
+  if (isValidPosition(map, right.row, right.col)) candidates.push(right);
 
   if (candidates.length === 0) return ghostPosition;
 
@@ -176,5 +173,5 @@ export function level4GhostMove(map: GameMap, ghostPosition: Position, _pacmanPo
  */
 export function resetLevel4GhostHistory(): void {
   level4GhostHistory.length = 0;
-  level4InitialCol = null;
+  level4InitialRow = null;
 }

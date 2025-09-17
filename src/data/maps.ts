@@ -118,19 +118,19 @@ const LEVEL3_RAW_MAP = `
 
 // Level 4: Ghost avoidance - reach the dot while avoiding the ghost
 const LEVEL4_RAW_MAP = `
-%%%%%%%%%%%%%
-%           %
-%           %
-%           %
-%           %
-%           %
-%           %
-%           %
-%           %
-%           %
-%           %
-%          .%
-%%%%%%%%%%%%%`;
+%%%%%%
+%    %
+%    %
+%    %
+%    %
+%    %
+%    %
+%    %
+%    %
+%    %
+%    %
+%   .%
+%%%%%%`;
 
 function parseMapFromString(mapString: string): TileSymbol[][] {
   const lines = mapString.trim().split('\n');
@@ -288,13 +288,13 @@ NOP`
   {
     id: 'level4',
     name: 'Level 4',
-    width: 13,
+    width: 6,
     height: 13,
-    tileSize: 32,
+    tileSize: 48,
     tiles: parseMapFromString(LEVEL4_RAW_MAP),
     playerPosition: { row: 1, col: 1, direction: 'right' },
-    ghostPositions: [{ row: 6, col: 6 }],
-    waterBackground: { tilesX: 71, tilesY: 71 },
+    ghostPositions: [{ row: 6, col: 2 }],
+    waterBackground: { tilesX: 72, tilesY: 71 },
     initialCode: {
       ARM: `main:
 LDR R8, =0x30010
@@ -313,7 +313,7 @@ CMP R2, #4
 MOVEQ R6, R12
 MOVEQ R7, R1
 ADD R1, R1, #1
-CMP R1, #13
+CMP R1, #6
 BLT loop
 ADD R12, R12, #1
 CMP R12, #13
@@ -340,7 +340,7 @@ CMP R4, #3
 SUBEQ R10, R10, #1
 CMP R4, #4
 ADDEQ R10, R10, #1
-MOV R2, #13
+MOV R2, #6
 MUL R8, R5, R2
 ADD R8, R8, R10
 LDR R1, =0x30010
@@ -399,7 +399,7 @@ MOVE $s6, $s4
 MOVE $s7, $t1
 skip3:
 ADDIU $t1, $t1, 1
-SLTI $t5, $t1, 13
+SLTI $t5, $t1, 6
 BNE $t5, $zero, loop
 NOP
 ADDIU $s4, $s4, 1
@@ -455,10 +455,9 @@ BNE $t4, $t2, calc
 NOP
 ADDIU $t9, $t9, 1
 calc:
-SLL $t8, $t5, 3
-SLL $t2, $t5, 2
-ADDU $t8, $t8, $t2
+SLL $t8, $t5, 1
 ADDU $t8, $t8, $t5
+SLL $t8, $t8, 1
 ADDU $t8, $t8, $t9
 LUI $t1, 0x0003
 ORI $t1, $t1, 0x0010
