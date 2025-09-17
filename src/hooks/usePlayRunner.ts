@@ -16,12 +16,7 @@ import {
   formatRuntimeError,
   formatTimeoutError,
 } from '@/lib/emulator-errors'
-
-interface MovementAction {
-  instructionCount: number
-  mapState: GameMap
-  highlightedLine: number | undefined
-}
+import { writeMapUpdatesToMemory } from '@/lib/map-memory'
 
 export const usePlayRunner = () => {
   const emulator = useEmulator()
@@ -29,7 +24,7 @@ export const usePlayRunner = () => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentMap, setCurrentMap] = useState<GameMap | null>(null)
   const [highlightedLine, setHighlightedLine] = useState<number | undefined>(undefined)
-  const [movementActions, setMovementActions] = useState<MovementAction[]>([])
+  const [movementActionCount, setMovementActionCount] = useState(0)
   const [currentRegisters, setCurrentRegisters] = useState<RegisterInfo[]>([])
   const [previousRegisters, setPreviousRegisters] = useState<RegisterInfo[]>([])
   const currentRegistersRef = useRef<RegisterInfo[]>([])
@@ -54,7 +49,7 @@ export const usePlayRunner = () => {
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     
-    setMovementActions([])
+    setMovementActionCount(0)
     setCurrentMap(null) // Clear old map state immediately to prevent false victory detection
     setHighlightedLine(undefined)
     setIsPlaying(true)
@@ -111,11 +106,12 @@ export const usePlayRunner = () => {
     let currentMapState = { ...initialMap }
     let previousMapState = { ...initialMap }
     let movementCount = 0
-    const actions: MovementAction[] = []
+    let recordedMovementCount = 0
 
     // Continuous execution: emulator runs until it writes a command to 0x30000
     while (movementCount < 300) {
       if (abortController.signal.aborted) {
+        setMovementActionCount(movementCount)
         setIsPlaying(false)
         return
       }
@@ -133,6 +129,7 @@ export const usePlayRunner = () => {
             `addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}, timeout=${EMULATOR_RUN_TIMEOUT_MS}ms`
           )
           addError(errorMessage, currentCodeRef.current)
+          setMovementActionCount(movementCount)
           setIsPlaying(false)
           return { success: false, error: errorMessage }
         }
@@ -145,6 +142,7 @@ export const usePlayRunner = () => {
             `addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}`
           )
           addError(errorMessage, currentCodeRef.current)
+          setMovementActionCount(movementCount)
           setIsPlaying(false)
           return { success: false, error: errorMessage }
         }
@@ -169,6 +167,7 @@ export const usePlayRunner = () => {
         if (currentMapState.gameOver) {
           setCurrentMap({ ...currentMapState })
           setHighlightedLine(undefined)
+          setMovementActionCount(movementCount)
           setIsPlaying(false)
           return { success: false, error: 'Game Over: Collision with ghost!' }
         }
@@ -182,6 +181,7 @@ export const usePlayRunner = () => {
         const detail = error instanceof Error ? error.message : 'unexpected failure'
         const errorMessage = formatRuntimeError('runUntilMemWrite execution failed', detail)
         addError(errorMessage, currentCodeRef.current)
+        setMovementActionCount(movementCount)
         setIsPlaying(false)
         return { success: false, error: errorMessage }
       }
@@ -189,17 +189,11 @@ export const usePlayRunner = () => {
       // After updating map state, write differences to memory and update panels, then auto-continue
       try {
         // Write diffs using the previous map snapshot
-        const { writeMapUpdatesToMemory } = await import('@/lib/map-memory')
         await writeMapUpdatesToMemory(emulator, previousMapState, currentMapState)
 
         await updateSystemState()
 
-        // Record action after writing diffs
-        actions.push({
-          instructionCount: movementCount,
-          mapState: { ...currentMapState },
-          highlightedLine: undefined
-        })
+        recordedMovementCount = movementCount
 
         // Advance previous snapshot
         previousMapState = { ...currentMapState }
@@ -218,6 +212,7 @@ export const usePlayRunner = () => {
           detail
         )
         addError(errorMessage, currentCodeRef.current)
+        setMovementActionCount(movementCount)
         setIsPlaying(false)
         return { success: false, error: errorMessage }
       }
@@ -229,7 +224,7 @@ export const usePlayRunner = () => {
     currentRegistersRef.current = []
     setCurrentMemory({ codeMemory: [], stackMemory: [], dataMemory: [] })
 
-    setMovementActions(actions)
+    setMovementActionCount(recordedMovementCount)
     setHighlightedLine(undefined)
     setIsPlaying(false)
   }
@@ -244,7 +239,7 @@ export const usePlayRunner = () => {
   const reset = useCallback(async () => {
     stopPlay()
     
-    setMovementActions([])
+    setMovementActionCount(0)
     setCurrentMap(null)
     setHighlightedLine(undefined)
     setPreviousRegisters([])
@@ -291,7 +286,7 @@ export const usePlayRunner = () => {
     isInitializing,
     currentMap,
     highlightedLine,
-    movementActions,
+    movementActionCount,
     startPlay,
     stopPlay,
     reset,

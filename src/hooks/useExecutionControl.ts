@@ -167,7 +167,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
 
   // Listen for play completion
   useEffect(() => {
-    if (isPlayMode && !playState.isPlaying && playState.movementActions.length > 0) {
+    if (isPlayMode && !playState.isPlaying && playState.movementActionCount > 0) {
       // Play has finished - reset everything
       setTimeout(() => {
         setIsPlayMode(false)
@@ -180,7 +180,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
         // It will be reset when starting a new game
       }, 300) // Small delay to show final state briefly
     }
-  }, [playState.isPlaying, isPlayMode, playState.movementActions.length, setIsPlayMode, setIsCodeDisabled, setHighlightedLine, setPlayStatus])
+  }, [playState.isPlaying, isPlayMode, playState.movementActionCount, setIsPlayMode, setIsCodeDisabled, setHighlightedLine, setPlayStatus])
 
   // Auto-stop debug mode when error occurs
   useEffect(() => {
