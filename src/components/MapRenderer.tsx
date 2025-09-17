@@ -104,7 +104,8 @@ export default function MapRenderer({ map }: MapRendererProps) {
                     alt="Dot"
                     width={tileSize}
                     height={tileSize}
-                    className="object-cover"
+                    className="object-cover pointer-events-none select-none"
+                    draggable={false}
                     priority
                   />
                 </div>
