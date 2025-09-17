@@ -107,6 +107,7 @@ export const usePlayRunner = () => {
     let previousMapState = { ...initialMap }
     let movementCount = 0
     let recordedMovementCount = 0
+    let stagnantSteps = 0
 
     // Continuous execution: emulator runs until it writes a command to 0x30000
     while (movementCount < 300) {
@@ -161,6 +162,22 @@ export const usePlayRunner = () => {
           currentMapState = updateMapWithMovementAndGhosts(currentMapState, nextAction)
         } else {
           currentMapState = updateGhostsOnly(currentMapState)
+        }
+
+        const prevPlayer = previousMapState.playerPosition
+        const currentPlayer = currentMapState.playerPosition
+        const playerMoved = prevPlayer && currentPlayer
+          ? prevPlayer.row !== currentPlayer.row || prevPlayer.col !== currentPlayer.col
+          : true
+
+        stagnantSteps = playerMoved ? 0 : stagnantSteps + 1
+
+        if (stagnantSteps >= 10) {
+          const errorMessage = 'GAMEPLAY_ERROR: PacMan has not moved for 10 consecutive steps'
+          addError(errorMessage, currentCodeRef.current)
+          setMovementActionCount(movementCount)
+          setIsPlaying(false)
+          return { success: false, error: errorMessage }
         }
 
         // Check for game over (collision)
