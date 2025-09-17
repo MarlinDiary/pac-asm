@@ -10,6 +10,7 @@ import {
   getEmulatorMemoryState
 } from '@/lib/emulator-utils'
 import { writeMapUpdatesToMemory } from '@/lib/map-memory'
+import { formatRuntimeError } from '@/lib/emulator-errors'
 
 const isCodeExecutionComplete = (stepResult: { message?: string }): boolean => {
   return (
@@ -248,7 +249,8 @@ export const useDebugger = () => {
       const stepResult = await emulator.step()
       if (!stepResult || !stepResult.success) {
         setHasError(true)
-        const errorMessage = stepResult?.message || 'RUNTIME_ERROR: No step result from emulator (step-debug)'
+        const fallbackError = formatRuntimeError('step-debug returned no result')
+        const errorMessage = stepResult?.message ?? fallbackError
         addError(errorMessage, currentCodeRef.current)
         return null
       }

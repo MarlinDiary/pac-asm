@@ -1,5 +1,6 @@
 // Core EmulatorWorker class
 
+import { EMULATOR_RUN_TIMEOUT_US } from '@/lib/emulator-errors';
 import { 
   UnicornInstance, 
   EmulatorMessage, 
@@ -239,7 +240,8 @@ export class EmulatorWorker {
         throw new Error('Emulator not initialized');
       }
 
-      const result = this.executionEngine.runUntilMemoryWrite(address, validValues, timeoutUs);
+      const effectiveTimeoutUs = timeoutUs ?? EMULATOR_RUN_TIMEOUT_US;
+      const result = this.executionEngine.runUntilMemoryWrite(address, validValues, effectiveTimeoutUs);
 
       this.postMessage({
         type: 'execution-complete',

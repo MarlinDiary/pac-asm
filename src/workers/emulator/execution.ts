@@ -1,5 +1,6 @@
 // Execution engine for ARM/MIPS instructions
 
+import { EMULATOR_RUN_TIMEOUT_US } from '@/lib/emulator-errors';
 import { UnicornInstance, UnicornGlobal, StepResult, EmulatorConfig, Architecture } from './types';
 import { LiteralPoolDetector } from './literal-pool';
 import { MemoryManager } from './memory-manager';
@@ -313,7 +314,7 @@ export class ExecutionEngine {
   runUntilMemoryWrite(
     untilAddress: number,
     validValues: number[] = [1, 2, 3, 4],
-    timeoutUs: number = 3_000_000
+    timeoutUs: number = EMULATOR_RUN_TIMEOUT_US
   ): { message: string; executedInstructions: number; stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown'; memEvent?: { address: number; value: number } } {
     const endAddress = this.config.codeAddress + 4096;
     const pcReg = this.arch === 'MIPS' ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)! : this.uc.ARM_REG_PC;

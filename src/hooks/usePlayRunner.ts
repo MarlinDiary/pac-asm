@@ -9,6 +9,13 @@ import {
   getEmulatorMemoryState,
   MEMORY_CONFIG 
 } from '@/lib/emulator-utils'
+import {
+  EMULATOR_RUN_TIMEOUT_MS,
+  EMULATOR_RUN_TIMEOUT_US,
+  formatMemoryError,
+  formatRuntimeError,
+  formatTimeoutError,
+} from '@/lib/emulator-errors'
 
 interface MovementAction {
   instructionCount: number
@@ -117,11 +124,14 @@ export const usePlayRunner = () => {
         // Execute until the program writes a move command to DATA_BASE
         const runAddress = MEMORY_CONFIG.DATA_BASE
         const validValues = [1, 2, 3, 4]
-        const timeoutUs = 3_000_000
+        const timeoutUs = EMULATOR_RUN_TIMEOUT_US
         const result = await emulator.runUntilMemWrite(runAddress, validValues, timeoutUs)
 
         if (!result) {
-          const errorMessage = `RUNTIME_ERROR: No run result from emulator (runUntilMemWrite). addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}, timeoutUs=${timeoutUs}`
+          const errorMessage = formatRuntimeError(
+            'runUntilMemWrite returned no result',
+            `addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}, timeout=${EMULATOR_RUN_TIMEOUT_MS}ms`
+          )
           addError(errorMessage, currentCodeRef.current)
           setIsPlaying(false)
           return { success: false, error: errorMessage }
@@ -129,7 +139,11 @@ export const usePlayRunner = () => {
 
         if (result.stopReason === 'timeout') {
           // Report timeout error to diagnostics
-          const errorMessage = `TIMEOUT_ERROR: No movement command written within ${timeoutUs/1000}ms. addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}`
+          const errorMessage = formatTimeoutError(
+            'No movement command observed',
+            EMULATOR_RUN_TIMEOUT_MS,
+            `addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}`
+          )
           addError(errorMessage, currentCodeRef.current)
           setIsPlaying(false)
           return { success: false, error: errorMessage }
@@ -165,9 +179,8 @@ export const usePlayRunner = () => {
 
       
       } catch (error) {
-        const errorMessage = error instanceof Error 
-          ? `RUNTIME_ERROR: runUntilMemWrite threw: ${error.message}` 
-          : `RUNTIME_ERROR: runUntilMemWrite failed unexpectedly`
+        const detail = error instanceof Error ? error.message : 'unexpected failure'
+        const errorMessage = formatRuntimeError('runUntilMemWrite execution failed', detail)
         addError(errorMessage, currentCodeRef.current)
         setIsPlaying(false)
         return { success: false, error: errorMessage }
@@ -199,9 +212,11 @@ export const usePlayRunner = () => {
         // Small delay between steps
         await new Promise(resolve => setTimeout(resolve, 125))
       } catch (e) {
-        const errorMessage = e instanceof Error 
-          ? `MEMORY_ERROR: Post-move update failed while writing map diffs or refreshing state: ${e.message}` 
-          : 'MEMORY_ERROR: Post-move update failed while writing map diffs or refreshing state'
+        const detail = e instanceof Error ? e.message : undefined
+        const errorMessage = formatMemoryError(
+          'Post-move update failed while writing map diffs or refreshing state',
+          detail
+        )
         addError(errorMessage, currentCodeRef.current)
         setIsPlaying(false)
         return { success: false, error: errorMessage }
