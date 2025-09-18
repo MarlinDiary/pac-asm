@@ -74,9 +74,14 @@ export const usePlayRunner = () => {
       }
       
       await updateSystemState()
-      await executeWithDelays(initialMap, abortController)
-      
+      const executionResult = await executeWithDelays(initialMap, abortController)
+
       setIsInitializing(false)
+
+      if (executionResult && executionResult.success === false) {
+        return executionResult
+      }
+
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -114,7 +119,7 @@ export const usePlayRunner = () => {
       if (abortController.signal.aborted) {
         setMovementActionCount(movementCount)
         setIsPlaying(false)
-        return
+        return { success: false as const, error: null }
       }
 
       try {
@@ -132,7 +137,7 @@ export const usePlayRunner = () => {
           addError(errorMessage, currentCodeRef.current)
           setMovementActionCount(movementCount)
           setIsPlaying(false)
-          return { success: false, error: errorMessage }
+          return { success: false as const, error: errorMessage }
         }
 
         if (result.stopReason === 'timeout') {
@@ -145,7 +150,7 @@ export const usePlayRunner = () => {
           addError(errorMessage, currentCodeRef.current)
           setMovementActionCount(movementCount)
           setIsPlaying(false)
-          return { success: false, error: errorMessage }
+          return { success: false as const, error: errorMessage }
         }
 
         if (result.stopReason === 'end-of-code' || result.stopReason === 'unknown') {
@@ -177,7 +182,7 @@ export const usePlayRunner = () => {
           addError(errorMessage, currentCodeRef.current)
           setMovementActionCount(movementCount)
           setIsPlaying(false)
-          return { success: false, error: errorMessage }
+          return { success: false as const, error: errorMessage }
         }
 
         // Check for game over (collision)
@@ -186,7 +191,7 @@ export const usePlayRunner = () => {
           setHighlightedLine(undefined)
           setMovementActionCount(movementCount)
           setIsPlaying(false)
-          return { success: false, error: 'Game Over: Collision with ghost!' }
+          return { success: false as const, error: 'Game Over: Collision with ghost!' }
         }
 
         // Update UI
@@ -200,7 +205,7 @@ export const usePlayRunner = () => {
         addError(errorMessage, currentCodeRef.current)
         setMovementActionCount(movementCount)
         setIsPlaying(false)
-        return { success: false, error: errorMessage }
+        return { success: false as const, error: errorMessage }
       }
 
       // After updating map state, write differences to memory and update panels, then auto-continue
@@ -231,7 +236,7 @@ export const usePlayRunner = () => {
         addError(errorMessage, currentCodeRef.current)
         setMovementActionCount(movementCount)
         setIsPlaying(false)
-        return { success: false, error: errorMessage }
+        return { success: false as const, error: errorMessage }
       }
     }
 
@@ -244,6 +249,8 @@ export const usePlayRunner = () => {
     setMovementActionCount(recordedMovementCount)
     setHighlightedLine(undefined)
     setIsPlaying(false)
+
+    return { success: true as const }
   }
 
   const stopPlay = useCallback(() => {

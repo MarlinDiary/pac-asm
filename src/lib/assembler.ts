@@ -11,6 +11,19 @@ export interface ELFParseResult {
   textSectionSize: number;
 }
 
+const SHT_SYMTAB = 2;
+const SHT_RELA = 4;
+const SHT_REL = 9;
+const SHN_UNDEF = 0;
+const SHN_ABS = 0xfff1;
+const R_MIPS_26 = 4;
+const R_MIPS_HI16 = 5;
+const R_MIPS_LO16 = 6;
+const R_MIPS_GPREL16 = 7;
+const R_MIPS_PC16 = 10;
+
+const signExtend16 = (value: number): number => ((value << 16) >> 16);
+
 export function extractMachineCode(elfData: Uint8Array): ELFParseResult {
   // Verify ELF magic
   if (elfData.length < 52 || 
@@ -74,6 +87,281 @@ export function extractMachineCode(elfData: Uint8Array): ELFParseResult {
   }
   
   throw new Error('.text section not found in ELF');
+}
+
+function readNullTerminatedString(bytes: Uint8Array, offset: number): string {
+  if (offset >= bytes.length) {
+    return '';
+  }
+  let end = offset;
+  while (end < bytes.length && bytes[end] !== 0) {
+    end++;
+  }
+  let str = '';
+  for (let i = offset; i < end; i++) {
+    str += String.fromCharCode(bytes[i]);
+  }
+  return str;
+}
+
+interface ParsedSection {
+  name: string;
+  type: number;
+  offset: number;
+  size: number;
+  link: number;
+  info: number;
+  entsize: number;
+}
+
+interface ParsedSymbol {
+  value: number;
+  shndx: number;
+  name: string;
+}
+
+function parseSections(elfData: Uint8Array): { sections: ParsedSection[]; isLittleEndian: boolean } {
+  if (elfData.length < 52) {
+    return { sections: [], isLittleEndian: true };
+  }
+  const isLittleEndian = elfData[5] === 1;
+  const view = new DataView(elfData.buffer, elfData.byteOffset, elfData.byteLength);
+  const shoff = view.getUint32(32, isLittleEndian);
+  const shentsize = view.getUint16(46, isLittleEndian);
+  const shnum = view.getUint16(48, isLittleEndian);
+  const shstrndx = view.getUint16(50, isLittleEndian);
+
+  if (shoff === 0 || shnum === 0 || shstrndx >= shnum) {
+    return { sections: [], isLittleEndian };
+  }
+
+  const shstrHeaderOffset = shoff + shstrndx * shentsize;
+  const shstrOffset = view.getUint32(shstrHeaderOffset + 16, isLittleEndian);
+  const shstrSize = view.getUint32(shstrHeaderOffset + 20, isLittleEndian);
+  const shstrBytes = elfData.subarray(shstrOffset, shstrOffset + shstrSize);
+
+  const sections: ParsedSection[] = [];
+  for (let i = 0; i < shnum; i++) {
+    const headerOffset = shoff + i * shentsize;
+    const nameOffset = view.getUint32(headerOffset, isLittleEndian);
+    const name = readNullTerminatedString(shstrBytes, nameOffset);
+    sections.push({
+      name,
+      type: view.getUint32(headerOffset + 4, isLittleEndian),
+      offset: view.getUint32(headerOffset + 16, isLittleEndian),
+      size: view.getUint32(headerOffset + 20, isLittleEndian),
+      link: view.getUint32(headerOffset + 24, isLittleEndian),
+      info: view.getUint32(headerOffset + 28, isLittleEndian),
+      entsize: view.getUint32(headerOffset + 36, isLittleEndian),
+    });
+  }
+
+  return { sections, isLittleEndian };
+}
+
+function parseSymbols(
+  elfData: Uint8Array,
+  sections: ParsedSection[],
+  symbolSection: ParsedSection,
+  isLittleEndian: boolean
+): ParsedSymbol[] {
+  if (symbolSection.type !== SHT_SYMTAB || symbolSection.entsize === 0) {
+    return [];
+  }
+
+  const view = new DataView(elfData.buffer, elfData.byteOffset, elfData.byteLength);
+  const linkedStrSection = sections[symbolSection.link];
+  const strBytes = linkedStrSection
+    ? elfData.subarray(linkedStrSection.offset, linkedStrSection.offset + linkedStrSection.size)
+    : new Uint8Array(0);
+
+  const count = Math.floor(symbolSection.size / symbolSection.entsize);
+  const symbols: ParsedSymbol[] = [];
+  for (let i = 0; i < count; i++) {
+    const entryOffset = symbolSection.offset + i * symbolSection.entsize;
+    const stName = view.getUint32(entryOffset, isLittleEndian);
+    const stValue = view.getUint32(entryOffset + 4, isLittleEndian) >>> 0;
+    const stShndx = view.getUint16(entryOffset + 14, isLittleEndian);
+    const name = readNullTerminatedString(strBytes, stName);
+    symbols.push({ value: stValue >>> 0, shndx: stShndx, name });
+  }
+
+  return symbols;
+}
+
+function applyMipsRelocations(
+  elfData: Uint8Array,
+  textSectionOffset: number,
+  machineCode: Uint8Array,
+  baseAddress: number
+): Uint8Array {
+  const { sections, isLittleEndian } = parseSections(elfData);
+  if (sections.length === 0) {
+    return machineCode;
+  }
+
+  const textSectionIndex = sections.findIndex(section => section.offset === textSectionOffset);
+  if (textSectionIndex === -1) {
+    return machineCode;
+  }
+
+  let patched: Uint8Array | null = null;
+  let textView = new DataView(machineCode.buffer, machineCode.byteOffset, machineCode.byteLength);
+  const elfView = new DataView(elfData.buffer, elfData.byteOffset, elfData.byteLength);
+
+  const computeSymbolAddress = (symbol: ParsedSymbol): number => {
+    if (symbol.shndx === SHN_UNDEF) {
+      throw new Error(`Unresolved symbol '${symbol.name}' in relocation`);
+    }
+    if (symbol.shndx === SHN_ABS) {
+      return symbol.value >>> 0;
+    }
+    if (symbol.shndx === textSectionIndex) {
+      return (baseAddress + symbol.value) >>> 0;
+    }
+    throw new Error(`Unsupported relocation target section index ${symbol.shndx} for symbol '${symbol.name}'`);
+  };
+
+  const ensurePatchedView = () => {
+    if (!patched) {
+      patched = machineCode.slice();
+      textView = new DataView(patched.buffer, patched.byteOffset, patched.byteLength);
+    }
+    return textView;
+  };
+
+  const pendingHiRelocs = new Map<number, Array<{ offset: number; symbolAddress: number; addend: number }>>();
+
+  for (const relSection of sections) {
+    if (relSection.info !== textSectionIndex) {
+      continue;
+    }
+    if (relSection.type !== SHT_REL && relSection.type !== SHT_RELA) {
+      continue;
+    }
+    if (relSection.entsize === 0) {
+      continue;
+    }
+
+    const symbolSection = sections[relSection.link];
+    if (!symbolSection || symbolSection.type !== SHT_SYMTAB) {
+      continue;
+    }
+
+    const symbols = parseSymbols(elfData, sections, symbolSection, isLittleEndian);
+    if (symbols.length === 0) {
+      continue;
+    }
+
+    const count = Math.floor(relSection.size / relSection.entsize);
+    for (let i = 0; i < count; i++) {
+      const entryOffset = relSection.offset + i * relSection.entsize;
+      const rOffset = elfView.getUint32(entryOffset, isLittleEndian) >>> 0;
+      const rInfo = elfView.getUint32(entryOffset + 4, isLittleEndian) >>> 0;
+      const rType = rInfo & 0xff;
+      const symIndex = rInfo >>> 8;
+
+      let addend = 0;
+      if (relSection.type === SHT_RELA) {
+        addend = elfView.getInt32(entryOffset + 8, isLittleEndian);
+      }
+
+      const symbol = symbols[symIndex];
+      if (!symbol) {
+        continue;
+      }
+
+      const symbolAddress = computeSymbolAddress(symbol);
+
+      switch (rType) {
+        case R_MIPS_26: {
+          if (rOffset + 4 > machineCode.length) {
+            continue;
+          }
+
+          const currentInstr = textView.getUint32(rOffset, isLittleEndian);
+          const existing = currentInstr & 0x03ffffff;
+          const existingAddend = relSection.type === SHT_RELA ? addend : ((existing << 2) >>> 0);
+          const relocatedValue = (symbolAddress + existingAddend) >>> 0;
+          const newField = ((relocatedValue >>> 2) & 0x03ffffff) >>> 0;
+          const updatedInstr = (currentInstr & 0xfc000000) | newField;
+
+          const view = ensurePatchedView();
+          view.setUint32(rOffset, updatedInstr >>> 0, isLittleEndian);
+          break;
+        }
+        case R_MIPS_HI16: {
+          if (rOffset + 4 > machineCode.length) {
+            continue;
+          }
+
+          const currentInstr = textView.getUint32(rOffset, isLittleEndian);
+          const hiImmediate = currentInstr & 0xffff;
+          const hiAddend = relSection.type === SHT_RELA ? addend : ((signExtend16(hiImmediate) << 16) | 0);
+          const queue = pendingHiRelocs.get(symIndex) ?? [];
+          queue.push({ offset: rOffset, symbolAddress, addend: hiAddend | 0 });
+          pendingHiRelocs.set(symIndex, queue);
+          break;
+        }
+        case R_MIPS_LO16: {
+          if (rOffset + 4 > machineCode.length) {
+            continue;
+          }
+
+          const currentInstr = textView.getUint32(rOffset, isLittleEndian);
+          const loImmediate = currentInstr & 0xffff;
+          const loAddend = relSection.type === SHT_RELA ? addend : signExtend16(loImmediate);
+
+          const queue = pendingHiRelocs.get(symIndex);
+          const hiRecord = queue && queue.length > 0 ? queue.shift()! : undefined;
+          if (queue && queue.length === 0) {
+            pendingHiRelocs.delete(symIndex);
+          }
+
+          const baseAddressForValue = hiRecord ? hiRecord.symbolAddress : symbolAddress;
+          const hiAddend = hiRecord ? hiRecord.addend : 0;
+          const totalAddend = (hiAddend + loAddend) | 0;
+          const totalValue = (baseAddressForValue + totalAddend) >>> 0;
+
+          const view = ensurePatchedView();
+
+          if (hiRecord) {
+            const hiInstr = view.getUint32(hiRecord.offset, isLittleEndian);
+            const newHi = ((totalValue + 0x8000) >>> 16) & 0xffff;
+            const updatedHiInstr = ((hiInstr & 0xffff0000) | newHi) >>> 0;
+            view.setUint32(hiRecord.offset, updatedHiInstr, isLittleEndian);
+          }
+
+          const viewLoInstr = view.getUint32(rOffset, isLittleEndian);
+          const newLo = totalValue & 0xffff;
+          const updatedLoInstr = ((viewLoInstr & 0xffff0000) | newLo) >>> 0;
+          view.setUint32(rOffset, updatedLoInstr, isLittleEndian);
+          break;
+        }
+        case R_MIPS_GPREL16:
+        case R_MIPS_PC16: {
+          throw new Error(`Unsupported relocation type ${rType} for symbol '${symbol.name}'`);
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  if (pendingHiRelocs.size > 0) {
+    for (const [, queue] of pendingHiRelocs) {
+      for (const hiRecord of queue) {
+        const view = ensurePatchedView();
+        const currentInstr = view.getUint32(hiRecord.offset, isLittleEndian);
+        const value = (hiRecord.symbolAddress + hiRecord.addend) >>> 0;
+        const newHi = ((value + 0x8000) >>> 16) & 0xffff;
+        const updatedInstr = ((currentInstr & 0xffff0000) | newHi) >>> 0;
+        view.setUint32(hiRecord.offset, updatedInstr, isLittleEndian);
+      }
+    }
+  }
+
+  return patched || machineCode;
 }
 
 // ============================================================================
@@ -191,6 +479,9 @@ export class GASAssembler {
       try {
         const elfResult = extractMachineCode(objectFile);
         machineCode = elfResult.machineCode;
+        if (this.target === 'mips-linux-gnu' && machineCode.length > 0) {
+          machineCode = applyMipsRelocations(objectFile, elfResult.textSectionOffset, machineCode, this.baseAddress);
+        }
       } catch {
         // If .text section is not found (e.g., empty input), return empty machine code
         machineCode = new Uint8Array(0);
