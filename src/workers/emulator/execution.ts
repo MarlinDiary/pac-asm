@@ -39,6 +39,39 @@ export class ExecutionEngine {
     return (((bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0]) >>> 0);
   }
 
+  private isMipsBranchOrJump(instruction: number): boolean {
+    const op = (instruction >>> 26) & 0x3f;
+    if (op === 0x02 || op === 0x03) {
+      // J, JAL
+      return true;
+    }
+
+    if (op === 0x01) {
+      // REGIMM encoding: BLTZ/BGEZ and their variants
+      const rt = (instruction >>> 16) & 0x1f;
+      // 0x00 BLTZ, 0x01 BGEZ, 0x10 BLTZAL, 0x11 BGEZAL, 0x12 BLTZALL, 0x13 BGEZALL
+      if (rt === 0x00 || rt === 0x01 || (rt >= 0x10 && rt <= 0x13)) {
+        return true;
+      }
+    }
+
+    if (op === 0x00) {
+      const funct = instruction & 0x3f;
+      // JR, JALR
+      if (funct === 0x08 || funct === 0x09) {
+        return true;
+      }
+    }
+
+    // BEQ, BNE, BLEZ, BGTZ and their likely variants
+    if (op === 0x04 || op === 0x05 || op === 0x06 || op === 0x07 ||
+        op === 0x14 || op === 0x15 || op === 0x16 || op === 0x17) {
+      return true;
+    }
+
+    return false;
+  }
+
   // Note: we use a fixed 4KB code window starting at codeAddress
 
   stepExecution(): void {
@@ -165,15 +198,7 @@ export class ExecutionEngine {
         let desiredCount = 1;
         try {
           const ins = this.decodeInstr32(instructionBytes);
-          const op = (ins >>> 26) & 0x3f;
-          const isRegImm = op === 0x01; // BLTZ/BGEZ and variants
-          const isJ = op === 0x02 || op === 0x03; // J, JAL
-          const isBranch = op === 0x04 || op === 0x05 || op === 0x06 || op === 0x07 ||
-                           op === 0x14 || op === 0x15 || op === 0x16 || op === 0x17 || isRegImm; // BEQ/BNE/BLEZ/BGTZ and likely variants
-          const isRType = op === 0x00;
-          const funct = ins & 0x3f;
-          const isJR = isRType && (funct === 0x08 || funct === 0x09); // JR/JALR
-          if (isJ || isBranch || isJR) {
+          if (this.isMipsBranchOrJump(ins)) {
             desiredCount = 2; // include delay slot
           }
         } catch {}
@@ -320,7 +345,9 @@ export class ExecutionEngine {
     const pcReg = this.arch === 'MIPS' ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)! : this.uc.ARM_REG_PC;
     const pc = this.unicorn.reg_read_i32(pcReg);
 
-    let memEvent: { address: number; value: number } | undefined;
+    let memEventInfo: { address: number; value: number; storePc: number } | undefined;
+    let lastExecutedPc: number | undefined;
+    let stopPending = false;
 
     const cb = (
       _handle: unknown,
@@ -338,19 +365,16 @@ export class ExecutionEngine {
       const written = (value_lo >>> 0) & (size >= 1 ? 0xff : 0xffffffff);
       const value = size === 1 ? written : (written & 0xff);
       if (!validValues.includes(value)) return;
-      memEvent = { address: addr, value };
-      // Advance PC to next instruction to avoid re-executing the same STR on resume (ARM state = 4 bytes)
-      try {
-        const pcNow = this.unicorn.reg_read_i32(pcReg);
-        // MIPS and ARM both use 4-byte fixed length (MIPS32 and ARM state), so add 4
-        this.unicorn.reg_write_i32(pcReg, (pcNow + 4) >>> 0);
-      } catch {}
-      // Stop emulation immediately
-      try { this.unicorn.emu_stop(); } catch {}
+
+      const storePc = lastExecutedPc ?? 0;
+
+      memEventInfo = { address: addr, value, storePc };
+      stopPending = true;
     };
 
     // Register hook only for the data command byte address range
     let hookHandle: unknown | undefined;
+    let codeTraceHandle: unknown | undefined;
     try {
       // Only register for the single command byte address: [0x30000, 0x30001)
       const begin = untilAddress >>> 0;
@@ -369,6 +393,30 @@ export class ExecutionEngine {
         undefined,
         begin,
         end
+      );
+      // Track the most recently executed instruction so we know which PC produced the write
+      codeTraceHandle = (this.unicorn as unknown as {
+        hook_add: (
+          type: number,
+          cb: (...args: unknown[]) => unknown,
+          user_data: unknown,
+          begin: number,
+          end: number
+        ) => unknown
+      }).hook_add(
+        this.uc.HOOK_CODE,
+        ((...args: unknown[]) => {
+          const addr = typeof args[1] === 'number' ? args[1] : 0;
+          lastExecutedPc = addr >>> 0;
+
+          if (stopPending) {
+            stopPending = false;
+            try { this.unicorn.emu_stop(); } catch {}
+          }
+        }) as unknown as (...args: unknown[]) => unknown,
+        undefined,
+        1 >>> 0,
+        0 >>> 0
       );
     } catch (e) {
       // If hook registration fails, fallback to immediate stop to avoid deadlock
@@ -393,11 +441,27 @@ export class ExecutionEngine {
     } catch {
       // Emulation stopped (reached instruction limit or other reason)
     } finally {
-      try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
+      try {
+        if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle);
+      } catch {}
+      try {
+        if (codeTraceHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(codeTraceHandle);
+      } catch {}
     }
 
-    const pcAfter = this.unicorn.reg_read_i32(pcReg);
+    let pcAfter = this.unicorn.reg_read_i32(pcReg) >>> 0;
+
+    if (memEventInfo) {
+      const { storePc } = memEventInfo;
+      if (pcAfter === storePc) {
+        const sequentialPc = (storePc + 4) >>> 0;
+        try { this.unicorn.reg_write_i32(pcReg, sequentialPc); } catch {}
+        pcAfter = sequentialPc;
+      }
+    }
+
     let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' = 'unknown';
+    const memEvent = memEventInfo ? { address: memEventInfo.address, value: memEventInfo.value } : undefined;
     if (memEvent) {
       stopReason = 'mem-write';
     } else if (pcAfter >= endAddress) {

@@ -396,7 +396,7 @@ export class GASAssembler {
   private isInitialized = false;
   private gasInstance: unknown = null;
   private lastObjectFile: Uint8Array | null = null;
-  // If we preprocess input (e.g., add .set noreorder for MIPS), record line offset
+  // If we preprocess input for target-specific adjustments, record line offset
   private preprocessedLineOffset: number = 0;
 
   constructor(options: GASAssemblerOptions = {}) {
@@ -424,20 +424,8 @@ export class GASAssembler {
     try {
       let objectFile: Uint8Array | null = null;
       let errorOutput = '';
-      // Preprocess assembly for target quirks without breaking source mapping
-      // For MIPS: prevent GAS from reordering and moving instructions (e.g., filling branch delay slots)
-      // which causes confusing step/highlight behavior. We add 
-      //   .set noreorder
-      // as a 1-line prologue if not already present, and remember the line offset
-      let processed = assembly;
+      const processed = assembly;
       this.preprocessedLineOffset = 0;
-      if (this.target === 'mips-linux-gnu') {
-        const hasNoReorder = /(^|\n)\s*\.set\s+no\s*reorder\b/i.test(assembly);
-        if (!hasNoReorder) {
-          processed = `.set noreorder\n${assembly}`;
-          this.preprocessedLineOffset = 1;
-        }
-      }
 
       // Assemble with debug info (-g)
       // Note: 'as' doesn't support '-c' (that's a gcc/ld option), so we omit it.
@@ -561,7 +549,7 @@ export class GASAssembler {
         discr: r.discr,
       }));
 
-      // Adjust for any preprocessed prologue we inserted (e.g., .set noreorder)
+      // Adjust for any preprocessed prologue we may have inserted
       if (this.preprocessedLineOffset > 0) {
         lineTable = lineTable
           .map(entry => ({
