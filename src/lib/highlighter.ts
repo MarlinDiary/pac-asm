@@ -10,10 +10,17 @@ interface AddressMapping {
   sourceContent: string;
 }
 
-export interface HighlightInfo {
-  lineNumber: number;
+export interface ManualAddressMappingInput {
   address: number;
-  instruction: string;
+  lineNumber: number;
+  instruction?: string;
+  sourceContent?: string;
+}
+
+export interface HighlightInfo {
+  lineNumbers: number[];
+  addresses: number[];
+  instructions: string[];
   isActive: boolean;
 }
 
@@ -72,6 +79,34 @@ export class CodeHighlighter {
   }
 
   /**
+   * Load address mappings from a precomputed list (used for transformed sources)
+   */
+  loadManualMappings(sourceCode: string, mappings: ManualAddressMappingInput[]): void {
+    this.addressMap.clear();
+    this.lastHighlightInfo = null;
+
+    const sourceLines = sourceCode.split('\n');
+
+    mappings.forEach((entry) => {
+      if (!entry || typeof entry.address !== 'number' || typeof entry.lineNumber !== 'number') {
+        return;
+      }
+
+      const sourceLine = entry.sourceContent ?? sourceLines[entry.lineNumber - 1] ?? '';
+      const instruction = entry.instruction ?? this.extractInstructionFromSource(sourceLine);
+
+      const mapping: AddressMapping = {
+        address: entry.address,
+        lineNumber: entry.lineNumber,
+        instruction,
+        sourceContent: sourceLine.trim()
+      };
+
+      this.addressMap.set(entry.address, mapping);
+    });
+  }
+
+  /**
    * Extract instruction name from source code line
    */
   private extractInstructionFromSource(sourceLine: string): string {
@@ -86,21 +121,28 @@ export class CodeHighlighter {
   /**
    * Get the line number that should be highlighted for a given PC address
    */
-  getHighlightLine(pcAddress: number): HighlightInfo | null {
-    const mapping = this.addressMap.get(pcAddress);
-    if (mapping) {
-      // Found mapping - update and return new highlight info
-      this.lastHighlightInfo = {
-        lineNumber: mapping.lineNumber,
-        address: mapping.address,
-        instruction: mapping.instruction,
+  getHighlightForAddresses(addresses: number[]): HighlightInfo | null {
+    const uniqueAddresses = Array.from(new Set(addresses));
+    const resolved = uniqueAddresses
+      .map((addr) => this.addressMap.get(addr))
+      .filter((mapping): mapping is AddressMapping => Boolean(mapping));
+
+    if (resolved.length > 0) {
+      const info: HighlightInfo = {
+        lineNumbers: resolved.map((m) => m.lineNumber),
+        addresses: resolved.map((m) => m.address),
+        instructions: resolved.map((m) => m.instruction),
         isActive: true
       };
-      return this.lastHighlightInfo;
+      this.lastHighlightInfo = info;
+      return info;
     }
-    
-    // No mapping found - return the last highlight info to keep previous line highlighted
+
     return this.lastHighlightInfo;
+  }
+
+  getHighlightLine(pcAddress: number): HighlightInfo | null {
+    return this.getHighlightForAddresses([pcAddress]);
   }
 
   /**
@@ -129,7 +171,14 @@ export const getHighlightFromStepResult = (
   stepResult: { pc?: number; instruction?: { address: number } },
   highlighter: CodeHighlighter
 ): HighlightInfo | null => {
-  // Highlight the instruction that was just executed (pcBefore)
+  const executed = Array.isArray((stepResult as { executedAddresses?: number[] }).executedAddresses)
+    ? (stepResult as { executedAddresses?: number[] }).executedAddresses!
+    : undefined;
+
+  if (executed && executed.length > 0) {
+    return highlighter.getHighlightForAddresses(executed);
+  }
+
   const addr = stepResult.instruction?.address;
   if (typeof addr !== 'number') return null;
   return highlighter.getHighlightLine(addr);

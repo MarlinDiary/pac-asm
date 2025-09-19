@@ -178,10 +178,15 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         <ResizablePanel defaultSize={34} ref={panelLayout.panel3Ref} minSize={10}>
           <Card tabs={[{ icon: CodeXml, text: "Code", color: "#4fae40" }]}>
             <CodeEditor 
-              value={gameState.currentCode} 
-              onChange={(value) => gameState.setCurrentCode(value || '')}
+              value={gameState.codeOverride ?? gameState.currentCode} 
+              onChange={(value) => {
+                if (!gameState.codeOverride) {
+                  gameState.setCurrentCode(value || '')
+                }
+              }}
               disabled={gameState.isCodeDisabled}
               highlightedLine={gameState.highlightedLine}
+              highlightedLineSecondary={gameState.highlightedLineSecondary}
             />
           </Card>
         </ResizablePanel>

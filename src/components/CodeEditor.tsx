@@ -13,6 +13,7 @@ interface CodeEditorProps {
   disabled?: boolean
   className?: string
   highlightedLine?: number
+  highlightedLineSecondary?: number
 }
 
 export default function CodeEditor({
@@ -22,7 +23,8 @@ export default function CodeEditor({
   width = '100%',
   disabled = false,
   className = '',
-  highlightedLine
+  highlightedLine,
+  highlightedLineSecondary
 }: CodeEditorProps) {
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
   const decorationsRef = useRef<string[]>([])
@@ -528,11 +530,23 @@ export default function CodeEditor({
 
   // Effect to handle line highlighting
   useEffect(() => {
-    if (!editorRef.current || highlightedLine === undefined) {
+    if (!editorRef.current) {
+      return
+    }
+
+    if (highlightedLine === undefined && highlightedLineSecondary === undefined) {
       return
     }
 
     const editor = editorRef.current
+
+    const startLine = highlightedLine !== undefined
+      ? highlightedLine
+      : (highlightedLineSecondary ?? highlightedLine) ?? 1
+    const endLine = highlightedLineSecondary !== undefined
+      ? highlightedLineSecondary
+      : highlightedLine ?? highlightedLineSecondary ?? startLine
+    const [minLine, maxLine] = startLine <= endLine ? [startLine, endLine] : [endLine, startLine]
 
     // Add new decoration for highlighted line
     // Import monaco dynamically to avoid SSR issues
@@ -540,7 +554,7 @@ export default function CodeEditor({
       // Clear previous decorations and add new one
       decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [
         {
-          range: new monaco.Range(highlightedLine, 1, highlightedLine, Number.MAX_SAFE_INTEGER),
+          range: new monaco.Range(minLine, 1, maxLine, Number.MAX_SAFE_INTEGER),
           options: {
             isWholeLine: true,
             className: 'highlighted-line-full',
@@ -552,19 +566,23 @@ export default function CodeEditor({
     })
 
     // Scroll to highlighted line
-    editor.revealLineInCenter(highlightedLine)
-  }, [highlightedLine])
+    editor.revealLineInCenter(minLine)
+  }, [highlightedLine, highlightedLineSecondary])
 
   // Effect to clear decorations when highlightedLine becomes undefined
   useEffect(() => {
-    if (!editorRef.current || highlightedLine !== undefined) {
+    if (!editorRef.current) {
+      return
+    }
+
+    if (highlightedLine !== undefined || highlightedLineSecondary !== undefined) {
       return
     }
 
     const editor = editorRef.current
     // Clear all decorations
     decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [])
-  }, [highlightedLine])
+  }, [highlightedLine, highlightedLineSecondary])
 
   return (
     <div 

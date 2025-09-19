@@ -7,10 +7,13 @@ import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { updateMapWithMovementAndGhosts } from '@/lib/game-animation'
 import { 
   initializeEmulatorWithCode, 
-  getEmulatorMemoryState
+  getEmulatorMemoryState,
+  MEMORY_CONFIG
 } from '@/lib/emulator-utils'
 import { writeMapUpdatesToMemory } from '@/lib/map-memory'
 import { formatRuntimeError } from '@/lib/emulator-errors'
+import { getGlobalSettings } from '@/hooks/useSettings'
+import { generateReorderedDebugView, ReorderedDebugView } from '@/lib/reordered-view'
 
 const isCodeExecutionComplete = (stepResult: { message?: string }): boolean => {
   return (
@@ -24,6 +27,7 @@ const isCodeExecutionComplete = (stepResult: { message?: string }): boolean => {
 export interface PlaybackState {
   mapState: GameMap
   highlightedLine: number | undefined
+  highlightedLineSecondary?: number | undefined
   registers: RegisterInfo[]
   codeMemory: number[]
   stackMemory: number[]
@@ -39,10 +43,18 @@ interface MemoryState {
   dataMemory: number[]
 }
 
+export interface DebugInitializationResult {
+  success: boolean
+  initialState?: PlaybackState
+  error?: string | null
+  reorderedView?: ReorderedDebugView | null
+}
+
 export const useDebugger = () => {
   const emulator = useEmulator()
   const addError = useDiagnosticsStore((state) => state.addError)
   const [highlighter, setHighlighter] = useState<CodeHighlighter | null>(null)
+  const [reorderedView, setReorderedView] = useState<ReorderedDebugView | null>(null)
   const [executionHistory, setExecutionHistory] = useState<PlaybackState[]>([])
   const [currentPlaybackIndex, setCurrentPlaybackIndex] = useState(-1)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -63,12 +75,12 @@ export const useDebugger = () => {
 
 
   // Lazy debug mode - only prepare emulator without pre-execution
-  const startDebugLazy = async (sourceCode: string, currentMap: GameMap) => {
+  const startDebugLazy = async (sourceCode: string, currentMap: GameMap): Promise<DebugInitializationResult> => {
     return await initializeDebugger(sourceCode, currentMap, true)
   }
 
   // Common debugger initialization
-  const initializeDebugger = async (sourceCode: string, currentMap: GameMap, lazy: boolean) => {
+  const initializeDebugger = async (sourceCode: string, currentMap: GameMap, lazy: boolean): Promise<DebugInitializationResult> => {
     // Cancel any existing initialization
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -78,6 +90,7 @@ export const useDebugger = () => {
     setExecutionHistory([])
     setCurrentPlaybackIndex(-1)
     setHighlighter(null)
+    setReorderedView(null)
     setIsLazyMode(lazy)
     setHasReachedEnd(false)
     setHasError(false)
@@ -108,6 +121,7 @@ export const useDebugger = () => {
           ghostAnimations: currentMap.ghostAnimations || currentMap.ghostPositions?.map(() => ({ shouldAnimate: true })) || []
         },
         highlightedLine: undefined,
+        highlightedLineSecondary: undefined,
         ...initialMemory,
         stepResult: null
       }
@@ -115,20 +129,41 @@ export const useDebugger = () => {
       // Check if operation was aborted before setting state
       if (abortController.signal.aborted) {
         setIsInitializing(false)
+        setReorderedView(null)
         return { success: false, error: null }
       }
       
-      setHighlighter(codeHighlighter)
-      
+      let appliedHighlighter: CodeHighlighter = codeHighlighter
+      let generatedView: ReorderedDebugView | null = null
+
+      try {
+        const { settings } = getGlobalSettings()
+        const target = settings.architecture === 'MIPS' ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+
+        generatedView = await generateReorderedDebugView(sourceCode, {
+          target,
+          baseAddress: MEMORY_CONFIG.CODE_BASE
+        })
+
+        const manualHighlighter = new CodeHighlighter({ baseAddress: MEMORY_CONFIG.CODE_BASE, target })
+        manualHighlighter.loadManualMappings(generatedView.transformedSource, generatedView.mappings)
+        appliedHighlighter = manualHighlighter
+      } catch (err) {
+        console.warn('[DEBUGGER] Failed to generate reordered debug view:', err)
+      }
+
+      setHighlighter(appliedHighlighter)
+      setReorderedView(generatedView)
+
       if (lazy) {
         // Lazy mode: only set initial state
         setExecutionHistory([initialState])
         setCurrentPlaybackIndex(0)
         setIsInitializing(false)
-        return { success: true, initialState }
+        return { success: true, initialState, reorderedView: generatedView }
       } else {
         // Standard mode: pre-execute all steps
-        const fullHistory = await executeAllSteps(codeHighlighter, initialState, abortController)
+        const fullHistory = await executeAllSteps(appliedHighlighter, initialState, abortController)
         if (abortController.signal.aborted) {
           setIsInitializing(false)
           return { success: false, error: null }
@@ -136,10 +171,11 @@ export const useDebugger = () => {
         setExecutionHistory(fullHistory)
         setCurrentPlaybackIndex(0)
         setIsInitializing(false)
-        return { success: true, initialState: fullHistory[0] }
+        return { success: true, initialState: fullHistory[0], reorderedView: generatedView }
       }
     } catch (error) {
       setIsInitializing(false)
+      setReorderedView(null)
       const errorMessage = error instanceof Error ? error.message : String(error)
       addError(errorMessage, currentCodeRef.current)
       return { success: false, error: errorMessage }
@@ -159,7 +195,7 @@ export const useDebugger = () => {
       const stepResult = await emulator.step()
       if (!stepResult || !stepResult.success) break
 
-      let highlight = getHighlightFromStepResult(stepResult, codeHighlighter)
+      let highlightInfo = getHighlightFromStepResult(stepResult, codeHighlighter)
       const memoryState = await getMemoryState()
       if (!memoryState) continue
 
@@ -173,12 +209,13 @@ export const useDebugger = () => {
 
       // If code completed on this step, clear highlight immediately
       if (isCodeExecutionComplete(stepResult)) {
-        highlight = null
+        highlightInfo = null
       }
 
       history.push({
         mapState: { ...currentMapState },
-        highlightedLine: highlight?.lineNumber,
+        highlightedLine: highlightInfo?.lineNumbers?.[0],
+        highlightedLineSecondary: highlightInfo?.lineNumbers?.[1],
         ...memoryState,
         stepResult
       })
@@ -258,6 +295,7 @@ export const useDebugger = () => {
       const currentState = executionHistory[currentPlaybackIndex]
       let newMapState = { ...currentState.mapState }
       let currentHighlight: number | undefined = undefined
+      let currentHighlightSecondary: number | undefined = undefined
       
       // Movement only when current step wrote to 0x30000 with 1..4
       const ev = stepResult.memWriteEvent
@@ -268,14 +306,21 @@ export const useDebugger = () => {
 
       const highlight = highlighter ? getHighlightFromStepResult(stepResult, highlighter) : null
       // If code completed on this step, clear highlight immediately
-      currentHighlight = isCodeExecutionComplete(stepResult) ? undefined : highlight?.lineNumber
-      
+      if (!isCodeExecutionComplete(stepResult) && highlight) {
+        currentHighlight = highlight.lineNumbers?.[0]
+        currentHighlightSecondary = highlight.lineNumbers?.[1]
+      } else {
+        currentHighlight = undefined
+        currentHighlightSecondary = undefined
+      }
+
       const memoryState = await getMemoryState()
       if (!memoryState) return null
-      
+
       const newState: PlaybackState = {
         mapState: newMapState,
         highlightedLine: currentHighlight,
+        highlightedLineSecondary: currentHighlightSecondary,
         ...memoryState,
         stepResult
       }
@@ -339,6 +384,7 @@ export const useDebugger = () => {
     setCurrentPlaybackIndex(-1)
     setExecutionHistory([])
     setHighlighter(null)
+    setReorderedView(null)
     setIsLazyMode(false)
     setHasReachedEnd(false)
     setHasError(false)
@@ -375,6 +421,7 @@ export const useDebugger = () => {
     currentPlaybackIndex,
     hasError,
     isInitializing,
+    reorderedView,
     canStepUp: currentPlaybackIndex > 0 && !isInitializing,
     canStepDown: !isInitializing && emulator.state.isInitialized && !hasError && !isGameOver && (
       isLazyMode ? 

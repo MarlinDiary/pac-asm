@@ -87,6 +87,7 @@ export class ExecutionEngine {
     const pcBefore = this.unicorn.reg_read_i32(pcReg);
     const registersBefore = this.memoryManager.getAllRegisters();
     let memWriteEvent: { address: number; value: number; size: number } | undefined;
+    const executedAddresses: number[] = [];
     
     // Read the instruction at current PC
     let instructionBytes: number[] = [];
@@ -122,7 +123,8 @@ export class ExecutionEngine {
             bytes: instructionBytes,
             hex: instructionHex.toUpperCase() + ' (END OF CODE)'
           },
-          registers: undefined
+          registers: undefined,
+          executedAddresses: [pcBefore >>> 0]
         };
       } else {
         // Skip over literal pool instead of executing it
@@ -139,10 +141,11 @@ export class ExecutionEngine {
               bytes: instructionBytes,
               hex: instructionHex.toUpperCase() + ' (LITERAL POOL - END)'
             },
-            registers: undefined
+            registers: undefined,
+            executedAddresses: [pcBefore >>> 0]
           };
         }
-        
+
         this.unicorn.reg_write_i32(pcReg, pcAfter);
         stepMessage = 'Skipped literal pool data';
       }
@@ -186,6 +189,9 @@ export class ExecutionEngine {
       } catch {}
 
       const endAddress = this.config.codeAddress + 4096;
+
+      // Record the primary instruction address
+      executedAddresses.push(pcBefore >>> 0);
 
       // For ARM: Use simple single-instruction execution
       if (this.arch === 'ARM') {
@@ -242,6 +248,9 @@ export class ExecutionEngine {
         }
 
         pcAfter = this.unicorn.reg_read_i32(pcReg);
+        if (desiredCount > 1) {
+          executedAddresses.push((pcBefore + 4) >>> 0);
+        }
       }
 
       // Remove hook if present
@@ -267,7 +276,8 @@ export class ExecutionEngine {
         hex: instructionHex.toUpperCase() + (isLiteralPool ? ' (LITERAL POOL)' : '')
       },
       registers: changedRegisters.length > 0 ? changedRegisters : undefined,
-      memWriteEvent
+      memWriteEvent,
+      executedAddresses: executedAddresses.length > 0 ? executedAddresses : undefined
     };
   }
 

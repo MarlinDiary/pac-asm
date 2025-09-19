@@ -161,6 +161,7 @@ export interface StepResult {
     bytes: number[];
     hex: string;
   };
+  executedAddresses?: number[];
   registers?: RegisterInfo[];
   // Optional: memory write event captured during this step (used by debugger)
   memWriteEvent?: {

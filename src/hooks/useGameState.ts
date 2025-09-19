@@ -15,8 +15,10 @@ export interface GameState {
   
   // Code and map states
   currentCode: string
+  codeOverride: string | null
   currentMap: GameMap
   highlightedLine: number | undefined
+  highlightedLineSecondary: number | undefined
   
   // Panel states
   leftPanelTab: number
@@ -39,8 +41,10 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   
   // Code and map states
   const [currentCode, setCurrentCode] = useState(initialCode)
+  const [codeOverride, setCodeOverride] = useState<string | null>(null)
   const [currentMap, setCurrentMap] = useState(initialMap)
   const [highlightedLine, setHighlightedLine] = useState<number | undefined>(undefined)
+  const [highlightedLineSecondary, setHighlightedLineSecondary] = useState<number | undefined>(undefined)
   
   // Panel states
   const [leftPanelTab, setLeftPanelTab] = useState(0)
@@ -180,6 +184,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setPlayStatus(undefined)
     setCurrentPlayWon(false)
     setHighlightedLine(undefined)
+    setHighlightedLineSecondary(undefined)
     
     const currentPlayerPos = getPlayerPosition(currentMap)
     teleportPlayer(initialMap, currentPlayerPos)
@@ -194,8 +199,10 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     hasWon,
     currentPlayWon,
     currentCode,
+    codeOverride,
     currentMap,
     highlightedLine,
+    highlightedLineSecondary,
     leftPanelTab,
     rightPanelTab,
     memorySearchQuery,
@@ -210,8 +217,10 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setHasWon,
     setCurrentPlayWon,
     setCurrentCode,
+    setCodeOverride,
     setCurrentMap,
     setHighlightedLine,
+    setHighlightedLineSecondary,
     setLeftPanelTab,
     setRightPanelTab,
     setMemorySearchQuery,
