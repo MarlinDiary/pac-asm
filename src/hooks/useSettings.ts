@@ -6,12 +6,14 @@ interface Settings {
   architecture: Architecture
   codeCompletion: boolean
   fontSize: number
+  aiDiagnostics: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
   architecture: 'MIPS',
   codeCompletion: true,
-  fontSize: 14
+  fontSize: 14,
+  aiDiagnostics: false
 }
 
 export function useSettings() {

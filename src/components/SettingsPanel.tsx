@@ -158,6 +158,17 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
                     )}
                   </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      AI Diagnostics
+                    </label>
+                    <Switch
+                      checked={settings.aiDiagnostics}
+                      onCheckedChange={(checked) => updateSetting('aiDiagnostics', checked)}
+                      aria-label="Toggle AI diagnostics"
+                      className="data-[state=checked]:bg-[#2483E2] data-[state=unchecked]:bg-[#DBDAD7] dark:data-[state=unchecked]:bg-[#535454] [&>span]:bg-white [&>span]:dark:bg-white"
+                    />
+                  </div>
                 </div>
               </div>
             </>

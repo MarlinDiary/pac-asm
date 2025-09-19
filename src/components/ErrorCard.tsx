@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
+import { useSettings } from '@/hooks/useSettings'
 
 interface ErrorCardProps {
   id: string
@@ -18,6 +19,7 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
   const [height, setHeight] = useState<number | 'auto'>('auto')
   const [enableTransition, setEnableTransition] = useState(false)
   const prevLoadingRef = useRef(isLoading)
+  const { settings } = useSettings()
 
   useEffect(() => {
     // Only enable transition when loading state changes
@@ -47,15 +49,15 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
   }, [])
 
   const handleClick = () => {
-    if (!hasDiagnosis && !isLoading && onDiagnoseClick) {
+    if (!hasDiagnosis && !isLoading && onDiagnoseClick && settings.aiDiagnostics) {
       onDiagnoseClick(id)
     }
   }
 
   return (
-    <div 
+    <div
       className={`rounded-lg overflow-hidden bg-[#fdf1f0] dark:bg-[#372B2B] ${
-        !hasDiagnosis && !isLoading ? 'cursor-pointer' : ''
+        !hasDiagnosis && !isLoading && settings.aiDiagnostics ? 'cursor-pointer' : ''
       }`}
       style={{ 
         transition: enableTransition ? 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
