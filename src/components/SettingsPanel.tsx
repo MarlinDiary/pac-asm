@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { Cog } from 'lucide-react'
+import { Cog, CodeXml } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import {
   Select,
@@ -25,6 +25,7 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { id: 'general', label: 'General', icon: <Cog className="w-4 h-4" style={{ width: '16px', height: '16px' }} /> },
+  { id: 'editor', label: 'Editor', icon: <CodeXml className="w-4 h-4" style={{ width: '16px', height: '16px' }} /> },
 ]
 
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
@@ -96,7 +97,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <button
                   key={item.id}
                   onClick={() => setSelectedSection(item.id)}
-                  className={`box-border flex h-8 w-full items-center rounded-md px-2 shrink-0 gap-2 text-xs transition-colors ${
+                  className={`box-border flex h-8 w-full items-center rounded-md px-2 shrink-0 gap-2 text-xs transition-colors cursor-pointer ${
                     selectedSection === item.id
                       ? 'bg-[#E7E7E7] dark:bg-[#0F0F0F] text-gray-900 dark:text-gray-100 font-semibold'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-[#F0F0F0] dark:hover:bg-[#222222]'
@@ -156,6 +157,21 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
                     )}
                   </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {selectedSection === 'editor' && (
+            <>
+              <div className="py-3.5 px-6">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                  Editor
+                </h3>
+              </div>
+              <div className="border-t border-black/10 dark:border-white/10" />
+              <div className="px-6 py-4">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Architecture
