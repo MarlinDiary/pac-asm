@@ -5,11 +5,13 @@ export type Architecture = 'MIPS' | 'ARM'
 interface Settings {
   architecture: Architecture
   codeCompletion: boolean
+  fontSize: number
 }
 
 const DEFAULT_SETTINGS: Settings = {
   architecture: 'MIPS',
-  codeCompletion: true
+  codeCompletion: true,
+  fontSize: 14
 }
 
 export function useSettings() {

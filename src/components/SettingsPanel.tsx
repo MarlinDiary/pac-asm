@@ -199,6 +199,33 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Font Size
+                    </label>
+                    <Select value={settings.fontSize.toString()} onValueChange={(value) => updateSetting('fontSize', parseInt(value))}>
+                      <SelectTrigger className="w-auto border-0 bg-transparent dark:bg-transparent p-0 h-auto cursor-pointer focus:ring-0 focus-visible:ring-0 shadow-none hover:bg-transparent dark:hover:bg-transparent">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="min-w-[100px] rounded-lg p-2 shadow-lg shadow-black/10 dark:shadow-black/20 bg-white dark:bg-[#303030] border border-[#F0F0F0] dark:border-[#3C3C3C]">
+                        <SelectItem value="12" className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]">
+                          Small
+                        </SelectItem>
+                        <SelectItem value="14" className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]">
+                          Default
+                        </SelectItem>
+                        <SelectItem value="16" className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]">
+                          Comfortable
+                        </SelectItem>
+                        <SelectItem value="18" className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]">
+                          Large
+                        </SelectItem>
+                        <SelectItem value="20" className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]">
+                          Extra Large
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Code Completion
                     </label>
                     <Switch

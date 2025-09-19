@@ -708,7 +708,7 @@ export default function CodeEditor({
         loading=""
         options={{
           minimap: { enabled: false },
-          fontSize: 14,
+          fontSize: settings.fontSize,
           fontFamily: 'Menlo, Monaco, "Courier New", monospace',
           lineNumbers: 'on',
           lineNumbersMinChars: 5,
