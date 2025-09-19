@@ -4,10 +4,12 @@ export type Architecture = 'MIPS' | 'ARM'
 
 interface Settings {
   architecture: Architecture
+  codeCompletion: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  architecture: 'MIPS'
+  architecture: 'MIPS',
+  codeCompletion: true
 }
 
 export function useSettings() {

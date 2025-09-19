@@ -731,7 +731,7 @@ export default function CodeEditor({
           unfoldOnClickAfterEndOfLine: false,
           selectOnLineNumbers: true,
           padding: { top: 8 },
-          scrollbar: { 
+          scrollbar: {
             vertical: 'hidden',
             horizontal: 'hidden'
           },
@@ -739,7 +739,19 @@ export default function CodeEditor({
           renderLineHighlight: 'all',
           occurrencesHighlight: 'off',
           selectionHighlight: false,
-          stickyScroll: { enabled: false }
+          stickyScroll: { enabled: false },
+          // Code completion settings based on user preference
+          quickSuggestions: settings.codeCompletion ? {
+            other: true,
+            comments: false,
+            strings: false
+          } : false,
+          suggestOnTriggerCharacters: settings.codeCompletion,
+          acceptSuggestionOnCommitCharacter: settings.codeCompletion,
+          wordBasedSuggestions: settings.codeCompletion ? 'allDocuments' : 'off',
+          suggest: {
+            showWords: settings.codeCompletion
+          }
         }}
       />
     </div>

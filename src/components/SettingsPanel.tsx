@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { useSettings } from '@/hooks/useSettings'
 
 interface SettingsPanelProps {
@@ -195,6 +196,17 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Code Completion
+                    </label>
+                    <Switch
+                      checked={settings.codeCompletion}
+                      onCheckedChange={(checked) => updateSetting('codeCompletion', checked)}
+                      aria-label="Toggle code completion"
+                      className="data-[state=checked]:bg-[#2483E2] data-[state=unchecked]:bg-[#DBDAD7] dark:data-[state=unchecked]:bg-[#535454] [&>span]:bg-white [&>span]:dark:bg-white"
+                    />
                   </div>
                 </div>
               </div>
