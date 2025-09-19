@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react'
 import { Cog } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import {
   Select,
   SelectContent,
@@ -29,7 +30,14 @@ const sidebarItems: SidebarItem[] = [
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [selectedSection, setSelectedSection] = React.useState('general')
   const { settings, updateSetting } = useSettings()
+  const { theme, setTheme, systemTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+
+  // Avoid hydration mismatch
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Prevent body scroll when panel is open
   useEffect(() => {
@@ -114,6 +122,40 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               <div className="border-t border-black/10 dark:border-white/10" />
               <div className="px-6 py-4">
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Appearance
+                    </label>
+                    {mounted ? (
+                      <Select value={theme || 'system'} onValueChange={setTheme}>
+                        <SelectTrigger className="w-auto border-0 bg-transparent dark:bg-transparent p-0 h-auto cursor-pointer focus:ring-0 focus-visible:ring-0 shadow-none hover:bg-transparent dark:hover:bg-transparent">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="min-w-[180px] rounded-lg p-2 shadow-lg shadow-black/10 dark:shadow-black/20 bg-white dark:bg-[#303030] border border-[#F0F0F0] dark:border-[#3C3C3C]">
+                          <SelectItem
+                            value="system"
+                            className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]"
+                          >
+                            Use system setting
+                          </SelectItem>
+                          <SelectItem
+                            value="light"
+                            className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]"
+                          >
+                            Light
+                          </SelectItem>
+                          <SelectItem
+                            value="dark"
+                            className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]"
+                          >
+                            Dark
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
+                    )}
+                  </div>
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Architecture
