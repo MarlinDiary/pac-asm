@@ -24,6 +24,13 @@ const R_MIPS_PC16 = 10;
 
 const signExtend16 = (value: number): number => ((value << 16) >> 16);
 
+// GAS treats missing trailing newline as part of the last instruction, so we
+// always append a blank line to the assembly passed to the worker.
+const ensureTrailingBlankLine = (text: string): string => {
+  const normalized = text.endsWith('\n') ? text : `${text}\n`;
+  return normalized.endsWith('\n\n') ? normalized : `${normalized}\n`;
+};
+
 export function extractMachineCode(elfData: Uint8Array): ELFParseResult {
   // Verify ELF magic
   if (elfData.length < 52 || 
@@ -424,7 +431,7 @@ export class GASAssembler {
     try {
       let objectFile: Uint8Array | null = null;
       let errorOutput = '';
-      const processed = assembly;
+      const processed = ensureTrailingBlankLine(assembly);
       this.preprocessedLineOffset = 0;
 
       // Assemble with debug info (-g)
