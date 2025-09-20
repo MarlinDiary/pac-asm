@@ -248,6 +248,17 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   </div>
                   <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Auto Save Code
+                    </label>
+                    <Switch
+                      checked={settings.autoSaveCode}
+                      onCheckedChange={(checked) => updateSetting('autoSaveCode', checked)}
+                      aria-label="Toggle auto save code"
+                      className="data-[state=checked]:bg-[#2483E2] data-[state=unchecked]:bg-[#DBDAD7] dark:data-[state=unchecked]:bg-[#535454] [&>span]:bg-white [&>span]:dark:bg-white"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between h-8">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Sticky Scroll
                     </label>
                     <Switch

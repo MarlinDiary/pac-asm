@@ -8,6 +8,7 @@ interface Settings {
   fontSize: number
   aiDiagnostics: boolean
   stickyScroll: boolean
+  autoSaveCode: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -15,7 +16,8 @@ const DEFAULT_SETTINGS: Settings = {
   codeCompletion: true,
   fontSize: 14,
   aiDiagnostics: false,
-  stickyScroll: false
+  stickyScroll: false,
+  autoSaveCode: true
 }
 
 export function useSettings() {

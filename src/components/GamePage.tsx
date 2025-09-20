@@ -40,13 +40,24 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const errors = useDiagnosticsStore((state) => state.errors)
   const { settings } = useSettings()
   const { cleanup } = emulator
+  const codeStorageKey = useMemo(
+    () => `pacasm-code-${levelId}-${settings.architecture}`,
+    [levelId, settings.architecture]
+  )
 
   // Get architecture-specific initial code
   const getInitialCode = useCallback((code: string | { ARM: string; MIPS: string } | undefined): string => {
+    if (typeof window !== 'undefined' && settings.autoSaveCode) {
+      const stored = window.localStorage.getItem(codeStorageKey)
+      if (stored !== null) {
+        return stored
+      }
+    }
+
     if (!code) return ''
     if (typeof code === 'string') return code
     return settings.architecture === 'MIPS' ? code.MIPS : code.ARM
-  }, [settings.architecture])
+  }, [settings.autoSaveCode, codeStorageKey, settings.architecture])
 
   const initialCode = useMemo(
     () => getInitialCode(levelMap.initialCode),
@@ -65,6 +76,19 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   useEffect(() => {
     setCurrentCode(initialCode)
   }, [initialCode, setCurrentCode])
+
+  useEffect(() => {
+    if (!settings.autoSaveCode) return
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(codeStorageKey, gameState.currentCode ?? '')
+  }, [settings.autoSaveCode, codeStorageKey, gameState.currentCode])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!settings.autoSaveCode) {
+      window.localStorage.removeItem(codeStorageKey)
+    }
+  }, [settings.autoSaveCode, codeStorageKey])
   
   // Challenge mode scoring
   const { formattedScore } = useChallengeScore(isChallenge, gameState)
