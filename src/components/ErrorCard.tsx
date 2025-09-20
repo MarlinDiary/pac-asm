@@ -68,7 +68,7 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
       <div ref={contentRef} className="p-4">
         <div>
           <p 
-            className={`text-sm font-semibold text-[#dd544b] dark:text-[#F8615C] ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`} 
+            className={`text-sm font-semibold text-[#dd544b] dark:text-[#F8615C] whitespace-pre-wrap ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`} 
           >
             {error}
           </p>
@@ -76,7 +76,7 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
 
         {hasDiagnosis && (
           <div className="mt-2">
-            <p className="text-sm text-[#e34940] dark:text-[#F8615C]">
+            <p className="text-sm text-[#e34940] dark:text-[#F8615C] whitespace-pre-wrap">
               {diagnosis}
             </p>
           </div>

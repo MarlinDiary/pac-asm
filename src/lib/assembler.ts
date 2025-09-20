@@ -31,6 +31,17 @@ const ensureTrailingBlankLine = (text: string): string => {
   return normalized.endsWith('\n\n') ? normalized : `${normalized}\n`;
 };
 
+const formatAssemblerErrorOutput = (raw: string): string => {
+  const lines = raw
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .filter(line => !/^in\.s:\s*Assembler messages:?$/i.test(line))
+    .map(line => line.replace(/^in\.s:/i, '').trimStart());
+
+  return lines.length > 0 ? lines.join('\n') : raw.trim();
+};
+
 export function extractMachineCode(elfData: Uint8Array): ELFParseResult {
   // Verify ELF magic
   if (elfData.length < 52 || 
@@ -462,7 +473,7 @@ export class GASAssembler {
       });
 
       if (errorOutput && !objectFile) {
-        throw new Error(errorOutput.trim());
+        throw new Error(formatAssemblerErrorOutput(errorOutput));
       }
 
       if (!objectFile) {
