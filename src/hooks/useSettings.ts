@@ -7,13 +7,15 @@ interface Settings {
   codeCompletion: boolean
   fontSize: number
   aiDiagnostics: boolean
+  stickyScroll: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
   architecture: 'MIPS',
   codeCompletion: true,
   fontSize: 14,
-  aiDiagnostics: false
+  aiDiagnostics: false,
+  stickyScroll: false
 }
 
 export function useSettings() {

@@ -124,7 +124,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               <div className="border-t border-black/10 dark:border-white/10" />
               <div className="px-6 py-4">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Appearance
                     </label>
@@ -158,7 +158,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
                     )}
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       AI Diagnostics
                     </label>
@@ -184,7 +184,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               <div className="border-t border-black/10 dark:border-white/10" />
               <div className="px-6 py-4">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Architecture
                     </label>
@@ -208,7 +208,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Font Size
                     </label>
@@ -235,7 +235,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Code Completion
                     </label>
@@ -243,6 +243,17 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       checked={settings.codeCompletion}
                       onCheckedChange={(checked) => updateSetting('codeCompletion', checked)}
                       aria-label="Toggle code completion"
+                      className="data-[state=checked]:bg-[#2483E2] data-[state=unchecked]:bg-[#DBDAD7] dark:data-[state=unchecked]:bg-[#535454] [&>span]:bg-white [&>span]:dark:bg-white"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between h-8">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Sticky Scroll
+                    </label>
+                    <Switch
+                      checked={settings.stickyScroll}
+                      onCheckedChange={(checked) => updateSetting('stickyScroll', checked)}
+                      aria-label="Toggle sticky scroll"
                       className="data-[state=checked]:bg-[#2483E2] data-[state=unchecked]:bg-[#DBDAD7] dark:data-[state=unchecked]:bg-[#535454] [&>span]:bg-white [&>span]:dark:bg-white"
                     />
                   </div>

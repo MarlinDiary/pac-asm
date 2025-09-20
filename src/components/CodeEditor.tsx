@@ -739,7 +739,7 @@ export default function CodeEditor({
           renderLineHighlight: 'all',
           occurrencesHighlight: 'off',
           selectionHighlight: false,
-          stickyScroll: { enabled: false },
+          stickyScroll: { enabled: settings.stickyScroll },
           // Code completion settings based on user preference
           quickSuggestions: settings.codeCompletion ? {
             other: true,
