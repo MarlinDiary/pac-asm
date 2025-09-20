@@ -177,6 +177,12 @@ export const useDebugger = () => {
       setIsInitializing(false)
       setReorderedView(null)
       const errorMessage = error instanceof Error ? error.message : String(error)
+
+      // Silently handle operation aborted without sending to diagnostics
+      if (errorMessage.includes('Operation aborted') || errorMessage.includes('aborted')) {
+        return { success: false, error: null }
+      }
+
       addError(errorMessage, currentCodeRef.current)
       return { success: false, error: errorMessage }
     }
@@ -339,6 +345,12 @@ export const useDebugger = () => {
     } catch (error) {
       setHasError(true)
       const errorMessage = error instanceof Error ? error.message : String(error)
+
+      // Silently handle operation aborted without sending to diagnostics
+      if (errorMessage.includes('Operation aborted') || errorMessage.includes('aborted')) {
+        return null
+      }
+
       addError(errorMessage, currentCodeRef.current)
       return null
     }

@@ -85,6 +85,14 @@ export const usePlayRunner = () => {
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
+
+      // Silently handle operation aborted without sending to diagnostics
+      if (errorMessage.includes('Operation aborted') || errorMessage.includes('aborted')) {
+        setIsPlaying(false)
+        setIsInitializing(false)
+        return { success: false, error: null }
+      }
+
       addError(errorMessage, currentCodeRef.current)
       setIsPlaying(false)
       setIsInitializing(false)
@@ -201,6 +209,14 @@ export const usePlayRunner = () => {
       
       } catch (error) {
         const detail = error instanceof Error ? error.message : 'unexpected failure'
+
+        // Silently handle operation aborted without sending to diagnostics
+        if (detail.includes('Operation aborted') || detail.includes('aborted')) {
+          setMovementActionCount(movementCount)
+          setIsPlaying(false)
+          return { success: false as const, error: null }
+        }
+
         const errorMessage = formatRuntimeError('runUntilMemWrite execution failed', detail)
         addError(errorMessage, currentCodeRef.current)
         setMovementActionCount(movementCount)
@@ -229,6 +245,14 @@ export const usePlayRunner = () => {
         await new Promise(resolve => setTimeout(resolve, 125))
       } catch (e) {
         const detail = e instanceof Error ? e.message : undefined
+
+        // Silently handle operation aborted without sending to diagnostics
+        if (detail && (detail.includes('Operation aborted') || detail.includes('aborted'))) {
+          setMovementActionCount(movementCount)
+          setIsPlaying(false)
+          return { success: false as const, error: null }
+        }
+
         const errorMessage = formatMemoryError(
           'Post-move update failed while writing map diffs or refreshing state',
           detail
