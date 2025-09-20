@@ -42,6 +42,46 @@ const formatAssemblerErrorOutput = (raw: string): string => {
   return lines.length > 0 ? lines.join('\n') : raw.trim();
 };
 
+async function validateObjectFileHasNoUndefinedSymbols(objectFile: Uint8Array) {
+  const binutilsLoader = await import('@binutils-wasm/binutils');
+  const nm = await binutilsLoader.default('nm');
+
+  let stdout = '';
+  let stderr = '';
+
+  try {
+    await nm({
+      arguments: ['-u', 'input.o'],
+      preRun: [(module: { FS: { writeFile: (name: string, data: Uint8Array) => void } }) => {
+        module.FS.writeFile('input.o', objectFile);
+      }],
+      print: (text: string) => { stdout += text + '\n'; },
+      printErr: (text: string) => { stderr += text + '\n'; }
+    });
+  } catch (error) {
+    if (!stderr) {
+      stderr = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  const undefinedSymbols = stdout
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => line.split(/\s+/).pop() || line);
+
+  if (undefinedSymbols.length > 0) {
+    const description = undefinedSymbols.length === 1
+      ? `Undefined symbol detected: ${undefinedSymbols[0]}`
+      : `Undefined symbols detected: ${undefinedSymbols.join(', ')}`;
+    throw new Error(`LINK_ERROR: ${description}`);
+  }
+
+  if (stderr.trim().length > 0) {
+    throw new Error(stderr.trim());
+  }
+}
+
 export function extractMachineCode(elfData: Uint8Array): ELFParseResult {
   // Verify ELF magic
   if (elfData.length < 52 || 
@@ -479,6 +519,8 @@ export class GASAssembler {
       if (!objectFile) {
         throw new Error('No object file generated');
       }
+
+      await validateObjectFileHasNoUndefinedSymbols(objectFile);
 
       // Extract machine code from ELF .text section
       let machineCode: Uint8Array;
