@@ -42,15 +42,28 @@ export default function Card({ children, tabs = [], defaultSelectedTab = 0, sele
           />
         ))}
       </TabBar>
-      <div 
-        className="flex-1 overflow-y-auto"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          WebkitScrollbar: { display: 'none' }
-        } as React.CSSProperties & { WebkitScrollbar: { display: string } }}
+      <div
+        className="flex-1 relative"
       >
-        {tabContent.length > 0 ? tabContent[selectedTab] : children}
+        {tabContent.length > 0 ? (
+          tabContent.map((content, index) => (
+            <div
+              key={index}
+              className="absolute inset-0 overflow-y-auto [&::-webkit-scrollbar]:hidden"
+              style={{
+                opacity: selectedTab === index ? 1 : 0,
+                pointerEvents: selectedTab === index ? 'auto' : 'none'
+              }}
+              aria-hidden={selectedTab === index ? undefined : true}
+            >
+              {content}
+            </div>
+          ))
+        ) : (
+          <div className="h-full overflow-y-auto [&::-webkit-scrollbar]:hidden">
+            {children}
+          </div>
+        )}
       </div>
     </div>
   )
