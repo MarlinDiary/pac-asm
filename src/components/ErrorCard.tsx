@@ -83,10 +83,14 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
 
   return (
     <div
-      className={`rounded-lg overflow-hidden bg-[#fdf1f0] dark:bg-[#372B2B] ${
+      className={`rounded-lg overflow-hidden ${
+        category === 'Timeout' ? 'bg-[#FEF7EA] dark:bg-[#453A25]' :
+        category === 'Game' ? 'bg-[#F5F0FF] dark:bg-[#3A2F4A]' :
+        'bg-[#fdf1f0] dark:bg-[#372B2B]'
+      } ${
         !hasDiagnosis && !isLoading && settings.aiDiagnostics ? 'cursor-pointer' : ''
       }`}
-      style={{ 
+      style={{
         transition: enableTransition ? 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
         height: height
       }}
@@ -94,13 +98,21 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
     >
       <div ref={contentRef} className="px-4 py-3">
         <div className="mb-2">
-          <span className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white bg-[#DD544B] dark:bg-[#F8615C]">
+          <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${
+            category === 'Timeout' ? 'bg-[#FAB007] dark:bg-[#F5C000]' :
+            category === 'Game' ? 'bg-[#8B5CF6] dark:bg-[#A78BFA]' :
+            'bg-[#DD544B] dark:bg-[#F8615C]'
+          }`}>
             {category}
           </span>
         </div>
         <div>
-          <p 
-            className={`text-sm text-[#dd544b] dark:text-[#F8615C] whitespace-pre-wrap ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`} 
+          <p
+            className={`text-sm whitespace-pre-wrap ${
+              category === 'Timeout' ? 'text-[#FAB007] dark:text-[#F5C000]' :
+              category === 'Game' ? 'text-[#8B5CF6] dark:text-[#A78BFA]' :
+              'text-[#dd544b] dark:text-[#F8615C]'
+            } ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`}
           >
             {cleanMessage}
           </p>
@@ -108,7 +120,11 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
 
         {hasDiagnosis && (
           <div className="mt-2">
-            <p className="text-sm text-[#e34940] dark:text-[#F8615C] whitespace-pre-wrap">
+            <p className={`text-sm whitespace-pre-wrap ${
+              category === 'Timeout' ? 'text-[#FAB007] dark:text-[#F5C000]' :
+              category === 'Game' ? 'text-[#8B5CF6] dark:text-[#A78BFA]' :
+              'text-[#e34940] dark:text-[#F8615C]'
+            }`}>
               {diagnosis}
             </p>
           </div>
