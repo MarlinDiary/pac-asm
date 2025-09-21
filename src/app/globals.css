@@ -152,3 +152,13 @@
 .animate-teleport-fade-in {
   animation: teleport-fade-in 0.1s ease-out forwards;
 }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) rotate(var(--rotation, 0deg)) scaleX(var(--scale-x, 1)); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px) rotate(var(--rotation, 0deg)) scaleX(var(--scale-x, 1)); }
+  20%, 40%, 60%, 80% { transform: translateX(4px) rotate(var(--rotation, 0deg)) scaleX(var(--scale-x, 1)); }
+}
+
+.shake-animation {
+  animation: shake 0.5s ease-in-out;
+}

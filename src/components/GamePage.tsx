@@ -180,7 +180,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                           tileSize={levelMap.tileSize || 64}
                         />
                         <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <MapRenderer map={gameState.currentMap} />
+                          <MapRenderer map={gameState.currentMap} shouldShakePlayer={gameState.shouldShakePlayer} />
                         </div>
                       </div>
                     </div>

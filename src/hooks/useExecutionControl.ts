@@ -1,9 +1,10 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { GameMap, getPlayerPosition } from '@/data/maps'
 import { useDebugger } from './useDebugger'
 import { usePlayRunner } from './usePlayRunner'
 import { useGameState } from './useGameState'
 import { ensurePlayerAnimation, checkVictoryCondition } from '@/lib/game-animation'
+import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 
 interface UseExecutionControlProps {
   gameState: ReturnType<typeof useGameState>
@@ -28,6 +29,8 @@ const handleVictoryCheck = (
 export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControlProps) => {
   const debugState = useDebugger()
   const playState = usePlayRunner()
+  const errors = useDiagnosticsStore((state) => state.errors)
+  const errorCountRef = useRef(errors.length)
 
   const {
     currentCode,
@@ -37,6 +40,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     setPlayStatus,
     setHasWon,
     setCurrentPlayWon,
+    setShouldShakePlayer,
     setHighlightedLine,
     setHighlightedLineSecondary,
     setCurrentMap,
@@ -56,8 +60,12 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     setHighlightedLine(undefined)
     setHighlightedLineSecondary(undefined)
     setCurrentPlayWon(false) // Reset current play victory status
+    setShouldShakePlayer(false) // Clear any shake animation
     // Don't clear hasWon - keep Next button permanently after first victory
-    
+
+    // Record error count at start of play
+    errorCountRef.current = errors.length
+
     setCodeOverride(null)
     setIsCodeDisabled(true)
     setIsPlayMode(true)
@@ -76,7 +84,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
       setIsPlayMode(false)
       setPlayStatus(undefined)
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState])
+  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
 
   const handleDebugClick = useCallback(async () => {
     // Use level map as-is (disable Level 4 dot randomization)
@@ -188,7 +196,18 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
   // Listen for play completion
   useEffect(() => {
     if (isPlayMode && !playState.isPlaying) {
-      // Play has finished - reset everything
+      // Play has finished - check if we should shake
+      // Shake if: not victory AND no new errors occurred during play
+      const hasNewErrors = errors.length > errorCountRef.current
+      const shouldShake = !gameState.currentPlayWon && !hasNewErrors
+
+      if (shouldShake) {
+        setShouldShakePlayer(true)
+        // Clear shake after animation completes
+        setTimeout(() => setShouldShakePlayer(false), 500)
+      }
+
+      // Reset everything after a delay
       setTimeout(() => {
         setIsPlayMode(false)
         setIsCodeDisabled(false)
@@ -201,7 +220,7 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
         // It will be reset when starting a new game
       }, 300) // Small delay to show final state briefly
     }
-  }, [playState.isPlaying, isPlayMode, setIsPlayMode, setIsCodeDisabled, setHighlightedLine, setHighlightedLineSecondary, setPlayStatus])
+  }, [playState.isPlaying, isPlayMode, setIsPlayMode, setIsCodeDisabled, setHighlightedLine, setHighlightedLineSecondary, setPlayStatus, setShouldShakePlayer, gameState.currentPlayWon, errors.length])
 
   // Auto-stop debug mode when error occurs
   useEffect(() => {

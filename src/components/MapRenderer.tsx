@@ -5,6 +5,7 @@ import { GameMap, TILE_MAPPING, TileSymbol, PlayerDirection, getGhosts } from '@
 
 interface MapRendererProps {
   map: GameMap;
+  shouldShakePlayer?: boolean;
 }
 
 const DEFAULT_TILE_SIZE = 64;
@@ -41,7 +42,7 @@ const getPlayerTransform = (direction: PlayerDirection): string => {
   }
 };
 
-export default function MapRenderer({ map }: MapRendererProps) {
+export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps) {
   const tileSize = map.tileSize || DEFAULT_TILE_SIZE;
   
   // Get player and ghost positions from map data
@@ -169,7 +170,7 @@ export default function MapRenderer({ map }: MapRendererProps) {
             map.playerAnimation?.shouldAnimate ? 'transition-transform duration-100 linear' : ''
           }`}
           style={{
-            transform: map.playerAnimation?.animationPosition 
+            transform: map.playerAnimation?.animationPosition
               ? `translate(${map.playerAnimation.animationPosition.x}px, ${map.playerAnimation.animationPosition.y}px)`
               : `translate(${playerPosition.col * tileSize}px, ${playerPosition.row * tileSize}px)`,
             width: tileSize,
@@ -177,15 +178,15 @@ export default function MapRenderer({ map }: MapRendererProps) {
           }}
         >
           <div
-            className={
-              map.playerAnimation?.teleportAnimation === 'fade-out' 
-                ? 'animate-teleport-fade-out' 
+            className={`${shouldShakePlayer ? 'shake-animation' : ''} ${
+              map.playerAnimation?.teleportAnimation === 'fade-out'
+                ? 'animate-teleport-fade-out'
                 : map.playerAnimation?.teleportAnimation === 'fade-in'
                 ? 'animate-teleport-fade-in'
                 : ''
-            }
+            }`}
             style={{
-              transform: !map.playerAnimation?.teleportAnimation 
+              transform: !map.playerAnimation?.teleportAnimation
                 ? getPlayerTransform(map.playerAnimation?.direction || playerPosition.direction)
                 : undefined,
               '--rotation': `${getPlayerRotation(map.playerAnimation?.direction || playerPosition.direction)}deg`,
