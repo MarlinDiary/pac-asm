@@ -107,6 +107,7 @@ export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps
                     height={tileSize}
                     className="object-cover pointer-events-none select-none"
                     draggable={false}
+                    unoptimized
                     priority
                   />
                 </div>
@@ -152,6 +153,7 @@ export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps
                 width={tileSize}
                 height={tileSize}
                 className="object-cover"
+                unoptimized
                 priority
               />
             </div>
@@ -202,6 +204,7 @@ export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps
               width={tileSize}
               height={tileSize}
               className="object-cover"
+              unoptimized
               priority
             />
           </div>
