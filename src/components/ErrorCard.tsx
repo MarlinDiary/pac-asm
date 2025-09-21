@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { useSettings } from '@/hooks/useSettings'
 
 interface ErrorCardProps {
@@ -14,12 +14,39 @@ interface ErrorCardProps {
   onDiagnoseClick?: (id: string) => void
 }
 
+const CATEGORY_MAP: Record<string, 'Assemble' | 'Runtime' | 'Timeout' | 'Game' | 'Memory' | 'Debug'> = {
+  'RUNTIME_ERROR': 'Runtime',
+  'TIMEOUT_ERROR': 'Timeout',
+  'GAMEPLAY_ERROR': 'Game',
+  'MEMORY_ERROR': 'Memory',
+  'DEBUG_ERROR': 'Debug',
+  'LINK_ERROR': 'Assemble',
+}
+
+const detectCategory = (message: string) => {
+  for (const prefix of Object.keys(CATEGORY_MAP)) {
+    if (message.startsWith(`${prefix}:`)) {
+      return {
+        category: CATEGORY_MAP[prefix],
+        cleanMessage: message.slice(prefix.length + 1).trimStart(),
+      }
+    }
+  }
+
+  if (message.startsWith('Game Over')) {
+    return { category: 'Game', cleanMessage: message }
+  }
+
+  return { category: 'Assemble', cleanMessage: message }
+}
+
 export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosis, onDiagnoseClick }: ErrorCardProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState<number | 'auto'>('auto')
   const [enableTransition, setEnableTransition] = useState(false)
   const prevLoadingRef = useRef(isLoading)
   const { settings } = useSettings()
+  const { category, cleanMessage } = useMemo(() => detectCategory(error), [error])
 
   useEffect(() => {
     // Only enable transition when loading state changes
@@ -65,12 +92,17 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
       }}
       onClick={handleClick}
     >
-      <div ref={contentRef} className="p-4">
+      <div ref={contentRef} className="px-4 py-3">
+        <div className="mb-2">
+          <span className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white bg-[#DD544B] dark:bg-[#F8615C]">
+            {category}
+          </span>
+        </div>
         <div>
           <p 
-            className={`text-sm font-semibold text-[#dd544b] dark:text-[#F8615C] whitespace-pre-wrap ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`} 
+            className={`text-sm text-[#dd544b] dark:text-[#F8615C] whitespace-pre-wrap ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`} 
           >
-            {error}
+            {cleanMessage}
           </p>
         </div>
 
