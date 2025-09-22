@@ -17,10 +17,9 @@ export default function Home() {
         />
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="flex justify-between items-center px-8 py-6">
+      {/* Sticky Navigation Bar */}
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#FFFFFF]/70 dark:bg-[#0F0F0F]/70 border-b border-[#E5E5E5]/50 dark:border-[#3C3C3C]/50">
+        <div className="flex justify-between items-center px-8 py-4">
           <div className="flex items-center">
             <Image
               src="/res/logo.png"
@@ -33,7 +32,11 @@ export default function Home() {
           <button className="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors font-medium">
             Login
           </button>
-        </header>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="relative z-10">
 
         {/* Hero Section */}
         <section className="flex flex-col items-center justify-center px-8 py-20">
