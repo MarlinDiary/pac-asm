@@ -1,9 +1,13 @@
+import 'dotenv/config';
 import http from 'http';
 import debugFactory from 'debug';
 
 import app from '../app';
+import { connectMongo, disconnectMongo } from '../lib/mongo';
 
 type Port = number | string;
+
+type ShutdownSignal = NodeJS.Signals;
 
 const debug = debugFactory('backend:server');
 
@@ -12,9 +16,35 @@ app.set('port', port);
 
 const server = http.createServer(app);
 
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
+async function start(): Promise<void> {
+  try {
+    await connectMongo();
+    debug('MongoDB connection ready');
+  } catch (error) {
+    console.error('Failed to initialize MongoDB', error);
+    process.exit(1);
+  }
+
+  server.listen(port);
+  server.on('error', onError);
+  server.on('listening', onListening);
+}
+
+start().catch((error) => {
+  console.error('Unexpected error during bootstrap', error);
+  process.exit(1);
+});
+
+const shutdownSignals: ShutdownSignal[] = ['SIGINT', 'SIGTERM'];
+shutdownSignals.forEach((signal) => {
+  process.once(signal, () => {
+    server.close(() => {
+      disconnectMongo()
+        .catch((err) => console.error('Failed to close MongoDB connection', err))
+        .finally(() => process.exit(0));
+    });
+  });
+});
 
 function normalizePort(val: string): Port {
   const portNumber = Number.parseInt(val, 10);
