@@ -7,10 +7,10 @@ export default function Home() {
   return (
     <div className="relative min-h-screen bg-[#FFFFFF] dark:bg-[#0F0F0F]" style={{ fontFamily: 'var(--font-inter)' }}>
       {/* Background Effect */}
-      <div className="fixed inset-0 opacity-[7%]">
+      <div className="fixed inset-0 opacity-[5%]">
         <LetterGlitch
           glitchColors={['#FABA03', '#9179FF', '#FD4141']}
-          glitchSpeed={80}
+          glitchSpeed={60}
           smooth={true}
           centerVignette={false}
           outerVignette={false}
