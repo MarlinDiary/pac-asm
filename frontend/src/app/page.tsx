@@ -44,7 +44,7 @@ export default function Home() {
             />
           </div>
           <button
-            className="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors font-medium"
+            className="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors font-medium cursor-pointer"
             onClick={handleLogin}
           >
             Login
@@ -70,7 +70,7 @@ export default function Home() {
 
           {/* GitHub Login Button */}
           <button
-            className="flex items-center gap-3 px-6 py-3 bg-gray-900/90 dark:bg-white/90 text-white dark:text-black rounded-md font-medium hover:bg-gray-700/90 dark:hover:bg-gray-300/90 backdrop-blur-md transition-all shadow-lg"
+            className="flex items-center gap-3 px-6 py-3 bg-gray-900/90 dark:bg-white/90 text-white dark:text-black rounded-md font-medium hover:bg-gray-700/90 dark:hover:bg-gray-300/90 backdrop-blur-md transition-all shadow-lg cursor-pointer"
             onClick={handleLogin}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
