@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Coverage
+coverage
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist
+
+# Debug
+.vscode
