@@ -162,7 +162,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                       <SubBar>
                         <div className="w-full flex items-center justify-center">
                           <span className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm">
-                            Score: {challengeScore}
+                            Score: <span className="font-mono">{challengeScore}</span>
                           </span>
                         </div>
                       </SubBar>
