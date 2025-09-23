@@ -4,16 +4,14 @@ import { auth } from "@/server/auth";
 
 export const runtime = "nodejs";
 
-type SessionWithToken = Awaited<ReturnType<typeof auth>> & { accessToken?: string };
-
 export async function POST(): Promise<NextResponse> {
-  const session = (await auth()) as SessionWithToken;
+  const session = await auth();
 
   if (!session?.user) {
     return NextResponse.json({ ok: true });
   }
 
-  const accessToken = session.accessToken;
+  const accessToken = (session as typeof session & { accessToken?: string }).accessToken;
 
   if (!accessToken) {
     return NextResponse.json({ ok: true });
