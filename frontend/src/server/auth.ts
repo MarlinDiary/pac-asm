@@ -1,12 +1,13 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
-import type { Account, NextAuthConfig, Session, User } from "next-auth";
+import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
+import type { Account, User } from "@auth/core/types";
 
 const backendBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://localhost:4000";
 
-const authConfig: NextAuthConfig = {
+const authConfig = {
   providers: [
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID,
@@ -76,7 +77,7 @@ const authConfig: NextAuthConfig = {
       }
     },
   },
-};
+} satisfies Parameters<typeof NextAuth>[0];
 
 export const {
   handlers: { GET, POST },
