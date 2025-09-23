@@ -463,7 +463,15 @@ export class ExecutionEngine {
 
     if (memEventInfo) {
       const { storePc } = memEventInfo;
-      if (pcAfter === storePc) {
+      // ARM: Pre-advance PC before any potential re-run
+      // MIPS: Adjust PC only if it still points to the store instruction
+      if (this.arch === 'ARM') {
+        // For ARM, always advance PC after memory write detection
+        const sequentialPc = (storePc + 4) >>> 0;
+        try { this.unicorn.reg_write_i32(pcReg, sequentialPc); } catch {}
+        pcAfter = sequentialPc;
+      } else if (pcAfter === storePc) {
+        // For MIPS, only advance if PC still points to store instruction
         const sequentialPc = (storePc + 4) >>> 0;
         try { this.unicorn.reg_write_i32(pcReg, sequentialPc); } catch {}
         pcAfter = sequentialPc;
