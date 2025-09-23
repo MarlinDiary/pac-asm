@@ -1,14 +1,12 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
+import type { Account, NextAuthConfig, Session, User } from "next-auth";
+import type { JWT } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 
 const backendBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://localhost:4000";
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
+const authConfig: NextAuthConfig = {
   providers: [
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID,
@@ -21,19 +19,41 @@ export const {
   },
   trustHost: true,
   callbacks: {
-    authorized({ auth: session, request }) {
+    authorized({ auth: session, request }: { auth: Session | null; request: NextRequest }) {
       const isHome = request.nextUrl.pathname === "/";
+      const isProtected =
+        request.nextUrl.pathname.startsWith("/level") ||
+        request.nextUrl.pathname.startsWith("/challenge");
 
       if (isHome && session?.user) {
         const redirectUrl = new URL("/level/1", request.nextUrl);
         return Response.redirect(redirectUrl);
       }
 
+      if (isProtected && !session?.user) {
+        const redirectUrl = new URL("/", request.nextUrl);
+        return Response.redirect(redirectUrl);
+      }
+
       return true;
+    },
+    async jwt({ token, account }: { token: JWT; account?: Account | null }) {
+      if (account?.provider === "github") {
+        token.accessToken = account.access_token;
+      }
+
+      return token;
+    },
+    async session({ session, token }: { session: Session; token: JWT }) {
+      if (session.user && token.accessToken) {
+        session.accessToken = token.accessToken as string;
+      }
+
+      return session;
     },
   },
   events: {
-    async signIn({ user, account }) {
+    async signIn({ user, account }: { user?: User | null; account?: Account | null }) {
       if (!user) {
         return;
       }
@@ -56,4 +76,11 @@ export const {
       }
     },
   },
-});
+};
+
+export const {
+  handlers: { GET, POST },
+  auth,
+  signIn,
+  signOut,
+} = NextAuth(authConfig);

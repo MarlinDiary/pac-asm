@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { Cog, CodeXml } from 'lucide-react'
+import { Cog, CodeXml, User, LogOut } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { signOut, useSession } from 'next-auth/react'
+import Image from 'next/image'
 import {
   Select,
   SelectContent,
@@ -20,19 +22,35 @@ interface SettingsPanelProps {
 
 interface SidebarItem {
   id: string
-  label: string
+  label: string | React.ReactNode
   icon: React.ReactNode
 }
 
-const sidebarItems: SidebarItem[] = [
-  { id: 'general', label: 'General', icon: <Cog className="w-4 h-4" style={{ width: '16px', height: '16px' }} /> },
-  { id: 'editor', label: 'Editor', icon: <CodeXml className="w-4 h-4" style={{ width: '16px', height: '16px' }} /> },
-]
-
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
-  const [selectedSection, setSelectedSection] = React.useState('general')
+  const [selectedSection, setSelectedSection] = React.useState('user')
+  const { data: session } = useSession()
+
+  const sidebarItems: SidebarItem[] = [
+    {
+      id: 'user',
+      label: session?.user?.name || 'User',
+      icon: session?.user?.image ? (
+        <Image
+          src={session.user.image}
+          alt="User Avatar"
+          width={16}
+          height={16}
+          className="rounded-full"
+        />
+      ) : (
+        <User className="w-4 h-4" style={{ width: '16px', height: '16px' }} />
+      )
+    },
+    { id: 'general', label: 'General', icon: <Cog className="w-4 h-4" style={{ width: '16px', height: '16px' }} /> },
+    { id: 'editor', label: 'Editor', icon: <CodeXml className="w-4 h-4" style={{ width: '16px', height: '16px' }} /> },
+  ]
   const { settings, updateSetting } = useSettings()
-  const { theme, setTheme, systemTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -92,7 +110,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       >
         {/* Sidebar */}
         <div className="flex w-[216px] shrink-0 flex-col bg-[#FAFAFA] dark:bg-[#262626] border-r border-black/10 dark:border-white/10">
-          <div className="p-2">
+          <div className="flex-1 p-2">
             <nav className="space-y-1">
               {sidebarItems.map((item) => (
                 <button
@@ -110,10 +128,57 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               ))}
             </nav>
           </div>
+          <div className="p-2">
+            <button
+              className="box-border flex h-8 w-full items-center rounded-md px-2 shrink-0 gap-2 text-xs font-semibold text-[#2483E2] hover:bg-[#F0F0F0] dark:hover:bg-[#222222] transition-colors cursor-pointer"
+              onClick={async () => {
+                onClose()
+
+                try {
+                  await fetch('/api/auth/revoke', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json'
+                    }
+                  })
+                } catch (error) {
+                  console.error('Failed to revoke GitHub grant', error)
+                }
+
+                await signOut({ callbackUrl: '/', redirect: true })
+              }}
+            >
+              <LogOut className="w-4 h-4" style={{ width: '16px', height: '16px' }} />
+              <span>Log out</span>
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 relative overflow-y-auto">
+          {selectedSection === 'user' && (
+            <>
+              <div className="py-3.5 px-6">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                  Profile
+                </h3>
+              </div>
+              <div className="border-t border-black/10 dark:border-white/10" />
+              <div className="px-6 py-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between h-8">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Name
+                    </label>
+                    <span className="text-sm text-gray-900 dark:text-gray-100">
+                      {session?.user?.name || 'Not set'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
           {selectedSection === 'general' && (
             <>
               <div className="py-3.5 px-6">
