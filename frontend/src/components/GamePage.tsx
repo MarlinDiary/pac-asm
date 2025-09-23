@@ -23,10 +23,11 @@ import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2, Book, Trophy } from 'lucide-react'
+import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useSettings } from '@/hooks/useSettings'
+import { useRouter } from 'next/navigation'
 
 interface GamePageProps {
   levelMap: GameMap
@@ -37,6 +38,49 @@ interface GamePageProps {
 export default function GamePage({ levelMap, levelId, isChallenge = false }: GamePageProps) {
   // Initialize hooks
   const emulator = useEmulator()
+  const router = useRouter()
+
+  // Get level display name
+  const getLevelDisplayName = (id: string): string => {
+    if (id === 'challenge') return 'Challenge'
+    const levelNumber = id.replace('level', '')
+    switch (levelNumber) {
+      case '1': return 'Level One'
+      case '2': return 'Level Two'
+      case '3': return 'Level Three'
+      case '4': return 'Level Four'
+      default: return `Level ${levelNumber}`
+    }
+  }
+
+  // Navigation handlers
+  const handlePreviousLevel = () => {
+    if (levelId === 'level1' || levelId === '1') return // Can't go back from level1
+
+    if (levelId === 'challenge') {
+      router.push('/level/4')
+    } else {
+      const currentLevel = parseInt(levelId.replace('level', ''))
+      if (currentLevel > 1) {
+        router.push(`/level/${currentLevel - 1}`)
+      }
+    }
+  }
+
+  const handleNextLevel = () => {
+    if (levelId === 'challenge') return // Can't go forward from challenge
+
+    const currentLevel = parseInt(levelId.replace('level', ''))
+    if (currentLevel < 4) {
+      router.push(`/level/${currentLevel + 1}`)
+    } else if (currentLevel === 4) {
+      router.push('/challenge')
+    }
+  }
+
+  // Check if navigation is disabled
+  const isPreviousDisabled = levelId === 'level1' || levelId === '1'
+  const isNextDisabled = levelId === 'challenge'
   const errors = useDiagnosticsStore((state) => state.errors)
   const { settings } = useSettings()
   const { cleanup } = emulator
@@ -120,8 +164,22 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     <div className="h-screen w-full overflow-hidden bg-[#f0f0f0] dark:bg-[#0f0f0f]">
       <div className="p-2 h-full flex flex-col">
         <div className="flex justify-center relative">
-          <div className="absolute left-0 top-0">
-            <IconButton icon={ArrowLeft} />
+          <div className="absolute left-0 top-0 flex items-center h-10 gap-1">
+            <IconButton
+              icon={ChevronLeft}
+              onClick={handlePreviousLevel}
+              disabled={isPreviousDisabled}
+            />
+            <div className="h-8 px-3 flex items-center">
+              <span className="text-[14px] font-medium text-[#1A1A1A] dark:text-[#F5F5F5]">
+                {getLevelDisplayName(levelId)}
+              </span>
+            </div>
+            <IconButton
+              icon={ChevronRight}
+              onClick={handleNextLevel}
+              disabled={isNextDisabled}
+            />
           </div>
           <div className="relative">
             <ExecutionBar 
