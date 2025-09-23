@@ -481,9 +481,14 @@ B main`
     playerPosition: { row: 9, col: 9, direction: 'right' },
     ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
     waterBackground: { tilesX: 72, tilesY: 71 },
-    initialCode: `MOV R0, #4
+    initialCode: {
+      ARM: `MOV R0, #4
 LDR R1, =0x30000
 STRB R0, [R1]`,
+      MIPS: `LI $t0, 4
+LI $t1, 0x30000
+SB $t0, 0($t1)`
+    },
   }
 ];
 
