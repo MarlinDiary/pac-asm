@@ -1,0 +1,56 @@
+{
+  "info": {
+    "name": "PacAsm Backend",
+    "description": "Collection for validating PacAsm game submissions via backend API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "item": [
+    {
+      "name": "Validate Game Submission",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sourceCode\": \"LI $t0, 4\\nLI $t1, 0x30000\\nSB $t0, 0($t1)\",\n  \"levelId\": \"challenge\",\n  \"architecture\": \"MIPS\",\n  \"attemptsOverride\": 3,\n  \"maxSteps\": 120,\n  \"includeRegisters\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseProtocol}}://{{baseHost}}:{{basePort}}/game/validate",
+          "protocol": "{{baseProtocol}}",
+          "host": [
+            "{{baseHost}}"
+          ],
+          "port": "{{basePort}}",
+          "path": [
+            "game",
+            "validate"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseProtocol",
+      "value": "http"
+    },
+    {
+      "key": "baseHost",
+      "value": "localhost"
+    },
+    {
+      "key": "basePort",
+      "value": "3000"
+    }
+  ]
+}
