@@ -14,6 +14,12 @@ import { writeMapUpdatesToMemory } from '@/lib/map-memory'
 import { formatRuntimeError } from '@/lib/emulator-errors'
 import { getGlobalSettings } from '@/hooks/useSettings'
 import { generateReorderedDebugView, ReorderedDebugView } from '@/lib/reordered-view'
+import {
+  createScoreTracker,
+  computeScoreForMapTransition,
+  formatScoreValue,
+  ScoreTracker
+} from '@/lib/score'
 
 const isCodeExecutionComplete = (stepResult: { message?: string }): boolean => {
   return (
@@ -33,6 +39,8 @@ export interface PlaybackState {
   stackMemory: number[]
   dataMemory: number[]
   stepResult: StepResult | null
+  score: number
+  scoreTracker: ScoreTracker
   [key: string]: unknown
 }
 
@@ -65,6 +73,8 @@ export const useDebugger = () => {
   const currentCodeRef = useRef<string>('')
   const originalCodeMemoryRef = useRef<number[]>([])
   const [isInitializing, setIsInitializing] = useState(false)
+  const [score, setScore] = useState(0)
+  const scoreTrackerRef = useRef<ScoreTracker>(createScoreTracker())
 
 
   // Get current memory state
@@ -96,6 +106,8 @@ export const useDebugger = () => {
     setHasError(false)
     setIsGameComplete(false)
     setIsInitializing(true)
+    setScore(0)
+    scoreTrackerRef.current = createScoreTracker()
     
     currentCodeRef.current = sourceCode
     
@@ -123,7 +135,9 @@ export const useDebugger = () => {
         highlightedLine: undefined,
         highlightedLineSecondary: undefined,
         ...initialMemory,
-        stepResult: null
+        stepResult: null,
+        score: 0,
+        scoreTracker: createScoreTracker()
       }
       
       // Check if operation was aborted before setting state
@@ -159,6 +173,7 @@ export const useDebugger = () => {
         // Lazy mode: only set initial state
         setExecutionHistory([initialState])
         setCurrentPlaybackIndex(0)
+        setScore(0)
         setIsInitializing(false)
         return { success: true, initialState, reorderedView: generatedView }
       } else {
@@ -170,6 +185,10 @@ export const useDebugger = () => {
         }
         setExecutionHistory(fullHistory)
         setCurrentPlaybackIndex(0)
+        if (fullHistory.length > 0) {
+          scoreTrackerRef.current = { ...fullHistory[0].scoreTracker }
+        }
+        setScore(fullHistory[0]?.score ?? 0)
         setIsInitializing(false)
         return { success: true, initialState: fullHistory[0], reorderedView: generatedView }
       }
@@ -191,7 +210,8 @@ export const useDebugger = () => {
   // Pre-execute all steps for standard debug mode
   const executeAllSteps = async (codeHighlighter: CodeHighlighter, initialState: PlaybackState, abortController: AbortController): Promise<PlaybackState[]> => {
     // Keep standard mode simple: step sequentially, update map only when 0x30000 is written.
-    const history: PlaybackState[] = [initialState]
+    let scoreTracker = createScoreTracker()
+    const history: PlaybackState[] = [{ ...initialState, scoreTracker: { ...scoreTracker } }]
     let currentMapState = { ...initialState.mapState }
     let previousMapState = { ...initialState.mapState }
 
@@ -211,7 +231,11 @@ export const useDebugger = () => {
         currentMapState = updateMapWithMovementAndGhosts(currentMapState, ev.value)
         await writeMapUpdatesToMemory(emulator, previousMapState, currentMapState)
         previousMapState = { ...currentMapState }
+        const scoreResult = computeScoreForMapTransition(scoreTracker, history[history.length - 1].mapState, currentMapState)
+        scoreTracker = scoreResult.tracker
       }
+
+      const currentScore = scoreTracker.score
 
       // If code completed on this step, clear highlight immediately
       if (isCodeExecutionComplete(stepResult)) {
@@ -223,7 +247,9 @@ export const useDebugger = () => {
         highlightedLine: highlightInfo?.lineNumbers?.[0],
         highlightedLineSecondary: highlightInfo?.lineNumbers?.[1],
         ...memoryState,
-        stepResult
+        stepResult,
+        score: currentScore,
+        scoreTracker: { ...scoreTracker }
       })
 
       if (isCodeExecutionComplete(stepResult)) break
@@ -266,6 +292,8 @@ export const useDebugger = () => {
     if (currentPlaybackIndex < executionHistory.length - 1) {
       const nextIndex = currentPlaybackIndex + 1
       setCurrentPlaybackIndex(nextIndex)
+      scoreTrackerRef.current = { ...executionHistory[nextIndex].scoreTracker }
+      setScore(executionHistory[nextIndex].score)
       return executionHistory[nextIndex]
     }
     
@@ -308,6 +336,11 @@ export const useDebugger = () => {
       if (ev && ev.address === 0x30000 && ev.value >= 1 && ev.value <= 4) {
         newMapState = updateMapWithMovementAndGhosts(newMapState, ev.value)
         await writeMapUpdatesToMemory(emulator, currentState.mapState, newMapState)
+        const result = computeScoreForMapTransition(scoreTrackerRef.current, currentState.mapState, newMapState)
+        scoreTrackerRef.current = { ...result.tracker }
+        setScore(result.tracker.score)
+      } else {
+        setScore(scoreTrackerRef.current.score)
       }
 
       const highlight = highlighter ? getHighlightFromStepResult(stepResult, highlighter) : null
@@ -328,7 +361,9 @@ export const useDebugger = () => {
         highlightedLine: currentHighlight,
         highlightedLineSecondary: currentHighlightSecondary,
         ...memoryState,
-        stepResult
+        stepResult,
+        score: scoreTrackerRef.current.score,
+        scoreTracker: { ...scoreTrackerRef.current }
       }
       
       const newHistory = [...executionHistory, newState]
@@ -360,6 +395,8 @@ export const useDebugger = () => {
     if (currentPlaybackIndex < executionHistory.length - 1) {
       const nextIndex = currentPlaybackIndex + 1
       setCurrentPlaybackIndex(nextIndex)
+      scoreTrackerRef.current = { ...executionHistory[nextIndex].scoreTracker }
+      setScore(executionHistory[nextIndex].score)
       return ensureAnimationState(executionHistory[nextIndex])
     }
     return null
@@ -373,6 +410,8 @@ export const useDebugger = () => {
       if (hasError) {
         setHasError(false)
       }
+      scoreTrackerRef.current = { ...executionHistory[prevIndex].scoreTracker }
+      setScore(executionHistory[prevIndex].score)
       return ensureAnimationState(executionHistory[prevIndex])
     }
     return null
@@ -381,6 +420,8 @@ export const useDebugger = () => {
   const replay = () => {
     if (executionHistory.length > 0) {
       setCurrentPlaybackIndex(0)
+      scoreTrackerRef.current = { ...executionHistory[0].scoreTracker }
+      setScore(executionHistory[0].score)
       return executionHistory[0]
     }
     return null
@@ -402,6 +443,8 @@ export const useDebugger = () => {
     setHasError(false)
     setIsGameComplete(false)
     setIsInitializing(false)
+    setScore(0)
+    scoreTrackerRef.current = createScoreTracker()
     
     try {
       await emulator.reset()
@@ -434,6 +477,8 @@ export const useDebugger = () => {
     hasError,
     isInitializing,
     reorderedView,
+    score,
+    formattedScore: formatScoreValue(score),
     canStepUp: currentPlaybackIndex > 0 && !isInitializing,
     canStepDown: !isInitializing && emulator.state.isInitialized && !hasError && !isGameOver && (
       isLazyMode ? 

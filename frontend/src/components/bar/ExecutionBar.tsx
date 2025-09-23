@@ -1,4 +1,4 @@
-import { Bug, Play, Award, Star } from 'lucide-react'
+import { Bug, Play, Award } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import StatusBar from './StatusBar'
@@ -11,10 +11,9 @@ interface ExecutionBarProps {
   hasWon?: boolean
   currentLevel?: string
   isChallenge?: boolean
-  challengeScore?: string
 }
 
-export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, playStatus, hasWon, currentLevel, isChallenge = false, challengeScore = '0000' }: ExecutionBarProps) {
+export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, playStatus, hasWon, currentLevel, isChallenge = false }: ExecutionBarProps) {
   const router = useRouter()
   const [showStatusBar, setShowStatusBar] = useState(false)
 
@@ -41,7 +40,7 @@ export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, p
   return (
     <div className="relative">
       <div className={`absolute inset-0 transition-opacity duration-200 ${showStatusBar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <StatusBar isChallenge={isChallenge} challengeScore={challengeScore} />
+        <StatusBar />
       </div>
       <div className={`flex items-center h-8 transition-all duration-200 ${showStatusBar || isDebugMode ? 'opacity-0 pointer-events-none' : 'opacity-100'} ${showStatusBar || isDebugMode ? '' : ''}`}>
         {/* Debug button */}
@@ -68,29 +67,18 @@ export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, p
         
         {/* Next button */}
         <div className="relative">
-          <button 
-            className={`h-8 bg-[#e7e7e7] dark:bg-[#222222] rounded-r-sm flex items-center gap-1 transition-all duration-200 ${showStatusBar || isDebugMode ? 'px-2' : 'px-3'} ${isChallenge ? 'cursor-default' : hasWon ? 'cursor-pointer hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a]' : 'cursor-default'}`}
-            onClick={!isChallenge && hasWon ? handleNextClick : undefined}
+          <button
+            className={`h-8 bg-[#e7e7e7] dark:bg-[#222222] rounded-r-sm flex items-center gap-1 transition-all duration-200 ${showStatusBar || isDebugMode ? 'px-2' : 'px-3'} ${hasWon && !isChallenge ? 'cursor-pointer hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a]' : 'cursor-default'}`}
+            onClick={hasWon && !isChallenge ? handleNextClick : undefined}
           >
-            {isChallenge ? (
-              <>
-                <Star size={16} color="#a7a7a7" />
-                <span className="text-sm font-mono" style={{ color: '#a7a7a7' }}>
-                  {challengeScore}
-                </span>
-              </>
+            {hasWon ? (
+              <Award size={16} color="#50b040" />
             ) : (
-              <>
-                {hasWon ? (
-                  <Award size={16} color="#50b040" />
-                ) : (
-                  <Award size={16} color="#a7a7a7" />
-                )}
-                <span className="text-sm font-medium" style={{ color: hasWon ? '#50b040' : '#a7a7a7' }}>
-                  Next
-                </span>
-              </>
+              <Award size={16} color="#a7a7a7" />
             )}
+            <span className="text-sm font-medium" style={{ color: hasWon ? '#50b040' : '#a7a7a7' }}>
+              Next
+            </span>
           </button>
         </div>
       </div>

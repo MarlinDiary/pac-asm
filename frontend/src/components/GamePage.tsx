@@ -71,7 +71,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const [selectedMemoryRegion, setSelectedMemoryRegion] = useState<MemoryRegion>('all')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { setCurrentCode, setRightPanelTab } = gameState
-  const challengeScore = executionControl.playState.formattedScore
+  const challengeScore = executionControl.formattedScore
 
   // Reset code when architecture changes
   useEffect(() => {
@@ -120,7 +120,6 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               hasWon={gameState.hasWon}
               currentLevel={levelId}
               isChallenge={isChallenge}
-              challengeScore={challengeScore}
             />
             <div className={`absolute inset-0 transition-opacity duration-200 ${gameState.isDebugMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <DebuggerBar 
@@ -158,32 +157,43 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                 selectedTab={gameState.leftPanelTab}
                 onTabChange={gameState.setLeftPanelTab}
                 tabContent={[
-                  <div key="game" className="w-full h-full relative overflow-hidden">
-                  {gameState.currentPlayWon && (
-                    <div className="absolute inset-0 z-20">
-                      <Confetti
-                        recycle={false}
-                        numberOfPieces={500}
-                        wind={0.05}
-                        gravity={0.25}
-                      />
-                    </div>
-                  )}
-                  {levelMap.waterBackground && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="relative flex items-center justify-center">
-                        <WaterRenderer 
-                          tilesX={levelMap.waterBackground.tilesX} 
-                          tilesY={levelMap.waterBackground.tilesY}
-                          tileSize={levelMap.tileSize || 64}
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <MapRenderer map={gameState.currentMap} shouldShakePlayer={gameState.shouldShakePlayer} />
+                  <div key="game" className="w-full h-full flex flex-col">
+                    {isChallenge && (
+                      <SubBar>
+                        <div className="w-full flex items-center justify-center">
+                          <span className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm">
+                            Score: {challengeScore}
+                          </span>
                         </div>
-                      </div>
+                      </SubBar>
+                    )}
+                    <div className="flex-1 relative overflow-hidden">
+                      {gameState.currentPlayWon && (
+                        <div className="absolute inset-0 z-20">
+                          <Confetti
+                            recycle={false}
+                            numberOfPieces={500}
+                            wind={0.05}
+                            gravity={0.25}
+                          />
+                        </div>
+                      )}
+                      {levelMap.waterBackground && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="relative flex items-center justify-center">
+                            <WaterRenderer
+                              tilesX={levelMap.waterBackground.tilesX}
+                              tilesY={levelMap.waterBackground.tilesY}
+                              tileSize={levelMap.tileSize || 64}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center z-10">
+                              <MapRenderer map={gameState.currentMap} shouldShakePlayer={gameState.shouldShakePlayer} />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>,
+                  </div>,
                   <GuidePanel key="guide" />,
                   <RankingPanel key="ranking" />
                 ]}

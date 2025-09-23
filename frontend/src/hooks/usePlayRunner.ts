@@ -3,7 +3,7 @@ import { useEmulator } from './useEmulator'
 import { GameMap } from '@/data/maps'
 import { RegisterInfo } from '@/workers/emulator/types'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { updateMapWithMovementAndGhosts, updateGhostsOnly, checkVictoryCondition } from '@/lib/game-animation'
+import { updateMapWithMovementAndGhosts, updateGhostsOnly } from '@/lib/game-animation'
 import { 
   initializeEmulatorWithCode, 
   getEmulatorMemoryState,
@@ -17,30 +17,12 @@ import {
   formatTimeoutError,
 } from '@/lib/emulator-errors'
 import { writeMapUpdatesToMemory } from '@/lib/map-memory'
-
-const TURN_PENALTY = 1
-const DOT_REWARD = 10
-const VICTORY_BONUS = 200
-const GHOST_PENALTY = 200
-const SCORE_DIGITS = 4
-
-const countDots = (map: GameMap | null) => {
-  if (!map) return 0
-
-  let count = 0
-  for (let row = 0; row < map.height; row++) {
-    for (let col = 0; col < map.width; col++) {
-      if (map.tiles[row][col] === '.') {
-        count++
-      }
-    }
-  }
-  return count
-}
-
-const formatScoreValue = (value: number) => {
-  return value.toString().padStart(SCORE_DIGITS, '0').slice(-SCORE_DIGITS)
-}
+import { 
+  createScoreTracker,
+  computeScoreForMapTransition,
+  formatScoreValue,
+  ScoreTracker
+} from '@/lib/score'
 
 export const usePlayRunner = () => {
   const emulator = useEmulator()
@@ -60,17 +42,12 @@ export const usePlayRunner = () => {
   const abortControllerRef = useRef<AbortController | null>(null)
   const currentCodeRef = useRef<string>('')
   const [score, setScore] = useState(0)
-  const levelCompletionAwardedRef = useRef(false)
+  const scoreTrackerRef = useRef<ScoreTracker>(createScoreTracker())
   const [isInitializing, setIsInitializing] = useState(false)
-
-  const applyScoreDelta = useCallback((delta: number) => {
-    if (delta === 0) return
-    setScore(prev => Math.max(0, prev + delta))
-  }, [setScore])
 
   const resetScore = useCallback(() => {
     setScore(0)
-    levelCompletionAwardedRef.current = false
+    scoreTrackerRef.current = createScoreTracker()
   }, [setScore])
 
   const startPlay = async (sourceCode: string, initialMap: GameMap) => {
@@ -167,7 +144,7 @@ export const usePlayRunner = () => {
         return { success: false as const, error: null }
       }
 
-      let victoryAchievedThisTurn = false
+    let victoryAchievedThisTurn = false
 
       try {
         // Execute until the program writes a move command to DATA_BASE
@@ -206,8 +183,6 @@ export const usePlayRunner = () => {
         }
 
         const nextAction = result.memEvent?.value ?? 0
-        const dotsBeforeMove = countDots(previousMapState)
-
         // Always move on each cycle - both player and ghosts (if action invalid, move ghosts only)
         movementCount++
 
@@ -217,27 +192,14 @@ export const usePlayRunner = () => {
           currentMapState = updateGhostsOnly(currentMapState)
         }
 
-        // Apply challenge score rules for this cycle
-        const dotsAfterMove = countDots(currentMapState)
-        const dotsEaten = Math.max(0, dotsBeforeMove - dotsAfterMove)
-
-        let scoreDelta = -TURN_PENALTY
-        if (dotsEaten > 0) {
-          scoreDelta += dotsEaten * DOT_REWARD
-        }
-
-        const ghostCaughtThisTurn = Boolean(currentMapState.gameOver && !previousMapState.gameOver)
-        if (ghostCaughtThisTurn) {
-          scoreDelta -= GHOST_PENALTY
-        }
-
-        victoryAchievedThisTurn = checkVictoryCondition(currentMapState)
-        if (victoryAchievedThisTurn && !levelCompletionAwardedRef.current) {
-          scoreDelta += VICTORY_BONUS
-          levelCompletionAwardedRef.current = true
-        }
-
-        applyScoreDelta(scoreDelta)
+        const { tracker, victoryAchieved } = computeScoreForMapTransition(
+          scoreTrackerRef.current,
+          previousMapState,
+          currentMapState
+        )
+        scoreTrackerRef.current = tracker
+        setScore(tracker.score)
+        victoryAchievedThisTurn = victoryAchieved
 
         const prevPlayer = previousMapState.playerPosition
         const currentPlayer = currentMapState.playerPosition

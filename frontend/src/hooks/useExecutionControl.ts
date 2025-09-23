@@ -179,6 +179,18 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     ? playState.getPreviousState()
     : debugState.getPreviousState()
 
+  const shouldUsePlayScore = (
+    isPlayMode ||
+    playState.isPlaying ||
+    (!isDebugMode && Boolean(playState.currentMap))
+  )
+
+  const activeScore = shouldUsePlayScore ? playState.score : debugState.score
+
+  const activeFormattedScore = shouldUsePlayScore
+    ? playState.formattedScore
+    : debugState.formattedScore
+
   // Listen for play state updates (including when game ends)
   useEffect(() => {
     if (playState.currentMap) {
@@ -242,6 +254,10 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     handleStepDown,
     handleStepUp,
     handleStopClick,
-    handleReplay
+    handleReplay,
+
+    // Score display helpers
+    score: activeScore,
+    formattedScore: activeFormattedScore
   }
 }
