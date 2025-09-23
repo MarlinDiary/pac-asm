@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import GitHub from "next-auth/providers/github";
+import GitHub from "@auth/core/providers/github";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { NextRequest } from "next/server";

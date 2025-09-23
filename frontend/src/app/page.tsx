@@ -44,7 +44,7 @@ export default function Home() {
             />
           </div>
           <button
-            className="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors font-medium cursor-pointer"
+            className="text-black dark:text-white font-medium cursor-pointer"
             onClick={handleLogin}
           >
             Login
@@ -56,21 +56,25 @@ export default function Home() {
       <div className="relative z-10">
 
         {/* Hero Section */}
-        <section className="flex flex-col items-center justify-center px-8 py-20">
-          <h1 className="text-5xl md:text-7xl font-bold text-center mb-6 text-gray-900 dark:text-white">
+        <section className="flex flex-col items-center justify-center px-8 pt-20 pb-20">
+          <h1 className="text-5xl md:text-7xl font-bold text-center mb-16 text-gray-900 dark:text-white">
             Learn Assembly,<br/>
-            <span className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-[#FABA03] via-[#9179FF] to-[#FD4141] pb-2 px-2" style={{ fontFamily: 'var(--font-caveat)', lineHeight: '1' }}>
-              Playfully
+            <span className="inline-block pb-2 px-2" style={{ fontFamily: 'var(--font-indie-flower)', lineHeight: '1', fontSize: '1.1em' }}>
+              <span className="text-[#F97583] dark:text-[#E85D6F]">P</span>
+              <span className="text-[#B392F0] dark:text-[#A17FE0]">l</span>
+              <span className="text-[#79B8FF] dark:text-[#5FA4F0]">a</span>
+              <span className="text-[#FFAB70] dark:text-[#F09750]">y</span>
+              <span className="text-[#9ECBFF] dark:text-[#7AB8E8]">f</span>
+              <span className="text-[#F97583] dark:text-[#E85D6F]">u</span>
+              <span className="text-[#B392F0] dark:text-[#A17FE0]">l</span>
+              <span className="text-[#79B8FF] dark:text-[#5FA4F0]">l</span>
+              <span className="text-[#FFAB70] dark:text-[#F09750]">y</span>
             </span>
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-400 text-center max-w-2xl mb-12">
-            Master ARM and MIPS assembly through interactive puzzles.
-            Debug, visualize, and code your way to victory.
-          </p>
 
           {/* GitHub Login Button */}
           <button
-            className="flex items-center gap-3 px-6 py-3 bg-gray-900/90 dark:bg-white/90 text-white dark:text-black rounded-md font-medium hover:bg-gray-700/90 dark:hover:bg-gray-300/90 backdrop-blur-md transition-all shadow-lg cursor-pointer"
+            className="flex items-center gap-3 px-6 py-3 bg-gray-950/90 dark:bg-gray-50/90 text-white dark:text-black rounded-md font-medium backdrop-blur-md transition-transform duration-200 ease-out hover:scale-105 shadow-lg cursor-pointer"
             onClick={handleLogin}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

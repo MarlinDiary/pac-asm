@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Caveat, Inter } from "next/font/google";
+import { Geist, Geist_Mono, Indie_Flower, Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const caveat = Caveat({
-  variable: "--font-caveat",
+const indieFlower = Indie_Flower({
+  weight: "400",
+  variable: "--font-indie-flower",
   subsets: ["latin"],
 });
 
@@ -50,7 +51,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${inter.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${indieFlower.variable} ${inter.variable} antialiased`}
       >
         <AuthProvider>
           <ThemeProvider
