@@ -7,12 +7,9 @@ interface ExecutionBarProps {
   onPlayClick?: () => void
   isDebugMode?: boolean
   playStatus?: 'running'
-  hasWon?: boolean
-  currentLevel?: string
-  isChallenge?: boolean
 }
 
-export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, playStatus, currentLevel, isChallenge = false }: ExecutionBarProps) {
+export default function ExecutionBar({ onDebugClick, onPlayClick, isDebugMode, playStatus }: ExecutionBarProps) {
   const [showStatusBar, setShowStatusBar] = useState(false)
 
   // Show status bar only when running
