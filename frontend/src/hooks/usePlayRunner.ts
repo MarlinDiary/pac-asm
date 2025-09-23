@@ -18,6 +18,30 @@ import {
 } from '@/lib/emulator-errors'
 import { writeMapUpdatesToMemory } from '@/lib/map-memory'
 
+const TURN_PENALTY = 1
+const DOT_REWARD = 10
+const VICTORY_BONUS = 200
+const GHOST_PENALTY = 200
+const SCORE_DIGITS = 4
+
+const countDots = (map: GameMap | null) => {
+  if (!map) return 0
+
+  let count = 0
+  for (let row = 0; row < map.height; row++) {
+    for (let col = 0; col < map.width; col++) {
+      if (map.tiles[row][col] === '.') {
+        count++
+      }
+    }
+  }
+  return count
+}
+
+const formatScoreValue = (value: number) => {
+  return value.toString().padStart(SCORE_DIGITS, '0').slice(-SCORE_DIGITS)
+}
+
 export const usePlayRunner = () => {
   const emulator = useEmulator()
   const addError = useDiagnosticsStore((state) => state.addError)
@@ -35,7 +59,19 @@ export const usePlayRunner = () => {
   })
   const abortControllerRef = useRef<AbortController | null>(null)
   const currentCodeRef = useRef<string>('')
+  const [score, setScore] = useState(0)
+  const levelCompletionAwardedRef = useRef(false)
   const [isInitializing, setIsInitializing] = useState(false)
+
+  const applyScoreDelta = useCallback((delta: number) => {
+    if (delta === 0) return
+    setScore(prev => Math.max(0, prev + delta))
+  }, [setScore])
+
+  const resetScore = useCallback(() => {
+    setScore(0)
+    levelCompletionAwardedRef.current = false
+  }, [setScore])
 
   const startPlay = async (sourceCode: string, initialMap: GameMap) => {
     // Cancel any existing initialization
@@ -50,6 +86,7 @@ export const usePlayRunner = () => {
     abortControllerRef.current = abortController
     
     setMovementActionCount(0)
+    resetScore()
     setCurrentMap(null) // Clear old map state immediately to prevent false victory detection
     setHighlightedLine(undefined)
     setIsPlaying(true)
@@ -130,6 +167,8 @@ export const usePlayRunner = () => {
         return { success: false as const, error: null }
       }
 
+      let victoryAchievedThisTurn = false
+
       try {
         // Execute until the program writes a move command to DATA_BASE
         const runAddress = MEMORY_CONFIG.DATA_BASE
@@ -167,6 +206,7 @@ export const usePlayRunner = () => {
         }
 
         const nextAction = result.memEvent?.value ?? 0
+        const dotsBeforeMove = countDots(previousMapState)
 
         // Always move on each cycle - both player and ghosts (if action invalid, move ghosts only)
         movementCount++
@@ -176,6 +216,28 @@ export const usePlayRunner = () => {
         } else {
           currentMapState = updateGhostsOnly(currentMapState)
         }
+
+        // Apply challenge score rules for this cycle
+        const dotsAfterMove = countDots(currentMapState)
+        const dotsEaten = Math.max(0, dotsBeforeMove - dotsAfterMove)
+
+        let scoreDelta = -TURN_PENALTY
+        if (dotsEaten > 0) {
+          scoreDelta += dotsEaten * DOT_REWARD
+        }
+
+        const ghostCaughtThisTurn = Boolean(currentMapState.gameOver && !previousMapState.gameOver)
+        if (ghostCaughtThisTurn) {
+          scoreDelta -= GHOST_PENALTY
+        }
+
+        victoryAchievedThisTurn = checkVictoryCondition(currentMapState)
+        if (victoryAchievedThisTurn && !levelCompletionAwardedRef.current) {
+          scoreDelta += VICTORY_BONUS
+          levelCompletionAwardedRef.current = true
+        }
+
+        applyScoreDelta(scoreDelta)
 
         const prevPlayer = previousMapState.playerPosition
         const currentPlayer = currentMapState.playerPosition
@@ -237,7 +299,7 @@ export const usePlayRunner = () => {
         previousMapState = { ...currentMapState }
 
         // Check victory condition after movement
-        if (checkVictoryCondition(currentMapState)) {
+        if (victoryAchievedThisTurn) {
           break
         }
 
@@ -288,6 +350,7 @@ export const usePlayRunner = () => {
     stopPlay()
     
     setMovementActionCount(0)
+    resetScore()
     setCurrentMap(null)
     setHighlightedLine(undefined)
     setPreviousRegisters([])
@@ -299,7 +362,7 @@ export const usePlayRunner = () => {
     try {
       await emulator.reset()
     } catch {}
-  }, [emulator, stopPlay])
+  }, [emulator, stopPlay, resetScore])
 
   const getCurrentState = () => {
     if (!currentMap) return null
@@ -339,6 +402,8 @@ export const usePlayRunner = () => {
     stopPlay,
     reset,
     getCurrentState,
-    getPreviousState
+    getPreviousState,
+    score,
+    formattedScore: formatScoreValue(score)
   }
 }
