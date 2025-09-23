@@ -14,6 +14,7 @@ import RegisterPanel from '@/components/panel/RegisterPanel'
 import MemoryPanel from '@/components/panel/MemoryPanel'
 import DiagnosticsPanel from '@/components/panel/DiagnosticsPanel'
 import GuidePanel from '@/components/panel/GuidePanel'
+import RankingPanel from '@/components/panel/RankingPanel'
 import { MemoryRegion } from '@/components/MemoryFilter'
 import SubBar from '@/components/bar/SubBar'
 import QueryBar from '@/components/bar/QueryBar'
@@ -22,7 +23,7 @@ import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2, Book } from 'lucide-react'
+import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, ArrowLeft, Stethoscope, Maximize2, Minimize2, Book, Trophy } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useSettings } from '@/hooks/useSettings'
@@ -151,7 +152,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               <Card 
                 tabs={[
                   { icon: Gamepad2, text: "Game", color: "#3579f6" },
-                  { icon: Book, text: "Guide", color: "#FE5C02" }
+                  { icon: Book, text: "Guide", color: "#50AE40" },
+                  { icon: Trophy, text: "Ranking", color: "#FFB700" }
                 ]}
                 selectedTab={gameState.leftPanelTab}
                 onTabChange={gameState.setLeftPanelTab}
@@ -182,7 +184,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                     </div>
                   )}
                 </div>,
-                  <GuidePanel key="guide" />
+                  <GuidePanel key="guide" />,
+                  <RankingPanel key="ranking" />
                 ]}
               />
             </ResizablePanel>
