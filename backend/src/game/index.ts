@@ -3,6 +3,7 @@ export type {
   GameValidationOptions,
   GameValidationResult,
   GameAttemptResult,
-  GameFrame
+  GameFrame,
+  GameValidationSummary
 } from './game-runner'
 export type { Architecture } from './emulator/types'

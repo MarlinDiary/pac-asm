@@ -8,11 +8,13 @@ export interface DiagnosticError {
   diagnosis: string
   isLoading: boolean
   hasDiagnosis: boolean
+  tag?: string
 }
 
 interface DiagnosticsStore {
   errors: DiagnosticError[]
   addError: (error: string, code: string) => void
+  addTaggedError: (tag: string, error: string, code: string) => void
   generateDiagnosis: (id: string) => void
   clearErrors: () => void
 }
@@ -50,6 +52,26 @@ export const useDiagnosticsStore = create<DiagnosticsStore>((set, get) => ({
           id,
           error,
           code,
+          timestamp: new Date(),
+          diagnosis: '',
+          isLoading: false,
+          hasDiagnosis: false
+        },
+        ...state.errors
+      ]
+    }))
+  },
+
+  addTaggedError: (tag, error, code) => {
+    const id = `${Date.now()}_${Math.random()}`
+
+    set((state) => ({
+      errors: [
+        {
+          id,
+          error,
+          code,
+          tag,
           timestamp: new Date(),
           diagnosis: '',
           isLoading: false,

@@ -9,6 +9,25 @@ import gameRouter from './routes/game';
 
 const app = express();
 
+app.use((req, res, next) => {
+  const originHeader = req.headers.origin;
+  const allowedOrigins = process.env.CORS_ORIGIN?.split(',').map((value) => value.trim()).filter(Boolean);
+  const allowOrigin = allowedOrigins?.length
+    ? (allowedOrigins.includes('*') ? '*' : (originHeader && allowedOrigins.includes(originHeader) ? originHeader : allowedOrigins[0]))
+    : '*';
+
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin ?? '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+
+  next();
+});
+
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

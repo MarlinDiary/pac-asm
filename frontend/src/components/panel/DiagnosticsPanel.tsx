@@ -79,6 +79,7 @@ export default function DiagnosticsPanel({}: DiagnosticsPanelProps) {
                   id={error.id}
                   error={error.error}
                   code={error.code}
+                  tag={error.tag}
                   timestamp={error.timestamp}
                   diagnosis={error.diagnosis}
                   isLoading={error.isLoading}

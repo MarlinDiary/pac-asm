@@ -64,9 +64,21 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     [levelMap.initialCode, getInitialCode]
   )
 
+  const normalizedLevelId = useMemo(() => {
+    if (levelId === 'challenge' || levelId.startsWith('level')) {
+      return levelId
+    }
+    return `level${levelId}`
+  }, [levelId])
+
   const gameState = useGameState(levelMap, initialCode)
   const panelLayout = usePanelLayout()
-  const executionControl = useExecutionControl({ gameState, levelMap })
+  const executionControl = useExecutionControl({
+    gameState,
+    levelMap,
+    levelId: normalizedLevelId,
+    architecture: settings.architecture
+  })
   const [isMemoryFilterOpen, setIsMemoryFilterOpen] = useState(false)
   const [selectedMemoryRegion, setSelectedMemoryRegion] = useState<MemoryRegion>('all')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -115,10 +127,12 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
             <ExecutionBar 
               onDebugClick={executionControl.handleDebugClick}
               onPlayClick={executionControl.handlePlayClick}
+              onSubmitClick={executionControl.handleSubmit}
               isDebugMode={gameState.isDebugMode}
-              playStatus={gameState.playStatus}
+              statusMessage={executionControl.statusMessage}
+              isBusy={executionControl.isBusy}
               hasWon={gameState.hasWon}
-              currentLevel={levelId}
+              currentLevel={normalizedLevelId}
               isChallenge={isChallenge}
             />
             <div className={`absolute inset-0 transition-opacity duration-200 ${gameState.isDebugMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -195,7 +209,12 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                     </div>
                   </div>,
                   <GuidePanel key="guide" />,
-                  <RankingPanel key="ranking" />
+                  <RankingPanel
+                    key="ranking"
+                    levelId={normalizedLevelId}
+                    entries={executionControl.filteredRankingEntries}
+                    isLoading={executionControl.isRankingLoading}
+                  />
                 ]}
               />
             </ResizablePanel>

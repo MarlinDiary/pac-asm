@@ -5,7 +5,7 @@ import type { JWT } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import type { Account, User } from "@auth/core/types";
 
-const backendBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://localhost:4000";
+const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000').replace(/\/$/, '')
 
 const authConfig = {
   providers: [

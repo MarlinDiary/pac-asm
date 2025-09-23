@@ -7,7 +7,7 @@ export interface GameState {
   isDebugMode: boolean
   isPlayMode: boolean
   isCodeDisabled: boolean
-  playStatus: 'running' | undefined
+  playStatus: 'running' | 'pending' | undefined
 
   // Victory states
   hasWon: boolean // Ever won (permanent)
@@ -34,7 +34,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [isDebugMode, setIsDebugMode] = useState(false)
   const [isPlayMode, setIsPlayMode] = useState(false)
   const [isCodeDisabled, setIsCodeDisabled] = useState(false)
-  const [playStatus, setPlayStatus] = useState<'running' | undefined>(undefined)
+  const [playStatus, setPlayStatus] = useState<'running' | 'pending' | undefined>(undefined)
   
   // Victory states
   const [hasWon, setHasWon] = useState(false)

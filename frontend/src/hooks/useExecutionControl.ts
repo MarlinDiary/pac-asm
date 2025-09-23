@@ -1,15 +1,67 @@
-import { useCallback, useEffect, useRef } from 'react'
+"use client"
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { GameMap, getPlayerPosition } from '@/data/maps'
 import { useDebugger } from './useDebugger'
 import { usePlayRunner } from './usePlayRunner'
 import { useGameState } from './useGameState'
 import { ensurePlayerAnimation, checkVictoryCondition } from '@/lib/game-animation'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
+import type { Architecture } from '@/hooks/useSettings'
 
 interface UseExecutionControlProps {
   gameState: ReturnType<typeof useGameState>
   levelMap: GameMap
+  levelId: string
+  architecture: Architecture
 }
+
+interface RankingEntry {
+  id: string
+  userId: string
+  userName: string
+  userAvatarUrl?: string
+  levelId: string
+  architecture: Architecture
+  status?: 'Accepted' | 'Failed'
+  successRate?: number
+  averageScore?: number
+  createdAt: string
+  updatedAt: string
+  isOptimistic?: boolean
+}
+
+type RankingResponse = {
+  submissions: Array<{
+    id: string
+    userId: string
+    userName: string
+    userAvatarUrl?: string
+    levelId: string
+    architecture: Architecture
+    status?: 'Accepted' | 'Failed'
+    successRate?: number
+    averageScore?: number
+    createdAt: string
+    updatedAt: string
+  }>
+}
+
+interface SubmissionResponse {
+  submission: RankingResponse['submissions'][number]
+  summary?: {
+    pass: boolean
+    reason?: string
+    metrics?: Record<string, unknown>
+  }
+}
+
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  'http://localhost:4000'
+).replace(/\/$/, '')
 
 const handleVictoryCheck = (
   map: GameMap,
@@ -26,11 +78,42 @@ const handleVictoryCheck = (
   }
 }
 
-export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControlProps) => {
+export const useExecutionControl = ({ gameState, levelMap, levelId, architecture }: UseExecutionControlProps) => {
+  const { data: session } = useSession()
   const debugState = useDebugger()
   const playState = usePlayRunner()
   const errors = useDiagnosticsStore((state) => state.errors)
+  const addError = useDiagnosticsStore((state) => state.addError)
+  const addTaggedError = useDiagnosticsStore((state) => state.addTaggedError)
   const errorCountRef = useRef(errors.length)
+  const [rankingEntries, setRankingEntries] = useState<RankingEntry[]>([])
+  const [isRankingLoading, setIsRankingLoading] = useState(true)
+  const rankingFetchedRef = useRef(false)
+  const rankingAbortRef = useRef<AbortController | null>(null)
+  const [submitInFlight, setSubmitInFlight] = useState(false)
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const userInfo = useMemo(() => {
+    const id = session?.user?.email ?? session?.user?.name ?? ''
+    const name = session?.user?.name ?? session?.user?.email ?? ''
+    const avatarUrl = session?.user?.image ?? undefined
+    return { id, name, avatarUrl }
+  }, [session])
+
+  useEffect(() => {
+    return () => {
+      rankingAbortRef.current?.abort()
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    rankingAbortRef.current?.abort()
+    rankingFetchedRef.current = false
+    setRankingEntries([])
+    setIsRankingLoading(true)
+  }, [levelId, architecture])
 
   const {
     currentCode,
@@ -44,13 +127,75 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     setHighlightedLine,
     setHighlightedLineSecondary,
     setCurrentMap,
+    setLeftPanelTab,
     setCodeOverride,
     teleportPlayer,
     isPlayMode,
     isDebugMode
   } = gameState
 
+  const loadRanking = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/game/ranking?levelId=${encodeURIComponent(levelId)}&architecture=${encodeURIComponent(architecture)}`,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            signal
+          }
+        )
+
+        const payload: RankingResponse | { error?: string } = await response.json().catch(() => ({}))
+
+        if (!response.ok) {
+          throw new Error(typeof payload === 'object' && 'error' in payload && payload.error ? payload.error : 'Failed to load ranking')
+        }
+
+        const body = payload as RankingResponse
+        if (!Array.isArray(body.submissions)) {
+          setRankingEntries([])
+          return
+        }
+
+        const mapped = mapRankingResponse(levelId, body)
+        setRankingEntries(mapped)
+      } catch (error) {
+        if (signal?.aborted) {
+          return
+        }
+
+        console.warn('[Ranking] Failed to load ranking:', error)
+      } finally {
+        if (!signal?.aborted) {
+          setIsRankingLoading(false)
+        }
+      }
+    },
+    [levelId, architecture]
+  )
+
+  useEffect(() => {
+    if (rankingFetchedRef.current) {
+      return
+    }
+
+    rankingFetchedRef.current = true
+    const controller = new AbortController()
+    rankingAbortRef.current = controller
+
+    loadRanking(controller.signal)
+
+    return () => {
+      controller.abort()
+    }
+  }, [loadRanking])
+
   const handlePlayClick = useCallback(async () => {
+    if (submitInFlight) {
+      return
+    }
+
     // Use level map as-is (disable Level 4 dot randomization)
     const randomizedMap = levelMap
 
@@ -84,9 +229,13 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
       setIsPlayMode(false)
       setPlayStatus(undefined)
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
+  }, [submitInFlight, currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
 
   const handleDebugClick = useCallback(async () => {
+    if (submitInFlight) {
+      return
+    }
+
     // Use level map as-is (disable Level 4 dot randomization)
     const randomizedMap = levelMap
 
@@ -116,7 +265,105 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
       setCodeOverride(null)
       setHighlightedLineSecondary(undefined)
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, debugState])
+  }, [submitInFlight, currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, debugState])
+
+  const handleSubmit = useCallback(async () => {
+    if (submitInFlight) {
+      return
+    }
+
+    const sourceCode = (gameState.codeOverride ?? currentCode)?.trim()
+    if (!sourceCode) {
+      addTaggedError?.('SUBMIT', 'Source code is empty', currentCode ?? '')
+      return
+    }
+
+    if (!userInfo.id || !userInfo.name) {
+      addTaggedError?.('SUBMIT', 'Missing user identity', currentCode ?? '')
+      return
+    }
+
+    setSubmitInFlight(true)
+    setIsCodeDisabled(true)
+    setIsPlayMode(false)
+    setIsDebugMode(false)
+    setPlayStatus('pending')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/game/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceCode,
+          levelId,
+          architecture,
+          user: {
+            id: userInfo.id,
+            name: userInfo.name,
+            avatarUrl: userInfo.avatarUrl
+          }
+        })
+      })
+
+      const payload: SubmissionResponse | { error?: string } = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        const message = typeof payload === 'object' && 'error' in payload && payload.error
+          ? payload.error
+          : 'Submit failed'
+        throw new Error(message)
+      }
+
+      const { submission: submissionPayload, summary } = payload as SubmissionResponse
+      const mappedEntry = createRankingEntry(levelId, submissionPayload, { optimistic: true })
+
+      rankingFetchedRef.current = true
+      setRankingEntries((current) => {
+        const filtered = current.filter((entry) => entry.userId !== mappedEntry.userId)
+        return sortRankingEntries(levelId, [mappedEntry, ...filtered])
+      })
+
+      setIsRankingLoading(false)
+      setLeftPanelTab(2)
+
+      // Summary is still displayed via ranking row; avoid adding diagnostics for backend validation errors
+
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current)
+      }
+      highlightTimeoutRef.current = setTimeout(() => {
+        setRankingEntries((current) =>
+          current.map((entry) =>
+            entry.id === mappedEntry.id ? { ...entry, isOptimistic: false } : entry
+          )
+        )
+      }, 3000)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      addTaggedError?.('SUBMIT', message, currentCode ?? '')
+    } finally {
+      setSubmitInFlight(false)
+      setPlayStatus(undefined)
+      setIsCodeDisabled(false)
+      setIsRankingLoading(false)
+    }
+  }, [
+    submitInFlight,
+    gameState.codeOverride,
+    currentCode,
+    addError,
+    addTaggedError,
+    userInfo,
+    levelId,
+    architecture,
+    setIsCodeDisabled,
+    setIsPlayMode,
+    setIsDebugMode,
+    setPlayStatus,
+    setRankingEntries,
+    setIsRankingLoading,
+    setLeftPanelTab
+  ])
 
   const handleStepDown = useCallback(async () => {
     const nextState = await debugState.stepDownLazy()
@@ -191,6 +438,22 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     ? playState.formattedScore
     : debugState.formattedScore
 
+  const statusMessage = useMemo(() => {
+    if (gameState.playStatus === 'pending') {
+      return 'Pending...'
+    }
+    if (gameState.playStatus === 'running') {
+      return 'Running...'
+    }
+    return undefined
+  }, [gameState.playStatus])
+
+  const isBusy = submitInFlight || Boolean(gameState.playStatus)
+
+  const filteredRankingEntries = useMemo(() => {
+    return rankingEntries.filter((entry) => entry.architecture === architecture)
+  }, [rankingEntries, architecture])
+
   // Listen for play state updates (including when game ends)
   useEffect(() => {
     if (playState.currentMap) {
@@ -255,9 +518,89 @@ export const useExecutionControl = ({ gameState, levelMap }: UseExecutionControl
     handleStepUp,
     handleStopClick,
     handleReplay,
+    handleSubmit,
+
+    // Ranking
+    rankingEntries,
+    filteredRankingEntries,
+    isRankingLoading,
+    currentUserId: userInfo.id,
+
+    // Status helpers
+    statusMessage,
+    isBusy,
 
     // Score display helpers
     score: activeScore,
     formattedScore: activeFormattedScore
   }
 }
+
+function mapRankingResponse(levelId: string, data: RankingResponse): RankingEntry[] {
+  const entries = data.submissions.map((submission) =>
+    createRankingEntry(levelId, submission, { optimistic: false })
+  )
+  return sortRankingEntries(levelId, entries)
+}
+
+function createRankingEntry(
+  levelId: string,
+  submission: RankingResponse['submissions'][number],
+  options: { optimistic?: boolean }
+): RankingEntry {
+  return {
+    id: submission.id,
+    userId: submission.userId,
+    userName: submission.userName,
+    userAvatarUrl: submission.userAvatarUrl,
+    levelId,
+    architecture: submission.architecture,
+    status: submission.status,
+    successRate: typeof submission.successRate === 'number' ? submission.successRate : 0,
+    averageScore: typeof submission.averageScore === 'number' ? submission.averageScore : 0,
+    createdAt: submission.createdAt,
+    updatedAt: submission.updatedAt,
+    isOptimistic: options.optimistic ?? false
+  }
+}
+
+function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEntry[] {
+  const sorted = [...entries]
+
+  if (levelId === 'challenge') {
+    sorted.sort((a, b) => {
+      const scoreDelta = (b.averageScore ?? 0) - (a.averageScore ?? 0)
+      if (scoreDelta !== 0) return scoreDelta
+      // For same scores, earlier submission comes first
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    })
+    return sorted
+  }
+
+  if (levelId === 'level4') {
+    sorted.sort((a, b) => {
+      const rateDelta = (b.successRate ?? 0) - (a.successRate ?? 0)
+      if (rateDelta !== 0) return rateDelta
+      // For same success rates, earlier submission comes first
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    })
+    return sorted
+  }
+
+  // For level1-3: Sort by acceptance status first (Accepted before Failed), then by time (earliest first)
+  sorted.sort((a, b) => {
+    const aAccepted = a.status === 'Accepted'
+    const bAccepted = b.status === 'Accepted'
+
+    // If one is accepted and the other isn't, accepted comes first
+    if (aAccepted !== bAccepted) {
+      return aAccepted ? -1 : 1
+    }
+
+    // If both have same status, sort by time (earliest first)
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  })
+  return sorted
+}
+
+export type { RankingEntry }
