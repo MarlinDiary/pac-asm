@@ -90,7 +90,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   )
 
   // Get architecture-specific initial code
-  const getInitialCode = useCallback((code: string | { ARM: string; MIPS: string } | undefined): string => {
+  const getInitialCode = useCallback((code: string | { ARM: string; MIPS: string; MIPS_R6?: string } | undefined): string => {
     if (typeof window !== 'undefined' && settings.autoSaveCode) {
       const stored = window.localStorage.getItem(codeStorageKey)
       if (stored !== null) {
@@ -100,7 +100,11 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
 
     if (!code) return ''
     if (typeof code === 'string') return code
-    return settings.architecture === 'MIPS' ? code.MIPS : code.ARM
+    if (settings.architecture === 'ARM') return code.ARM
+    if (settings.architecture === 'MIPS_R6') {
+      return code.MIPS_R6 ?? code.MIPS
+    }
+    return code.MIPS
   }, [settings.autoSaveCode, codeStorageKey, settings.architecture])
 
   const initialCode = useMemo(

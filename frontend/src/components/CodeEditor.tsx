@@ -33,6 +33,7 @@ export default function CodeEditor({
   const [mounted, setMounted] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
   const { settings } = useSettings()
+  const isMipsLike = settings.architecture === 'MIPS' || settings.architecture === 'MIPS_R6'
 
   // Ensure languages and token providers are registered before editor mounts
   function handleEditorWillMount(monaco: typeof import('monaco-editor')) {
@@ -70,7 +71,7 @@ export default function CodeEditor({
             [/;.*$/, 'comment'],[/#.*$/, 'comment'],[/\/\/.*$/, 'comment'],[/@.*$/, 'comment'],
             [/\$?(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|s8|ra|hi|lo|f(?:[0-9]|[12][0-9]|3[01]))\b/i, 'variable.predefined'],
             [/^\s*\.(globl|global|text|data|bss|section|type|ent|end|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|option|set|macro|endm|equ|include|file|size|loc|frame|mask|fmask|cpload|cprestore|comm|lcomm|end|endr|rept|irpc|if|else|elseif|endif|altmacro|noreorder|reorder)\b/i, 'keyword'],
-            [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|NOP|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU)\b/i, 'keyword'],
+            [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|NOP|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU|BEQC|BNEC|BLTC|BGEC|BLTUC|BGEUC|BLEZC|BGEZC|BLTZC|BGTZC|BEQZC|BNEZC|BC|BALC|JIC|JIALC|BOVC|BNVC)\b/i, 'keyword'],
             [/\b-?[0-9]+\s*\([^)]+\)/, 'string.regexp'],
             [/^[a-zA-Z_][a-zA-Z0-9_]*:/, 'type'],
             [/\"([^\"\\]|\\.)*$/, 'string.invalid'],[/\"/, 'string', '@string'],[/'([^'\\]|\\.)*$/, 'string.invalid'],[/'/, 'string', '@sstring'],
@@ -281,8 +282,8 @@ export default function CodeEditor({
             [/\$?(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|s8|ra|hi|lo|f(?:[0-9]|[12][0-9]|3[01]))\b/i, 'variable.predefined'],
             // directives (extended)
             [/^\s*\.(globl|global|text|data|bss|section|type|ent|end|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|option|set|macro|endm|equ|include|file|size|loc|frame|mask|fmask|cpload|cprestore|comm|lcomm|end|endr|rept|irpc|if|else|elseif|endif|altmacro|noreorder|reorder)\b/i, 'keyword'],
-            // MIPS instructions incl. likely + pseudo (case-insensitive)
-            [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|NOP|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU)\b/i, 'keyword'],
+            // MIPS instructions incl. likely + pseudo + R6 compact branches (case-insensitive)
+            [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|NOP|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU|BEQC|BNEC|BLTC|BGEC|BLTUC|BGEUC|BLEZC|BGEZC|BLTZC|BGTZC|BEQZC|BNEZC|BC|BALC|JIC|JIALC|BOVC|BNVC)\b/i, 'keyword'],
             // addressing offset(base)
             [/\b-?[0-9]+\s*\([^)]+\)/, 'string.regexp'],
             // labels
@@ -510,8 +511,8 @@ export default function CodeEditor({
           [/\$?(zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|s8|ra|hi|lo|f(?:[0-9]|[12][0-9]|3[01]))\b/i, 'variable.predefined'],
           // Directives (extended)
           [/^\s*\.(globl|global|text|data|bss|section|type|ent|end|extern|align|balign|p2align|word|hword|half|byte|space|ascii|asciz|option|set|macro|endm|equ|include|file|size|loc|frame|mask|fmask|cpload|cprestore|comm|lcomm|end|endr|rept|irpc|if|else|elseif|endif|altmacro|noreorder|reorder)\b/i, 'keyword'],
-          // MIPS instructions incl. likely + pseudo
-          [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU)\b/i, 'keyword'],
+          // MIPS instructions incl. likely + pseudo + R6 compact branches
+          [/\b(ADD(U)?|ADDI(U)?|SUB(U)?|AND(I)?|OR(I)?|XOR(I)?|NOR|NOT|NEG(U)?|SLT(I|IU)?|SLTU|SLL(V)?|SRL(V)?|SRA(V)?|ROTR(V)?|LW|SW|LB|LBU|LH|LHU|SB|SH|LUI|LWL|LWR|SWL|SWR|LL|SC|BEQ|BNE|BLEZ|BGTZ|BLTZ|BGEZ|BEQL|BNEL|BLEZL|BGTZL|BLTZL|BGEZL|BLTZAL|BGEZAL|BLTZALL|BGEZALL|BEQZ|BNEZ|BAL|B|J|JAL|JR|JALR|MFHI|MFLO|MTHI|MTLO|MULT(U)?|DIV(U)?|MUL|MOVN|MOVZ|MOVE|LI|LA|MFC0|MTC0|ERET|CACHE|PREF|SYNC|SYSCALL|BREAK|EXT|INS|SEB|SEH|CLO|CLZ|MADD|MADDU|MSUB|MSUBU|BEQC|BNEC|BLTC|BGEC|BLTUC|BGEUC|BLEZC|BGEZC|BLTZC|BGTZC|BEQZC|BNEZC|BC|BALC|JIC|JIALC|BOVC|BNVC)\b/i, 'keyword'],
           // MIPS addressing offset(base)
           [/\b-?[0-9]+\s*\([^)]+\)/, 'string.regexp'],
           // fallback identifiers
@@ -524,9 +525,9 @@ export default function CodeEditor({
       }
     }
 
-    const provider = settings.architecture === 'MIPS' ? mipsProvider : armProvider
+    const provider = isMipsLike ? mipsProvider : armProvider
     monaco.languages.setMonarchTokensProvider('assembly', provider as import('monaco-editor').languages.IMonarchLanguage)
-  }, [settings.architecture, mounted])
+  }, [isMipsLike, settings.architecture, mounted])
 
   // Effect to handle line highlighting
   useEffect(() => {
@@ -699,7 +700,7 @@ export default function CodeEditor({
       <Editor
         height={height}
         width={width}
-        language={settings.architecture === 'MIPS' ? 'assembly-mips' : 'assembly-arm'}
+        language={isMipsLike ? 'assembly-mips' : 'assembly-arm'}
         value={value}
         onChange={onChange}
         beforeMount={handleEditorWillMount}

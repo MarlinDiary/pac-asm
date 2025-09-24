@@ -82,7 +82,7 @@ function createRuntimeMap(map: GameMap): number[] {
  * ARM uses little-endian. MIPS (our target) uses big-endian.
  */
 function toEndian32(value: number, arch: Architecture): number[] {
-  if (arch === 'MIPS') {
+  if (arch === 'MIPS' || arch === 'MIPS_R6') {
     // Big-endian: most-significant byte first
     return [
       (value >> 24) & 0xFF,

@@ -21,6 +21,8 @@ const R_MIPS_HI16 = 5;
 const R_MIPS_LO16 = 6;
 const R_MIPS_GPREL16 = 7;
 const R_MIPS_PC16 = 10;
+const R_MIPS_PC21_S2 = 60;
+const R_MIPS_PC26_S2 = 61;
 
 const signExtend16 = (value: number): number => ((value << 16) >> 16);
 
@@ -396,9 +398,90 @@ function applyMipsRelocations(
           view.setUint32(rOffset, updatedLoInstr, isLittleEndian);
           break;
         }
-        case R_MIPS_GPREL16:
-        case R_MIPS_PC16: {
+        case R_MIPS_GPREL16: {
           throw new Error(`Unsupported relocation type ${rType} for symbol '${symbol.name}'`);
+        }
+        case R_MIPS_PC16: {
+          if (rOffset + 4 > machineCode.length) {
+            continue;
+          }
+
+          const view = ensurePatchedView();
+          const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
+          const mask = 0xffff;
+          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+
+          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const targetAddress = (symbolAddress + relocationAddend) >>> 0;
+          const delta = (targetAddress - branchBase) | 0;
+          if ((delta & 0x3) !== 0) {
+            throw new Error(`PC16 relocation misaligned for symbol '${symbol.name}'`);
+          }
+
+          const offset = delta >> 2;
+          if (offset < -0x8000 || offset > 0x7fff) {
+            throw new Error(`PC16 relocation out of range for symbol '${symbol.name}'`);
+          }
+
+          const updatedInstr = ((currentInstr & 0xffff0000) | (offset & mask)) >>> 0;
+          view.setUint32(rOffset, updatedInstr, isLittleEndian);
+          break;
+        }
+        case R_MIPS_PC21_S2: {
+          if (rOffset + 4 > machineCode.length) {
+            continue;
+          }
+
+          const view = ensurePatchedView();
+          const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
+          const mask = 0x001fffff;
+          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+
+          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const targetAddress = (symbolAddress + relocationAddend) >>> 0;
+          const delta = (targetAddress - branchBase) | 0;
+          if ((delta & 0x3) !== 0) {
+            throw new Error(`PC21_S2 relocation misaligned for symbol '${symbol.name}'`);
+          }
+
+          const offset = delta >> 2;
+          const min = -(1 << 20);
+          const max = (1 << 20) - 1;
+          if (offset < min || offset > max) {
+            throw new Error(`PC21_S2 relocation out of range for symbol '${symbol.name}'`);
+          }
+
+          const updatedInstr = ((currentInstr & ~mask) | (offset & mask)) >>> 0;
+          view.setUint32(rOffset, updatedInstr, isLittleEndian);
+          break;
+        }
+        case R_MIPS_PC26_S2: {
+          if (rOffset + 4 > machineCode.length) {
+            continue;
+          }
+
+          const view = ensurePatchedView();
+          const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
+          const mask = 0x03ffffff;
+          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+
+          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const targetAddress = (symbolAddress + relocationAddend) >>> 0;
+          const delta = (targetAddress - branchBase) | 0;
+          if ((delta & 0x3) !== 0) {
+            throw new Error(`PC26_S2 relocation misaligned for symbol '${symbol.name}'`);
+          }
+
+          const offset = delta >> 2;
+          const min = -(1 << 25);
+          const max = (1 << 25) - 1;
+          if (offset < min || offset > max) {
+            throw new Error(`PC26_S2 relocation out of range for symbol '${symbol.name}'`);
+          }
+
+          const updatedInstr = ((currentInstr & ~mask) | (offset & mask)) >>> 0;
+          view.setUint32(rOffset, updatedInstr, isLittleEndian);
+          break;
         }
         default:
           break;
@@ -427,10 +510,12 @@ function applyMipsRelocations(
 // ============================================================================
 
 export type GASTarget = 'armv7-linux-gnueabihf' | 'mips-linux-gnu';
+export type GASVariant = 'default' | 'mips-r6';
 
 export interface GASAssemblerOptions {
   target?: GASTarget;
   baseAddress?: number;
+  variant?: GASVariant;
 }
 
 export interface GASAssemblyResult {
@@ -451,6 +536,7 @@ export interface DebugLineInfo {
 export class GASAssembler {
   private target: GASTarget;
   private baseAddress: number;
+  private variant: GASVariant;
   private isInitialized = false;
   private gasInstance: unknown = null;
   private lastObjectFile: Uint8Array | null = null;
@@ -460,6 +546,7 @@ export class GASAssembler {
   constructor(options: GASAssemblerOptions = {}) {
     this.target = options.target || 'armv7-linux-gnueabihf';
     this.baseAddress = options.baseAddress || 0x10000;
+    this.variant = options.variant ?? 'default';
   }
 
   async initialize(): Promise<void> {
@@ -488,9 +575,16 @@ export class GASAssembler {
       // Assemble with debug info (-g)
       // Note: 'as' doesn't support '-c' (that's a gcc/ld option), so we omit it.
       // For MIPS, we need to specify --gdwarf-2 to generate DWARF debug info
-      const args = this.target === 'mips-linux-gnu'
-        ? ['-g', '--gdwarf-2', '-o', 'out.o', 'in.s']
-        : ['-g', '-o', 'out.o', 'in.s'];
+      let args: string[];
+      if (this.target === 'mips-linux-gnu') {
+        args = ['-g', '--gdwarf-2'];
+        if (this.variant === 'mips-r6') {
+          args.push('-mips32r6', '-mabi=32', '-EB');
+        }
+        args.push('-o', 'out.o', 'in.s');
+      } else {
+        args = ['-g', '-o', 'out.o', 'in.s'];
+      }
       if (this.baseAddress && this.baseAddress !== 0) {
         args.push('--defsym', `BASE_ADDR=0x${this.baseAddress.toString(16)}`);
       }
@@ -645,6 +739,7 @@ export class GASAssembler {
 export interface AssemblerOptions {
   baseAddress?: number;
   target?: GASTarget;
+  variant?: GASVariant;
 }
 
 export interface AssemblyResult {
@@ -663,11 +758,13 @@ export class ARMAssembler {
     this.options = {
       baseAddress: options.baseAddress || 0x10000,
       target: options.target || 'armv7-linux-gnueabihf',
+      variant: options.variant ?? 'default',
     };
     
     this.gasAssembler = new GASAssembler({
       target: this.options.target,
       baseAddress: this.options.baseAddress,
+      variant: this.options.variant,
     });
   }
 

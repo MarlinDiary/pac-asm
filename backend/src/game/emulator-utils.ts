@@ -1,4 +1,4 @@
-import { ARMAssembler, GASTarget } from './assembler'
+import { ARMAssembler, GASTarget, GASVariant } from './assembler'
 import { GameMap } from './maps'
 import { writeCompleteMapToMemory } from './map-memory'
 import { NodeEmulator } from './emulator/node-emulator'
@@ -26,8 +26,10 @@ export async function resetEmulatorWithMemory(emulator: NodeEmulator): Promise<v
 }
 
 export async function assembleCode(sourceCode: string, arch: Architecture): Promise<number[]> {
-  const target: GASTarget = arch === 'MIPS' ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
-  const assembler = new ARMAssembler({ target })
+  const isMipsLike = arch === 'MIPS' || arch === 'MIPS_R6'
+  const target: GASTarget = isMipsLike ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+  const variant: GASVariant = arch === 'MIPS_R6' ? 'mips-r6' : 'default'
+  const assembler = new ARMAssembler({ target, variant })
   try {
     await assembler.initialize()
     const result = await assembler.assemble(sourceCode)

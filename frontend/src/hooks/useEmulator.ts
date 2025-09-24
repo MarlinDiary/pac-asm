@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { EmulatorMessage, EmulatorResponse, StepResult, RegisterInfo } from '@/workers/emulator/types';
-import { getGlobalSettings } from '@/hooks/useSettings';
+import { getGlobalSettings, type Architecture as SettingsArchitecture } from '@/hooks/useSettings';
 import {
   EMULATOR_MESSAGE_TIMEOUT_MS,
   EMULATOR_RUN_TIMEOUT_US,
@@ -71,6 +71,13 @@ export const useEmulator = () => {
     
     workerRef.current.onmessage = (event: MessageEvent<EmulatorResponse>) => {
       const response = event.data;
+
+      // Debug: Log MIPS_R6 debug messages
+      if ((response as any).type === 'debug') {
+        console.log('[MIPS_R6 Debug]', (response as any).message, (response as any).data);
+        return;
+      }
+
       if (response.messageId && pendingMessages.current.has(response.messageId)) {
         const pending = pendingMessages.current.get(response.messageId);
         if (pending) {
@@ -98,7 +105,7 @@ export const useEmulator = () => {
   // React to global settings change for architecture: reset worker so it will be re-initialized next time
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { architecture?: 'ARM' | 'MIPS' } | undefined;
+      const detail = (e as CustomEvent).detail as { architecture?: SettingsArchitecture } | undefined;
       if (!detail || !('architecture' in detail)) return;
       // Tear down current worker to force re-init with new arch on next use
       if (workerRef.current) {

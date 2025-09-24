@@ -83,7 +83,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const debugState = useDebugger()
   const playState = usePlayRunner()
   const errors = useDiagnosticsStore((state) => state.errors)
-  const addError = useDiagnosticsStore((state) => state.addError)
   const addTaggedError = useDiagnosticsStore((state) => state.addTaggedError)
   const errorCountRef = useRef(errors.length)
   const [rankingEntries, setRankingEntries] = useState<RankingEntry[]>([])
@@ -136,6 +135,13 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
   const loadRanking = useCallback(
     async (signal?: AbortSignal) => {
+      if (architecture === 'MIPS_R6') {
+        if (!signal?.aborted) {
+          setRankingEntries([])
+          setIsRankingLoading(false)
+        }
+        return
+      }
       try {
         const response = await fetch(
           `${API_BASE_URL}/game/ranking?levelId=${encodeURIComponent(levelId)}&architecture=${encodeURIComponent(architecture)}`,
@@ -314,7 +320,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
         throw new Error(message)
       }
 
-      const { submission: submissionPayload, summary } = payload as SubmissionResponse
+      const { submission: submissionPayload } = payload as SubmissionResponse
       const mappedEntry = createRankingEntry(levelId, submissionPayload, { optimistic: true })
 
       rankingFetchedRef.current = true
@@ -325,8 +331,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
       setIsRankingLoading(false)
       setLeftPanelTab(2)
-
-      // Summary is still displayed via ranking row; avoid adding diagnostics for backend validation errors
 
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current)
@@ -351,7 +355,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     submitInFlight,
     gameState.codeOverride,
     currentCode,
-    addError,
     addTaggedError,
     userInfo,
     levelId,

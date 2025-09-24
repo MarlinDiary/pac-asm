@@ -52,10 +52,12 @@ export class EmulatorWorker {
     try {
       const uc = this.unicornLoader.getUnicorn();
       this.uc = uc;
-      if (this.arch === 'MIPS') {
+      if (this.arch === 'MIPS' || this.arch === 'MIPS_R6') {
         const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
         // Match GAS target mips-linux-gnu (big-endian)
-        const modeConst = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
+        const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
+        const r6Bit = uc.MODE_MIPS32R6 || (uc as unknown as Record<string, number>).MODE_MIPS32R6 || 0;
+        const modeConst = this.arch === 'MIPS_R6' && r6Bit ? (baseMode | r6Bit) : baseMode;
         this.unicorn = new uc.Unicorn(archConst, modeConst);
       } else {
         this.unicorn = new uc.Unicorn(uc.ARCH_ARM, uc.MODE_ARM);
@@ -94,6 +96,39 @@ export class EmulatorWorker {
     try {
       if (!this.memoryManager || !this.isInitialized) {
         throw new Error('Emulator not initialized');
+      }
+
+      // For MIPS_R6, we need to recreate the Unicorn instance to clear JIT cache
+      if (this.arch === 'MIPS_R6' && this.unicorn) {
+        // Close the old instance
+        try {
+          this.unicorn.close();
+        } catch (e) {
+          // Ignore close errors
+        }
+
+        // Create a new instance
+        const uc = this.uc;
+        const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
+        const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
+        const r6Bit = uc.MODE_MIPS32R6 || (uc as unknown as Record<string, number>).MODE_MIPS32R6 || 0;
+        const modeConst = (baseMode | r6Bit);
+        this.unicorn = new uc.Unicorn(archConst, modeConst);
+
+        // Reinitialize managers with new instance
+        this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.arch);
+        this.executionEngine = new ExecutionEngine(
+          this.unicorn,
+          this.uc,
+          this.config,
+          this.literalPoolDetector,
+          this.memoryManager,
+          this.arch
+        );
+
+        // Setup memory and registers
+        this.memoryManager.initializeMemory();
+        this.memoryManager.initializeRegisters();
       }
 
       this.memoryManager.loadCode(machineCode);
@@ -330,7 +365,7 @@ export class EmulatorWorker {
         // Optional: select architecture from payload
         if (message.payload && typeof message.payload === 'object' && 'arch' in message.payload) {
           const arch = (message.payload as { arch?: Architecture }).arch;
-          if (arch === 'ARM' || arch === 'MIPS') {
+          if (arch === 'ARM' || arch === 'MIPS' || arch === 'MIPS_R6') {
             this.arch = arch;
           }
         }

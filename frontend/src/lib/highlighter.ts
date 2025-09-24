@@ -1,7 +1,7 @@
 // Code highlighter for single-step debugging using DWARF debug information
 // Uses GNU Assembler DWARF line mappings for accurate highlighting
 
-import { ARMAssembler, GASTarget } from './assembler';
+import { ARMAssembler, GASTarget, GASVariant } from './assembler';
 
 interface AddressMapping {
   address: number;
@@ -29,17 +29,19 @@ export class CodeHighlighter {
   private baseAddress: number;
   private lastHighlightInfo: HighlightInfo | null = null;
   private target: GASTarget;
+  private variant: GASVariant;
 
-  constructor(options: { baseAddress?: number; target?: GASTarget } = {}) {
+  constructor(options: { baseAddress?: number; target?: GASTarget; variant?: GASVariant } = {}) {
     this.baseAddress = options.baseAddress || 0x10000;
     this.target = options.target || 'armv7-linux-gnueabihf';
+    this.variant = options.variant ?? 'default';
   }
 
   /**
    * Initialize the highlighter by processing source code with GAS and DWARF
    */
   async initialize(sourceCode: string): Promise<void> {
-    const assembler = new ARMAssembler({ baseAddress: this.baseAddress, target: this.target });
+    const assembler = new ARMAssembler({ baseAddress: this.baseAddress, target: this.target, variant: this.variant });
     
     try {
       await assembler.initialize();
@@ -162,7 +164,7 @@ export class CodeHighlighter {
 }
 
 // Factory function for backward compatibility
-export const createHighlighter = (options?: { baseAddress?: number; target?: GASTarget }): CodeHighlighter => {
+export const createHighlighter = (options?: { baseAddress?: number; target?: GASTarget; variant?: GASVariant }): CodeHighlighter => {
   return new CodeHighlighter(options);
 };
 

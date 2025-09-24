@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export type Architecture = 'MIPS' | 'ARM'
+export type Architecture = 'MIPS' | 'MIPS_R6' | 'ARM'
 
 interface Settings {
   architecture: Architecture

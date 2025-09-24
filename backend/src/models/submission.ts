@@ -35,7 +35,7 @@ const submissionSchema = new Schema<SubmissionDocument>(
     },
     architecture: {
       type: String,
-      enum: ['ARM', 'MIPS'],
+      enum: ['ARM', 'MIPS', 'MIPS_R6'],
       required: true
     },
     status: {

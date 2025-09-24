@@ -253,7 +253,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Architecture
                     </label>
-                    <Select value={settings.architecture} onValueChange={(value) => updateSetting('architecture', value as 'MIPS' | 'ARM')}>
+                    <Select value={settings.architecture} onValueChange={(value) => updateSetting('architecture', value as typeof settings.architecture)}>
                       <SelectTrigger className="w-auto border-0 bg-transparent dark:bg-transparent p-0 h-auto cursor-pointer focus:ring-0 focus-visible:ring-0 shadow-none hover:bg-transparent dark:hover:bg-transparent">
                         <SelectValue />
                       </SelectTrigger>
@@ -263,6 +263,12 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]"
                         >
                           MIPS
+                        </SelectItem>
+                        <SelectItem
+                          value="MIPS_R6"
+                          className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]"
+                        >
+                          MIPS R6
                         </SelectItem>
                         <SelectItem
                           value="ARM"

@@ -17,19 +17,52 @@ export class UnicornLoader {
   async loadUnicornScript(): Promise<void> {
     try {
       const baseUrl = this.workerSelf.location.origin;
-      const script = this.arch === 'MIPS' ? 'unicorn-mips.min.js' : 'unicorn-arm.min.js';
-      (globalThis as unknown as { importScripts: (url: string) => void }).importScripts(`${baseUrl}/arm/${script}`);
-      
-      await new Promise<void>((resolve) => {
-        const checkUnicorn = () => {
-          if (typeof this.workerSelf.uc !== 'undefined') {
-            resolve();
-          } else {
-            setTimeout(checkUnicorn, 10);
-          }
+
+      if (this.arch === 'MIPS_R6') {
+        const globalScope = globalThis as typeof globalThis & {
+          importScripts: (...urls: string[]) => void;
+          MUnicorn?: (moduleArg?: Record<string, unknown>) => Promise<unknown>;
+          createUC?: (moduleInstance: unknown) => UnicornGlobal;
+          uc?: unknown;
         };
-        checkUnicorn();
-      });
+
+        delete globalScope.uc;
+
+        globalScope.importScripts(`${baseUrl}/arm/unicorn_wasm_mips.js`, `${baseUrl}/arm/unicorn-wrapper.js`);
+
+        if (typeof globalScope.MUnicorn !== 'function') {
+          throw new Error('MUnicorn factory not found after importing Unicorn WASM scripts');
+        }
+
+        if (typeof globalScope.createUC !== 'function') {
+          throw new Error('createUC wrapper not found after importing Unicorn WASM scripts');
+        }
+
+        const moduleInstance = await globalScope.MUnicorn({
+          locateFile: (path: string) => {
+            if (path.endsWith('.wasm')) {
+              return `${baseUrl}/arm/unicorn_wasm_mips.wasm`;
+            }
+            return `${baseUrl}/arm/${path}`;
+          }
+        });
+
+        this.workerSelf.uc = globalScope.createUC(moduleInstance) as UnicornGlobal;
+      } else {
+        const script = this.arch === 'MIPS' ? 'unicorn-mips.min.js' : 'unicorn-arm.min.js';
+        (globalThis as unknown as { importScripts: (url: string) => void }).importScripts(`${baseUrl}/arm/${script}`);
+
+        await new Promise<void>((resolve) => {
+          const checkUnicorn = () => {
+            if (typeof this.workerSelf.uc !== 'undefined') {
+              resolve();
+            } else {
+              setTimeout(checkUnicorn, 10);
+            }
+          };
+          checkUnicorn();
+        });
+      }
 
       this.postMessage({
         type: 'success',

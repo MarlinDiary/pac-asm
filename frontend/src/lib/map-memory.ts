@@ -83,7 +83,7 @@ function createRuntimeMap(map: GameMap): number[] {
  */
 function toEndian32(value: number): number[] {
   const arch = getGlobalSettings().settings.architecture
-  if (arch === 'MIPS') {
+  if (arch === 'MIPS' || arch === 'MIPS_R6') {
     // Big-endian: most-significant byte first
     return [
       (value >> 24) & 0xFF,

@@ -69,10 +69,12 @@ export class NodeEmulator {
       } catch {}
     }
 
-    if (arch === 'MIPS') {
+    if (arch === 'MIPS' || arch === 'MIPS_R6') {
       const uc = this.uc as unknown as Record<string, number>
       const archConst = this.uc.ARCH_MIPS ?? uc.ARCH_MIPS
-      const modeConst = ((this.uc.MODE_MIPS32 || 0) | (this.uc.MODE_BIG_ENDIAN || 0)) || uc.MODE_MIPS32
+      const baseMode = ((this.uc.MODE_MIPS32 || 0) | (this.uc.MODE_BIG_ENDIAN || 0)) || uc.MODE_MIPS32
+      const r6Bit = this.uc.MODE_MIPS32R6 || uc.MODE_MIPS32R6 || 0
+      const modeConst = arch === 'MIPS_R6' && r6Bit ? (baseMode | r6Bit) : baseMode
       this.unicorn = new this.uc.Unicorn(archConst, modeConst)
     } else {
       this.unicorn = new this.uc.Unicorn(this.uc.ARCH_ARM, this.uc.MODE_ARM)
@@ -101,6 +103,32 @@ export class NodeEmulator {
 
   async loadCode(machineCode: number[]): Promise<void> {
     this.ensureReady()
+    if (this.currentArch === 'MIPS_R6' && this.unicorn && this.uc) {
+      try {
+        this.unicorn.close()
+      } catch {}
+
+      const uc = this.uc as unknown as Record<string, number>
+      const archConst = this.uc.ARCH_MIPS ?? uc.ARCH_MIPS
+      const baseMode = ((this.uc.MODE_MIPS32 || 0) | (this.uc.MODE_BIG_ENDIAN || 0)) || uc.MODE_MIPS32
+      const r6Bit = this.uc.MODE_MIPS32R6 || uc.MODE_MIPS32R6 || 0
+      const modeConst = baseMode | r6Bit
+      this.unicorn = new this.uc.Unicorn(archConst, modeConst)
+
+      this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.currentArch)
+      this.executionEngine = new ExecutionEngine(
+        this.unicorn,
+        this.uc,
+        this.config,
+        this.literalPoolDetector,
+        this.memoryManager,
+        this.currentArch
+      )
+
+      this.memoryManager.initializeMemory()
+      this.memoryManager.initializeRegisters()
+    }
+
     this.memoryManager!.loadCode(machineCode)
   }
 

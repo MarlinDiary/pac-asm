@@ -1,4 +1,4 @@
-import { GASAssembler, GASTarget } from './assembler'
+import { GASAssembler, GASTarget, GASVariant } from './assembler'
 
 export interface ReorderedMappingEntry {
   address: number
@@ -16,13 +16,14 @@ export interface ReorderedDebugView {
 interface ReorderedViewOptions {
   target: GASTarget
   baseAddress: number
+  variant?: GASVariant
 }
 
 export async function generateReorderedDebugView(
   sourceCode: string,
-  { target, baseAddress }: ReorderedViewOptions
+  { target, baseAddress, variant }: ReorderedViewOptions
 ): Promise<ReorderedDebugView> {
-  const assembler = new GASAssembler({ target, baseAddress })
+  const assembler = new GASAssembler({ target, baseAddress, variant })
 
   await assembler.initialize()
 

@@ -1,6 +1,6 @@
 // Type definitions for Unicorn.js (ARM + MIPS subset we use)
 
-export type Architecture = 'ARM' | 'MIPS'
+export type Architecture = 'ARM' | 'MIPS' | 'MIPS_R6'
 
 export interface UnicornGlobal {
   Unicorn: new (arch: number, mode: number) => UnicornInstance;
@@ -9,6 +9,7 @@ export interface UnicornGlobal {
   MODE_ARM: number;
   ARCH_MIPS?: number;
   MODE_MIPS32?: number;
+  MODE_MIPS32R6?: number;
   MODE_LITTLE_ENDIAN?: number;
   MODE_BIG_ENDIAN?: number;
   // Permissions

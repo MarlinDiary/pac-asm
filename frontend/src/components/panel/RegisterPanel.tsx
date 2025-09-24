@@ -14,7 +14,7 @@ interface RegisterData {
 interface RegisterPanelProps {
   registers?: RegisterData[]
   previousRegisters?: RegisterData[]
-  architecture?: 'ARM' | 'MIPS'
+  architecture?: 'ARM' | 'MIPS' | 'MIPS_R6'
 }
 
 const ARM_REG_LIST = [
@@ -31,10 +31,11 @@ const MIPS_REG_LIST = [
 ]
 
 export default function RegisterPanel({ registers: registerData, previousRegisters, architecture = 'ARM' }: RegisterPanelProps) {
-  const registers = architecture === 'MIPS' ? MIPS_REG_LIST : ARM_REG_LIST
+  const isMipsLike = architecture === 'MIPS' || architecture === 'MIPS_R6'
+  const registers = isMipsLike ? MIPS_REG_LIST : ARM_REG_LIST
   const NBSP = '\u00A0'
   const formatRegisterName = (register: string) => {
-    if (architecture === 'ARM') {
+    if (!isMipsLike) {
       // Original ARM behavior: inner space for single-digit Rn and for SP/LR/PC
       if (register.length === 2 && register.startsWith('R')) {
         return `R ${register[1]}`
@@ -53,7 +54,7 @@ export default function RegisterPanel({ registers: registerData, previousRegiste
 
   const resolveRegisterKey = (name: string): string => {
     const n = name.toLowerCase()
-    if (architecture === 'MIPS') {
+    if (isMipsLike) {
       // Map S8 to fp for underlying emulator register
       if (n === 's8') return 'fp'
     }

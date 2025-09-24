@@ -1,4 +1,4 @@
-import { ARMAssembler, GASTarget } from '@/lib/assembler'
+import { ARMAssembler, GASTarget, GASVariant } from '@/lib/assembler'
 import { CodeHighlighter, createHighlighter } from '@/lib/highlighter'
 import { RegisterInfo } from '@/workers/emulator/types'
 import { GameMap } from '@/data/maps'
@@ -58,8 +58,10 @@ export async function resetEmulatorWithMemory(emulator: EmulatorInstance): Promi
  */
 export async function assembleCode(sourceCode: string): Promise<number[]> {
   const arch = getGlobalSettings().settings.architecture
-  const target: GASTarget = arch === 'MIPS' ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
-  const assembler = new ARMAssembler({ target })
+  const isMipsLike = arch === 'MIPS' || arch === 'MIPS_R6'
+  const target: GASTarget = isMipsLike ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+  const variant: GASVariant = arch === 'MIPS_R6' ? 'mips-r6' : 'default'
+  const assembler = new ARMAssembler({ target, variant })
   try {
     await assembler.initialize()
     const result = await assembler.assemble(sourceCode)
@@ -107,8 +109,10 @@ export async function initializeEmulatorWithCode(
   
   // Create code highlighter
   const arch = getGlobalSettings().settings.architecture
-  const target: GASTarget = arch === 'MIPS' ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
-  const codeHighlighter = createHighlighter({ target })
+  const isMipsLike = arch === 'MIPS' || arch === 'MIPS_R6'
+  const target: GASTarget = isMipsLike ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+  const variant: GASVariant = arch === 'MIPS_R6' ? 'mips-r6' : 'default'
+  const codeHighlighter = createHighlighter({ target, variant })
   await codeHighlighter.initialize(sourceCode)
   
   // Final abort check
