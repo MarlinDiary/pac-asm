@@ -135,13 +135,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
   const loadRanking = useCallback(
     async (signal?: AbortSignal) => {
-      if (architecture === 'MIPS_R6') {
-        if (!signal?.aborted) {
-          setRankingEntries([])
-          setIsRankingLoading(false)
-        }
-        return
-      }
       try {
         const response = await fetch(
           `${API_BASE_URL}/game/ranking?levelId=${encodeURIComponent(levelId)}&architecture=${encodeURIComponent(architecture)}`,

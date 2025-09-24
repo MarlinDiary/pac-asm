@@ -135,15 +135,26 @@ router.post('/submit', async (req: Request, res: Response) => {
 })
 
 router.get('/ranking', async (req: Request, res: Response) => {
-  const { levelId } = req.query
+  const { levelId, architecture } = req.query
 
   if (typeof levelId !== 'string' || !ALLOWED_LEVEL_IDS.has(levelId)) {
     return res.status(400).json({ error: 'levelId query parameter is required' })
   }
 
+  if (typeof architecture !== 'undefined') {
+    if (typeof architecture !== 'string' || !isArchitecture(architecture)) {
+      return res.status(400).json({ error: "architecture must be 'ARM', 'MIPS', or 'MIPS_R6'" })
+    }
+  }
+
   try {
     const sort = buildRankingSort(levelId)
-    const submissions = await SubmissionModel.find({ levelId }).sort(sort).limit(50).exec()
+    const query: Record<string, unknown> = { levelId }
+    if (typeof architecture === 'string' && isArchitecture(architecture)) {
+      query.architecture = architecture
+    }
+
+    const submissions = await SubmissionModel.find(query).sort(sort).limit(50).exec()
     const ranking = submissions.map(toRankingEntry)
 
     return res.status(200).json({ submissions: ranking })
