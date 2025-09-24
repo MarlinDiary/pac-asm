@@ -69,12 +69,13 @@ export const useEmulator = () => {
 
     workerRef.current = new Worker(new URL('../workers/emulator/index.ts', import.meta.url));
     
-    workerRef.current.onmessage = (event: MessageEvent<EmulatorResponse>) => {
+    type WorkerEvent = EmulatorResponse | { type: 'debug'; message: string; data?: unknown };
+
+    workerRef.current.onmessage = (event: MessageEvent<WorkerEvent>) => {
       const response = event.data;
 
-      // Debug: Log MIPS_R6 debug messages
-      if ((response as any).type === 'debug') {
-        console.log('[MIPS_R6 Debug]', (response as any).message, (response as any).data);
+      if (response.type === 'debug') {
+        console.log('[MIPS_R6 Debug]', response.message, response.data);
         return;
       }
 
