@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import Confetti from 'react-confetti'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import Card from '@/components/Card'
@@ -23,11 +23,13 @@ import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight, CircleUserRound, LogOut } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useSettings } from '@/hooks/useSettings'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { signIn, signOut, useSession } from 'next-auth/react'
+import Image from 'next/image'
 
 interface GamePageProps {
   levelMap: GameMap
@@ -39,6 +41,11 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   // Initialize hooks
   const emulator = useEmulator()
   const router = useRouter()
+  const pathname = usePathname()
+  const { data: session, status } = useSession()
+  const isAuthenticated = status === 'authenticated'
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement | null>(null)
 
   // Get level display name
   const getLevelDisplayName = (id: string): string => {
@@ -77,6 +84,17 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
       router.push('/challenge')
     }
   }
+
+  const handleLogin = useCallback(() => {
+    const callbackUrl = typeof window !== 'undefined' ? window.location.href : pathname ?? '/'
+    signIn('github', { callbackUrl })
+  }, [pathname])
+
+  const handleLogout = useCallback(() => {
+    setIsUserMenuOpen(false)
+    const callbackUrl = typeof window !== 'undefined' ? window.location.href : pathname ?? '/'
+    signOut({ callbackUrl })
+  }, [pathname])
 
   // Check if navigation is disabled
   const isPreviousDisabled = levelId === 'level1' || levelId === '1'
@@ -118,6 +136,38 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     }
     return `level${levelId}`
   }, [levelId])
+
+  useEffect(() => {
+    if (!isUserMenuOpen) {
+      return
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false)
+      }
+    }
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsUserMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocumentClick)
+    document.addEventListener('keydown', handleKeydown)
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick)
+      document.removeEventListener('keydown', handleKeydown)
+    }
+  }, [isUserMenuOpen])
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsUserMenuOpen(false)
+    }
+  }, [isAuthenticated])
 
   const gameState = useGameState(levelMap, initialCode)
   const panelLayout = usePanelLayout()
@@ -209,13 +259,56 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               />
             </div>
           </div>
-          <div className="absolute right-0 top-0 flex gap-2">
-            <IconButton 
-              icon={gameState.isFullscreen ? Minimize2 : Maximize2} 
+          <div className="absolute right-0 top-0 flex items-center gap-2">
+            <IconButton
+              icon={gameState.isFullscreen ? Minimize2 : Maximize2}
               onClick={gameState.toggleFullscreen}
               size={15}
             />
             <IconButton icon={Settings2} onClick={() => setIsSettingsOpen(true)} />
+            <div className="relative" ref={userMenuRef}>
+              {isAuthenticated ? (
+                <IconButton
+                  icon={session?.user?.image ? undefined : CircleUserRound}
+                  onClick={() => setIsUserMenuOpen((open) => !open)}
+                  size={17}
+                  customContent={session?.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt={session.user.name ?? 'User avatar'}
+                      width={17}
+                      height={17}
+                      className="rounded-full object-cover grayscale"
+                    />
+                  ) : undefined}
+                />
+              ) : (
+                <IconButton
+                  icon={CircleUserRound}
+                  onClick={handleLogin}
+                  size={17}
+                />
+              )}
+
+              {isAuthenticated && (
+                <div className={`absolute right-0 mt-1 w-36 rounded-lg p-2 overflow-auto focus:outline-none shadow-lg shadow-black/10 dark:shadow-black/20 bg-white dark:bg-[#303030] border border-[#F0F0F0] dark:border-[#3C3C3C] z-10 transition-all duration-200 origin-top-right ${
+                  isUserMenuOpen
+                    ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                    : 'opacity-0 scale-95 -translate-y-1 pointer-events-none'
+                }`}>
+                  <div
+                    className="cursor-pointer select-none relative h-8 py-1.5 px-2 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-[#5a5a5a] dark:text-[#a0a0a0] font-normal"
+                    role="menuitem"
+                    onClick={handleLogout}
+                  >
+                    <div className="flex h-5 items-center gap-2">
+                      <LogOut className="h-4 w-4" />
+                      <div className="truncate text-sm">Log out</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex-1 pt-2 overflow-hidden">

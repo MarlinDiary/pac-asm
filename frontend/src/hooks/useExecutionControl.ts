@@ -278,7 +278,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     }
 
     if (!userInfo.id || !userInfo.name) {
-      addTaggedError?.('SUBMIT', 'Missing user identity', currentCode ?? '')
+      addTaggedError?.('SUBMIT', 'You need to log in to submit', currentCode ?? '')
       return
     }
 

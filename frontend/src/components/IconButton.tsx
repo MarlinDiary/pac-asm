@@ -1,13 +1,15 @@
 import { LucideIcon } from 'lucide-react'
+import { ReactNode } from 'react'
 
 interface IconButtonProps {
-  icon: LucideIcon
+  icon?: LucideIcon
   onClick?: () => void
   size?: number
   disabled?: boolean
+  customContent?: ReactNode
 }
 
-export default function IconButton({ icon: Icon, onClick, size = 16, disabled = false }: IconButtonProps) {
+export default function IconButton({ icon: Icon, onClick, size = 16, disabled = false, customContent }: IconButtonProps) {
   return (
     <button
       className={`w-8 h-8 flex items-center justify-center hover:rounded-md group ${
@@ -18,14 +20,18 @@ export default function IconButton({ icon: Icon, onClick, size = 16, disabled = 
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
     >
-      <Icon
-        size={size}
-        className={`${
-          disabled
-            ? 'text-[#737373] dark:text-[#A8A8A8]'
-            : 'text-[#737373] dark:text-[#A8A8A8] group-hover:text-[#1a1a1a] dark:group-hover:text-[#f5f5f5]'
-        }`}
-      />
+      {customContent ? (
+        customContent
+      ) : Icon ? (
+        <Icon
+          size={size}
+          className={`${
+            disabled
+              ? 'text-[#737373] dark:text-[#A8A8A8]'
+              : 'text-[#737373] dark:text-[#A8A8A8] group-hover:text-[#1a1a1a] dark:group-hover:text-[#f5f5f5]'
+          }`}
+        />
+      ) : null}
     </button>
   )
 }

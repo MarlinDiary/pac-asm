@@ -1,8 +1,8 @@
 import NextAuth from "next-auth";
 import GitHub from "@auth/core/providers/github";
+import { Buffer } from "node:buffer";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
-import type { NextRequest } from "next/server";
 import type { Account, User } from "@auth/core/types";
 
 const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000').replace(/\/$/, '')
@@ -20,24 +20,6 @@ const authConfig = {
   },
   trustHost: true,
   callbacks: {
-    authorized({ auth: session, request }: { auth: Session | null; request: NextRequest }) {
-      const isHome = request.nextUrl.pathname === "/";
-      const isProtected =
-        request.nextUrl.pathname.startsWith("/level") ||
-        request.nextUrl.pathname.startsWith("/challenge");
-
-      if (isHome && session?.user) {
-        const redirectUrl = new URL("/level/1", request.nextUrl);
-        return Response.redirect(redirectUrl);
-      }
-
-      if (isProtected && !session?.user) {
-        const redirectUrl = new URL("/", request.nextUrl);
-        return Response.redirect(redirectUrl);
-      }
-
-      return true;
-    },
     async jwt({ token, account }: { token: JWT; account?: Account | null }) {
       if (account?.provider === "github") {
         token.accessToken = account.access_token;
@@ -74,6 +56,43 @@ const authConfig = {
         });
       } catch (error) {
         console.error("Failed to sync user with backend", error);
+      }
+    },
+    async signOut(message: { token?: JWT | null }) {
+      const accessToken = message.token?.accessToken as string | undefined;
+
+      if (!accessToken) {
+        return;
+      }
+
+      const clientId = process.env.AUTH_GITHUB_ID;
+      const clientSecret = process.env.AUTH_GITHUB_SECRET;
+
+      if (!clientId || !clientSecret) {
+        console.warn("Missing GitHub client credentials; skipping token revocation.");
+        return;
+      }
+
+      try {
+        const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+        const response = await fetch(`https://api.github.com/applications/${clientId}/grant`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Basic ${credentials}`,
+            Accept: "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "PacAsm-App",
+          },
+          body: JSON.stringify({ access_token: accessToken }),
+        });
+
+        if (!response.ok && response.status !== 404) {
+          const errorText = await response.text();
+          console.error("Failed to revoke GitHub grant", response.status, errorText);
+        }
+      } catch (error) {
+        console.error("Failed to revoke GitHub grant", error);
       }
     },
   },
