@@ -195,6 +195,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       return
     }
 
+    setLeftPanelTab(0)
+
     // Use level map as-is (disable Level 4 dot randomization)
     const randomizedMap = levelMap
 
@@ -234,6 +236,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     if (submitInFlight) {
       return
     }
+
+    setLeftPanelTab(0)
 
     // Use level map as-is (disable Level 4 dot randomization)
     const randomizedMap = levelMap
