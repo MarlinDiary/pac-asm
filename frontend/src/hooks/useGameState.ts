@@ -13,6 +13,7 @@ export interface GameState {
   hasWon: boolean // Ever won (permanent)
   currentPlayWon: boolean // This play won (temporary)
   shouldShakePlayer: boolean // Shake animation flag
+  currentPlayGameOver: boolean // This play ended with death (temporary)
   
   // Code and map states
   currentCode: string
@@ -40,6 +41,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [hasWon, setHasWon] = useState(false)
   const [currentPlayWon, setCurrentPlayWon] = useState(false)
   const [shouldShakePlayer, setShouldShakePlayer] = useState(false)
+  const [currentPlayGameOver, setCurrentPlayGameOver] = useState(false)
   
   // Code and map states
   const [currentCode, setCurrentCode] = useState(initialCode)
@@ -201,6 +203,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     hasWon,
     currentPlayWon,
     shouldShakePlayer,
+    currentPlayGameOver,
     currentCode,
     codeOverride,
     currentMap,
@@ -220,6 +223,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setHasWon,
     setCurrentPlayWon,
     setShouldShakePlayer,
+    setCurrentPlayGameOver,
     setCurrentCode,
     setCodeOverride,
     setCurrentMap,

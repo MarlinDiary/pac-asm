@@ -123,6 +123,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setHasWon,
     setCurrentPlayWon,
     setShouldShakePlayer,
+    setCurrentPlayGameOver,
     setHighlightedLine,
     setHighlightedLineSecondary,
     setCurrentMap,
@@ -206,6 +207,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setHighlightedLine(undefined)
     setHighlightedLineSecondary(undefined)
     setCurrentPlayWon(false) // Reset current play victory status
+    setCurrentPlayGameOver(false) // Reset game over status
     setShouldShakePlayer(false) // Clear any shake animation
     // Don't clear hasWon - keep Next button permanently after first victory
 
@@ -223,6 +225,10 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setIsCodeDisabled(false)
       setIsPlayMode(false)
       setPlayStatus(undefined)
+      // Check if it's a game over (collision with ghost)
+      if (result.gameOver) {
+        setCurrentPlayGameOver(true)
+      }
       // Play failure already handled by diagnostics
     } else if (!result.success && !result.error) {
       // User cancelled - reset UI state without error
@@ -230,7 +236,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setIsPlayMode(false)
       setPlayStatus(undefined)
     }
-  }, [submitInFlight, currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
+  }, [submitInFlight, currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
 
   const handleDebugClick = useCallback(async () => {
     if (submitInFlight) {

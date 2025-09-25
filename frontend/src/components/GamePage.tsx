@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import Confetti from 'react-confetti'
+import DeathOverlay from '@/components/DeathOverlay'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import Card from '@/components/Card'
 import ExecutionBar from '@/components/bar/ExecutionBar'
@@ -347,6 +348,10 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                           />
                         </div>
                       )}
+                      <DeathOverlay
+                        show={gameState.currentPlayGameOver}
+                        onComplete={() => gameState.setCurrentPlayGameOver(false)}
+                      />
                       {levelMap.waterBackground && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="relative flex items-center justify-center">

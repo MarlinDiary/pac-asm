@@ -223,7 +223,7 @@ export const usePlayRunner = () => {
           setHighlightedLine(undefined)
           setMovementActionCount(movementCount)
           setIsPlaying(false)
-          return { success: false as const, error: 'Game Over: Collision with ghost!' }
+          return { success: false as const, error: 'Game Over: Collision with ghost!', gameOver: true }
         }
 
         // Update UI
