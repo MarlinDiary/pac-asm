@@ -152,19 +152,25 @@ export const useDebugger = () => {
 
       try {
         const { settings } = getGlobalSettings()
-        const isMipsLike = settings.architecture === 'MIPS' || settings.architecture === 'MIPS_R6'
+        const architecture = settings.architecture
+        const isMipsLike = architecture === 'MIPS' || architecture === 'MIPS_R6'
         const target = isMipsLike ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
-        const variant = settings.architecture === 'MIPS_R6' ? 'mips-r6' : 'default'
+        const variant = architecture === 'MIPS_R6' ? 'mips-r6' : 'default'
 
-        generatedView = await generateReorderedDebugView(sourceCode, {
-          target,
-          baseAddress: MEMORY_CONFIG.CODE_BASE,
-          variant
-        })
+        if (architecture === 'MIPS') {
+          generatedView = await generateReorderedDebugView(sourceCode, {
+            target,
+            baseAddress: MEMORY_CONFIG.CODE_BASE,
+            variant
+          })
 
-        const manualHighlighter = new CodeHighlighter({ baseAddress: MEMORY_CONFIG.CODE_BASE, target, variant })
-        manualHighlighter.loadManualMappings(generatedView.transformedSource, generatedView.mappings)
-        appliedHighlighter = manualHighlighter
+          const manualHighlighter = new CodeHighlighter({ baseAddress: MEMORY_CONFIG.CODE_BASE, target, variant })
+          manualHighlighter.loadManualMappings(generatedView.transformedSource, generatedView.mappings)
+          appliedHighlighter = manualHighlighter
+        } else {
+          generatedView = null
+          appliedHighlighter = codeHighlighter
+        }
       } catch (err) {
         console.warn('[DEBUGGER] Failed to generate reordered debug view:', err)
       }
