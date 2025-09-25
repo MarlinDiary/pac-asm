@@ -226,7 +226,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setIsPlayMode(false)
       setPlayStatus(undefined)
       // Check if it's a game over (collision with ghost)
-      if (result.gameOver) {
+      if ('gameOver' in result && result.gameOver) {
         setCurrentPlayGameOver(true)
       }
       // Play failure already handled by diagnostics
