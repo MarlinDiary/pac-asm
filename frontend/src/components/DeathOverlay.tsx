@@ -10,6 +10,9 @@ export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [opacity, setOpacity] = useState(0)
 
+  // Simply check dark mode when rendering
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+
   useEffect(() => {
     if (show) {
       // Delay the appearance by 75ms
@@ -60,14 +63,14 @@ export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
         }}
       >
         <FuzzyText
-          fontSize="4rem"
-          fontWeight={700}
+          fontSize="3rem"
+          fontWeight={400}
           fontFamily="'Silkscreen', monospace"
-          color="#A70000"
+          color={isDarkMode ? "#FFFFFF" : "#000000"}
           enableHover={false}
           baseIntensity={0.25}
         >
-          D E A T H
+          Game Over
         </FuzzyText>
       </div>
     </>
