@@ -61,7 +61,7 @@ export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
       >
         <FuzzyText
           fontSize="4rem"
-          fontWeight={700}
+          fontWeight={400}
           fontFamily="'Silkscreen', monospace"
           color="#A70000"
           enableHover={false}

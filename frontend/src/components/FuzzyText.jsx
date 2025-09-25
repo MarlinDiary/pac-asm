@@ -61,7 +61,7 @@ const FuzzyText = ({
       const textBoundingWidth = Math.ceil(actualLeft + actualRight);
       const tightHeight = Math.ceil(actualAscent + actualDescent);
 
-      const extraWidthBuffer = 10;
+      const extraWidthBuffer = 40;
       const offscreenWidth = textBoundingWidth + extraWidthBuffer;
 
       offscreen.width = offscreenWidth;
@@ -73,7 +73,7 @@ const FuzzyText = ({
       offCtx.fillStyle = color;
       offCtx.fillText(text, xOffset - actualLeft, actualAscent);
 
-      const horizontalMargin = 50;
+      const horizontalMargin = 80;
       const verticalMargin = 0;
       canvas.width = offscreenWidth + horizontalMargin * 2;
       canvas.height = tightHeight + verticalMargin * 2;
