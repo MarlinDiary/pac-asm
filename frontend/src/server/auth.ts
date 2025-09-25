@@ -4,6 +4,7 @@ import { Buffer } from "node:buffer";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { Account, User } from "@auth/core/types";
+import type { AdapterSession } from "next-auth/adapters";
 
 const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000').replace(/\/$/, '')
 
@@ -58,8 +59,13 @@ const authConfig = {
         console.error("Failed to sync user with backend", error);
       }
     },
-    async signOut(message: { token?: JWT | null }) {
-      const accessToken = message.token?.accessToken as string | undefined;
+    async signOut(
+      message:
+        | { token: JWT | null }
+        | { session: AdapterSession | null | undefined | void }
+    ) {
+      const accessToken =
+        "token" in message ? (message.token?.accessToken as string | undefined) : undefined;
 
       if (!accessToken) {
         return;
