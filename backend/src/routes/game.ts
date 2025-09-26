@@ -110,7 +110,7 @@ router.post('/submit', async (req: Request, res: Response) => {
       metrics = extractMetrics(levelId, summary)
     }
 
-    await SubmissionModel.deleteMany({ userId: user.id, levelId })
+    await SubmissionModel.deleteMany({ userId: user.id, levelId, architecture })
 
     const submission = await SubmissionModel.create({
       userId: user.id,
