@@ -91,6 +91,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const rankingAbortRef = useRef<AbortController | null>(null)
   const [submitInFlight, setSubmitInFlight] = useState(false)
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isStepTemporarilyDisabled, setIsStepTemporarilyDisabled] = useState(false)
+  const stepLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userInfo = useMemo(() => {
     const id = session?.user?.email ?? session?.user?.name ?? ''
     const name = session?.user?.name ?? session?.user?.email ?? ''
@@ -103,6 +105,9 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       rankingAbortRef.current?.abort()
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current)
+      }
+      if (stepLockTimeoutRef.current) {
+        clearTimeout(stepLockTimeoutRef.current)
       }
     }
   }, [])
@@ -130,6 +135,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setLeftPanelTab,
     setCodeOverride,
     teleportPlayer,
+    currentMap,
     isPlayMode,
     isDebugMode
   } = gameState
@@ -371,25 +377,46 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setLeftPanelTab
   ])
 
+  const disableStepsTemporarily = useCallback(() => {
+    if (stepLockTimeoutRef.current) {
+      clearTimeout(stepLockTimeoutRef.current)
+    }
+    setIsStepTemporarilyDisabled(true)
+    stepLockTimeoutRef.current = setTimeout(() => {
+      setIsStepTemporarilyDisabled(false)
+      stepLockTimeoutRef.current = null
+    }, 100)
+  }, [])
+
   const handleStepDown = useCallback(async () => {
+    const previousMap = currentMap
     const nextState = await debugState.stepDownLazy()
     if (nextState) {
       const stateWithAnimation = ensurePlayerAnimation(nextState)
       setCurrentMap(stateWithAnimation.mapState)
       setHighlightedLine(nextState.highlightedLine)
       setHighlightedLineSecondary(nextState.highlightedLineSecondary)
+      const memEvent = nextState.stepResult?.memWriteEvent
+      const isMovementCommand = memEvent?.address === 0x30000 && memEvent.value >= 1 && memEvent.value <= 4
+      if (isMovementCommand || didPlayerPositionChange(previousMap, stateWithAnimation.mapState)) {
+        disableStepsTemporarily()
+      }
     }
-  }, [debugState, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
+  }, [currentMap, debugState, disableStepsTemporarily, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
 
   const handleStepUp = useCallback(() => {
+    const previousMap = currentMap
     const prevState = debugState.stepUp()
     if (prevState) {
       const stateWithAnimation = ensurePlayerAnimation(prevState)
       setCurrentMap(stateWithAnimation.mapState)
       setHighlightedLine(prevState.highlightedLine)
       setHighlightedLineSecondary(prevState.highlightedLineSecondary)
+      if (didPlayerPositionChange(previousMap, stateWithAnimation.mapState)) {
+        disableStepsTemporarily()
+      }
     }
-  }, [debugState, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
+  }, [currentMap, debugState, disableStepsTemporarily, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
 
   const handleStopClick = useCallback(async () => {
     setIsCodeDisabled(false)
@@ -397,8 +424,13 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setHighlightedLine(undefined)
     setHighlightedLineSecondary(undefined)
     setCodeOverride(null)
+    if (stepLockTimeoutRef.current) {
+      clearTimeout(stepLockTimeoutRef.current)
+      stepLockTimeoutRef.current = null
+    }
+    setIsStepTemporarilyDisabled(false)
     
-    const currentPlayerPos = getPlayerPosition(gameState.currentMap)
+    const currentPlayerPos = getPlayerPosition(currentMap)
     await teleportPlayer(levelMap, currentPlayerPos) // Reset map with teleport animation
     
     // Reset states to clear panels
@@ -406,17 +438,17 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       debugState.reset(),
       playState.reset()
     ])
-  }, [setIsCodeDisabled, setIsDebugMode, setHighlightedLine, setHighlightedLineSecondary, setCodeOverride, teleportPlayer, levelMap, gameState.currentMap, debugState, playState])
+  }, [setIsCodeDisabled, setIsDebugMode, setHighlightedLine, setHighlightedLineSecondary, setCodeOverride, teleportPlayer, levelMap, currentMap, debugState, playState])
 
   const handleReplay = useCallback(async () => {
     const firstState = debugState.replay()
     if (firstState) {
-      const currentPlayerPos = getPlayerPosition(gameState.currentMap)
+      const currentPlayerPos = getPlayerPosition(currentMap)
       await teleportPlayer(firstState.mapState, currentPlayerPos)
       setHighlightedLine(firstState.highlightedLine)
       setHighlightedLineSecondary(firstState.highlightedLineSecondary)
     }
-  }, [debugState, teleportPlayer, gameState.currentMap, setHighlightedLine, setHighlightedLineSecondary])
+  }, [debugState, teleportPlayer, currentMap, setHighlightedLine, setHighlightedLineSecondary])
 
   // Get current and previous debug states for panels
   // In play mode, surface live emulator state so panels stay in sync with execution
@@ -431,6 +463,12 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const previousDebugState = (isPlayMode || playState.isPlaying)
     ? playState.getPreviousState()
     : debugState.getPreviousState()
+
+  const debugStateWithLock = useMemo(() => ({
+    ...debugState,
+    canStepDown: debugState.canStepDown && !isStepTemporarilyDisabled,
+    canStepUp: debugState.canStepUp && !isStepTemporarilyDisabled
+  }), [debugState, isStepTemporarilyDisabled])
 
   const shouldUsePlayScore = (
     isPlayMode ||
@@ -512,7 +550,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
   return {
     // Debug state
-    debugState,
+    debugState: debugStateWithLock,
     playState,
     currentDebugState,
     previousDebugState,
@@ -540,6 +578,25 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     score: activeScore,
     formattedScore: activeFormattedScore
   }
+}
+
+function didPlayerPositionChange(previousMap?: GameMap, nextMap?: GameMap): boolean {
+  if (!previousMap || !nextMap) {
+    return false
+  }
+
+  const prevPosition = previousMap.playerPosition
+  const nextPosition = nextMap.playerPosition
+
+  if (!prevPosition || !nextPosition) {
+    return false
+  }
+
+  return (
+    prevPosition.row !== nextPosition.row ||
+    prevPosition.col !== nextPosition.col ||
+    prevPosition.direction !== nextPosition.direction
+  )
 }
 
 function mapRankingResponse(levelId: string, data: RankingResponse): RankingEntry[] {
