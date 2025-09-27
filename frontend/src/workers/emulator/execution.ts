@@ -1,4 +1,4 @@
-// Execution engine for ARM/MIPS instructions
+// Execution engine for ARM and MIPS R6 instructions
 
 import { EMULATOR_RUN_TIMEOUT_US } from '@/lib/emulator-errors';
 import { UnicornInstance, UnicornGlobal, StepResult, EmulatorConfig, Architecture } from './types';
@@ -31,7 +31,7 @@ export class ExecutionEngine {
 
   private decodeInstr32(bytes: number[]): number {
     if (bytes.length !== 4) return 0;
-    if (this.arch === 'MIPS' || this.arch === 'MIPS_R6') {
+    if (this.arch === 'MIPS_R6') {
       // MIPS32 big-endian in our configuration
       return (((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0);
     }
@@ -165,7 +165,7 @@ export class ExecutionEngine {
   // Note: we use a fixed 4KB code window starting at codeAddress
 
   stepExecution(): void {
-    const pcReg = (this.arch === 'MIPS' || this.arch === 'MIPS_R6')
+    const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
       : this.uc.ARM_REG_PC;
     const pc = this.unicorn.reg_read_i32(pcReg);
@@ -175,7 +175,7 @@ export class ExecutionEngine {
 
   stepDebugExecution(): StepResult {
     // Get state before execution
-    const pcReg = (this.arch === 'MIPS' || this.arch === 'MIPS_R6')
+    const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
       : this.uc.ARM_REG_PC;
     const pcBefore = this.unicorn.reg_read_i32(pcReg);
@@ -379,7 +379,7 @@ export class ExecutionEngine {
 
     // Safe execution loop - check each instruction before executing
     while (executedInstructions < maxInstructions) {
-      const pcReg = (this.arch === 'MIPS' || this.arch === 'MIPS_R6')
+      const pcReg = (this.arch === 'MIPS_R6')
         ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
         : this.uc.ARM_REG_PC;
       const pc = this.unicorn.reg_read_i32(pcReg);
@@ -446,7 +446,7 @@ export class ExecutionEngine {
     timeoutUs: number = EMULATOR_RUN_TIMEOUT_US
   ): { message: string; executedInstructions: number; stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown'; memEvent?: { address: number; value: number } } {
     const endAddress = this.config.codeAddress + 4096;
-    const pcReg = (this.arch === 'MIPS' || this.arch === 'MIPS_R6')
+    const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
       : this.uc.ARM_REG_PC;
     const pc = this.unicorn.reg_read_i32(pcReg);

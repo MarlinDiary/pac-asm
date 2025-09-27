@@ -194,16 +194,10 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       </SelectTrigger>
                       <SelectContent className="min-w-[180px] rounded-lg p-2 shadow-lg shadow-black/10 dark:shadow-black/20 bg-white dark:bg-[#303030] border border-[#F0F0F0] dark:border-[#3C3C3C]">
                         <SelectItem
-                          value="MIPS"
-                          className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]"
-                        >
-                          MIPS
-                        </SelectItem>
-                        <SelectItem
                           value="MIPS_R6"
                           className="h-8 py-1.5 pl-2 pr-12 rounded hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a] text-sm cursor-pointer focus:bg-[#f0f0f0] dark:focus:bg-[#2a2a2a] data-[state=checked]:text-[#262626] dark:data-[state=checked]:text-white data-[state=checked]:font-medium data-[state=unchecked]:text-[#5a5a5a] dark:data-[state=unchecked]:text-[#a0a0a0] data-[state=unchecked]:font-normal [&_svg]:text-[#01A2C3]"
                         >
-                          MIPS R6
+                          MIPS
                         </SelectItem>
                         <SelectItem
                           value="ARM"

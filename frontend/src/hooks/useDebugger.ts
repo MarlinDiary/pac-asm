@@ -153,11 +153,11 @@ export const useDebugger = () => {
       try {
         const { settings } = getGlobalSettings()
         const architecture = settings.architecture
-        const isMipsLike = architecture === 'MIPS' || architecture === 'MIPS_R6'
-        const target = isMipsLike ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
-        const variant = architecture === 'MIPS_R6' ? 'mips-r6' : 'default'
+        const isMipsR6 = architecture === 'MIPS_R6'
+        const target = isMipsR6 ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+        const variant = isMipsR6 ? 'mips-r6' : 'default'
 
-        if (architecture === 'MIPS') {
+        if (architecture === 'MIPS_R6') {
           generatedView = await generateReorderedDebugView(sourceCode, {
             target,
             baseAddress: MEMORY_CONFIG.CODE_BASE,

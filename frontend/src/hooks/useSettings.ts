@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export type Architecture = 'MIPS' | 'MIPS_R6' | 'ARM'
+export type Architecture = 'MIPS_R6' | 'ARM'
 
 interface Settings {
   architecture: Architecture
@@ -12,7 +12,7 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  architecture: 'MIPS',
+  architecture: 'MIPS_R6',
   codeCompletion: true,
   fontSize: 14,
   aiDiagnostics: false,
@@ -29,7 +29,12 @@ export function useSettings() {
     try {
       const savedSettings = localStorage.getItem('pacasm-settings')
       if (savedSettings) {
-        const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) } as Settings
+        const raw = JSON.parse(savedSettings) as Partial<Settings> & { architecture?: string }
+        const parsed: Settings = {
+          ...DEFAULT_SETTINGS,
+          ...raw,
+          architecture: raw.architecture === 'ARM' ? 'ARM' : 'MIPS_R6'
+        }
         const changed = JSON.stringify(parsed) !== JSON.stringify(settings)
         if (changed) setSettings(parsed)
       }

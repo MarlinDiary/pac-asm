@@ -58,8 +58,8 @@ export async function resetEmulatorWithMemory(emulator: EmulatorInstance): Promi
  */
 export async function assembleCode(sourceCode: string): Promise<number[]> {
   const arch = getGlobalSettings().settings.architecture
-  const isMipsLike = arch === 'MIPS' || arch === 'MIPS_R6'
-  const target: GASTarget = isMipsLike ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+  const isMipsR6 = arch === 'MIPS_R6'
+  const target: GASTarget = isMipsR6 ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
   const variant: GASVariant = arch === 'MIPS_R6' ? 'mips-r6' : 'default'
   const assembler = new ARMAssembler({ target, variant })
   try {
@@ -109,8 +109,8 @@ export async function initializeEmulatorWithCode(
   
   // Create code highlighter
   const arch = getGlobalSettings().settings.architecture
-  const isMipsLike = arch === 'MIPS' || arch === 'MIPS_R6'
-  const target: GASTarget = isMipsLike ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
+  const isMipsR6 = arch === 'MIPS_R6'
+  const target: GASTarget = isMipsR6 ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
   const variant: GASVariant = arch === 'MIPS_R6' ? 'mips-r6' : 'default'
   const codeHighlighter = createHighlighter({ target, variant })
   await codeHighlighter.initialize(sourceCode)

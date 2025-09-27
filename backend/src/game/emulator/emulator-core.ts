@@ -52,7 +52,7 @@ export class EmulatorWorker {
     try {
       const uc = this.unicornLoader.getUnicorn();
       this.uc = uc;
-      if (this.arch === 'MIPS' || this.arch === 'MIPS_R6') {
+      if (this.arch === 'MIPS_R6') {
         const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
         // Match GAS target mips-linux-gnu (big-endian)
         const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
@@ -358,7 +358,7 @@ export class EmulatorWorker {
         // Optional: select architecture from payload
         if (message.payload && typeof message.payload === 'object' && 'arch' in message.payload) {
           const arch = (message.payload as { arch?: Architecture }).arch;
-          if (arch === 'ARM' || arch === 'MIPS' || arch === 'MIPS_R6') {
+          if (arch === 'ARM' || arch === 'MIPS_R6') {
             this.arch = arch;
           }
         }

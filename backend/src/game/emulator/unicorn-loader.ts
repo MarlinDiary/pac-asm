@@ -74,8 +74,7 @@ export class UnicornLoader {
   }
 
   private async loadClassicUnicorn(): Promise<void> {
-    const scriptName = this.arch === 'MIPS' ? 'unicorn-mips.min.js' : 'unicorn-arm.min.js'
-    const scriptPath = path.resolve(this.baseDir, scriptName)
+    const scriptPath = path.resolve(this.baseDir, 'unicorn-arm.min.js')
     const source = await fs.readFile(scriptPath, 'utf8')
 
     const sandbox = this.createSandbox(scriptPath)

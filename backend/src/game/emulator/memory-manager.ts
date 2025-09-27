@@ -23,7 +23,7 @@ export class MemoryManager {
   }
 
   initializeRegisters(): void {
-    if (this.arch === 'MIPS' || this.arch === 'MIPS_R6') {
+    if (this.arch === 'MIPS_R6') {
       // Initialize SP
       const sp = (this.uc.MIPS_REG_SP ?? (this.uc as unknown as Record<string, number>).MIPS_REG_SP)!;
       this.unicorn.reg_write_i32(sp, this.config.stackAddress + this.config.stackSize - 4);
@@ -55,7 +55,7 @@ export class MemoryManager {
 
   loadCode(machineCode: number[]): void {
     this.unicorn.mem_write(this.config.codeAddress, machineCode);
-    const pcReg = (this.arch === 'MIPS' || this.arch === 'MIPS_R6')
+    const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
       : this.uc.ARM_REG_PC;
     this.unicorn.reg_write_i32(pcReg, this.config.codeAddress);
@@ -64,7 +64,7 @@ export class MemoryManager {
   setRegister(register: string, value: number): void {
     const arch = this.arch;
     let regMap: { [key: string]: number };
-    if (arch === 'MIPS' || arch === 'MIPS_R6') {
+    if (arch === 'MIPS_R6') {
       regMap = {
         'zero': this.uc.MIPS_REG_ZERO!,
         'at': this.uc.MIPS_REG_AT!,
@@ -99,7 +99,7 @@ export class MemoryManager {
 
   getRegister(register: string): RegisterInfo {
     let regMap: { [key: string]: number };
-    if (this.arch === 'MIPS' || this.arch === 'MIPS_R6') {
+    if (this.arch === 'MIPS_R6') {
       regMap = {
         'zero': this.uc.MIPS_REG_ZERO!, 'at': this.uc.MIPS_REG_AT!,
         'v0': this.uc.MIPS_REG_V0!, 'v1': this.uc.MIPS_REG_V1!,
@@ -136,7 +136,7 @@ export class MemoryManager {
   }
 
   getAllRegisters(): RegisterInfo[] {
-    if (this.arch === 'MIPS' || this.arch === 'MIPS_R6') {
+    if (this.arch === 'MIPS_R6') {
       const regs = [
         { name: 'zero', id: this.uc.MIPS_REG_ZERO! },
         { name: 'at', id: this.uc.MIPS_REG_AT! },
@@ -194,7 +194,7 @@ export class MemoryManager {
   }
 
   resetRegisters(): void {
-    if (this.arch === 'MIPS' || this.arch === 'MIPS_R6') {
+    if (this.arch === 'MIPS_R6') {
       const regs: number[] = [
         this.uc.MIPS_REG_AT!, this.uc.MIPS_REG_V0!, this.uc.MIPS_REG_V1!,
         this.uc.MIPS_REG_A0!, this.uc.MIPS_REG_A1!, this.uc.MIPS_REG_A2!, this.uc.MIPS_REG_A3!,

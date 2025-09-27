@@ -33,7 +33,7 @@ export default function CodeEditor({
   const [mounted, setMounted] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
   const { settings } = useSettings()
-  const isMipsLike = settings.architecture === 'MIPS' || settings.architecture === 'MIPS_R6'
+  const isMipsLike = settings.architecture === 'MIPS_R6'
 
   // Ensure languages and token providers are registered before editor mounts
   function handleEditorWillMount(monaco: typeof import('monaco-editor')) {

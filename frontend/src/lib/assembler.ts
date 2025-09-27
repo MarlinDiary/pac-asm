@@ -574,7 +574,7 @@ export class GASAssembler {
 
       // Assemble with debug info (-g)
       // Note: 'as' doesn't support '-c' (that's a gcc/ld option), so we omit it.
-      // For MIPS, we need to specify --gdwarf-2 to generate DWARF debug info
+      // For MIPS R6, we need to specify --gdwarf-2 to generate DWARF debug info
       let args: string[];
       if (this.target === 'mips-linux-gnu') {
         args = ['-g', '--gdwarf-2'];

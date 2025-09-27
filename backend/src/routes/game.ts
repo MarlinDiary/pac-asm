@@ -25,7 +25,7 @@ interface SubmitBody extends ValidateGameBody {
 
 const ALLOWED_LEVEL_IDS = new Set(['level1', 'level2', 'level3', 'level4', 'challenge'])
 
-const isArchitecture = (value: unknown): value is Architecture => value === 'ARM' || value === 'MIPS' || value === 'MIPS_R6'
+const isArchitecture = (value: unknown): value is Architecture => value === 'ARM' || value === 'MIPS_R6'
 
 router.post('/validate', async (req: Request, res: Response) => {
   const body = req.body as ValidateGameBody
@@ -38,7 +38,7 @@ router.post('/validate', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'levelId is required' })
   }
   if (!isArchitecture(architecture)) {
-    return res.status(400).json({ error: "architecture must be 'ARM', 'MIPS', or 'MIPS_R6'" })
+    return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
   }
 
   const attemptsOverride = parseOptionalNumber(body.attemptsOverride)
@@ -81,7 +81,7 @@ router.post('/submit', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'levelId is required' })
   }
   if (!isArchitecture(architecture)) {
-    return res.status(400).json({ error: "architecture must be 'ARM', 'MIPS', or 'MIPS_R6'" })
+    return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
   }
   if (!user || typeof user.id !== 'string' || typeof user.name !== 'string') {
     return res.status(400).json({ error: 'user information is required' })
@@ -143,7 +143,7 @@ router.get('/ranking', async (req: Request, res: Response) => {
 
   if (typeof architecture !== 'undefined') {
     if (typeof architecture !== 'string' || !isArchitecture(architecture)) {
-      return res.status(400).json({ error: "architecture must be 'ARM', 'MIPS', or 'MIPS_R6'" })
+      return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
     }
   }
 

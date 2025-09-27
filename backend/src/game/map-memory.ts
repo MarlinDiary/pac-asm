@@ -79,10 +79,10 @@ function createRuntimeMap(map: GameMap): number[] {
 
 /**
  * Convert 32-bit integer to byte array using selected endianness.
- * ARM uses little-endian. MIPS (our target) uses big-endian.
+ * ARM uses little-endian. MIPS R6 (our target) uses big-endian.
  */
 function toEndian32(value: number, arch: Architecture): number[] {
-  if (arch === 'MIPS' || arch === 'MIPS_R6') {
+  if (arch === 'MIPS_R6') {
     // Big-endian: most-significant byte first
     return [
       (value >> 24) & 0xFF,

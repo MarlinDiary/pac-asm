@@ -14,7 +14,7 @@ interface RegisterData {
 interface RegisterPanelProps {
   registers?: RegisterData[]
   previousRegisters?: RegisterData[]
-  architecture?: 'ARM' | 'MIPS' | 'MIPS_R6'
+  architecture?: 'ARM' | 'MIPS_R6'
 }
 
 const ARM_REG_LIST = [
@@ -31,7 +31,7 @@ const MIPS_REG_LIST = [
 ]
 
 export default function RegisterPanel({ registers: registerData, previousRegisters, architecture = 'ARM' }: RegisterPanelProps) {
-  const isMipsLike = architecture === 'MIPS' || architecture === 'MIPS_R6'
+  const isMipsLike = architecture === 'MIPS_R6'
   const registers = isMipsLike ? MIPS_REG_LIST : ARM_REG_LIST
   const NBSP = '\u00A0'
   const formatRegisterName = (register: string) => {

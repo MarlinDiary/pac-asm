@@ -49,8 +49,7 @@ export class UnicornLoader {
 
         this.workerSelf.uc = globalScope.createUC(moduleInstance) as UnicornGlobal;
       } else {
-        const script = this.arch === 'MIPS' ? 'unicorn-mips.min.js' : 'unicorn-arm.min.js';
-        (globalThis as unknown as { importScripts: (url: string) => void }).importScripts(`${baseUrl}/arm/${script}`);
+        (globalThis as unknown as { importScripts: (url: string) => void }).importScripts(`${baseUrl}/arm/unicorn-arm.min.js`);
 
         await new Promise<void>((resolve) => {
           const checkUnicorn = () => {

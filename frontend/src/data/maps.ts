@@ -56,7 +56,7 @@ export interface GameMap {
   tileSize?: number;
   tiles: TileSymbol[][];
   waterBackground?: WaterBackground;
-  initialCode?: string | { ARM: string; MIPS: string; MIPS_R6?: string };
+  initialCode?: string | { ARM: string; MIPS_R6: string };
   playerPosition: { row: number; col: number; direction: PlayerDirection };
   ghostPositions: { row: number; col: number }[];
   ghostPreviousPositions?: { row: number; col: number }[];
@@ -153,10 +153,6 @@ export const MAPS: GameMap[] = [
 LDR R1, =0x30000
 STR R0, [R1]
 STR R0, [R1]`,
-      MIPS: `LI $t0, 4
-LI $t1, 0x30000
-SW $t0, 0($t1)
-SW $t0, 0($t1)`,
       MIPS_R6: `ORI $t0, $zero, 4
 LUI $t1, 0x3
 SW $t0, 0($t1)
@@ -184,28 +180,6 @@ ADD R2, R2, #1
 STR R2, [R1]
 LDR R1, =0x30000
 STR R0, [R1]
-B main`,
-      MIPS: `main:
-LUI $t1, 0x3
-ORI $t1, $t1, 0x0400
-LW $t2, 0($t1)
-
-SLTI $t3, $t2, 4
-BEQ $t3, $zero, down
-
-LI $t0, 4
-B continue
-
-down:
-LI $t0, 2
-
-continue:
-ADDI $t2, $t2, 1
-SW $t2, 0($t1)
-
-LUI $t1, 0x3
-SW $t0, 0($t1)
-
 B main`,
       MIPS_R6: `main:
 LUI $t1, 0x3
@@ -266,38 +240,6 @@ CMP R3, #2
 MOVEQ R0, #4
 LDR R1, =0x30000
 STR R0, [R1]
-B main`,
-      MIPS: `main:
-LUI $t1, 0x3
-ORI $t1, $t1, 0x0010
-LI $t2, 169
-loop:
-LBU $t3, 0($t1)
-ADDI $t1, $t1, 1
-LI $t4, 3
-BEQ $t3, $t4, check
-ADDI $t2, $t2, -1
-BNE $t2, $zero, loop
-check:
-LBU $t3, -14($t1)
-LI $t4, 2
-BNE $t3, $t4, next1
-LI $t0, 1
-next1:
-LBU $t3, 12($t1)
-BNE $t3, $t4, next2
-LI $t0, 2
-next2:
-LBU $t3, -2($t1)
-BNE $t3, $t4, next3
-LI $t0, 3
-next3:
-LBU $t3, 0($t1)
-BNE $t3, $t4, done
-LI $t0, 4
-done:
-LUI $t1, 0x3
-SW $t0, 0($t1)
 B main`,
       MIPS_R6: `main:
 LUI $t1, 0x3
@@ -425,114 +367,6 @@ MOVNE R4, R11
 LDR R1, =0x30000
 STR R4, [R1]
 B main`,
-      MIPS: `main:
-LUI $t8, 0x0003
-ORI $t8, $t8, 0x0010
-LI $s4, 0
-scan:
-LI $t1, 0
-loop:
-LBU $t2, 0($t8)
-ADDIU $t8, $t8, 1
-LI $t5, 3
-BNE $t2, $t5, skip1
-MOVE $s0, $s4
-MOVE $s1, $t1
-skip1:
-LI $t5, 2
-BNE $t2, $t5, skip2
-MOVE $s2, $s4
-MOVE $s3, $t1
-skip2:
-LI $t5, 4
-BNE $t2, $t5, skip3
-MOVE $s6, $s4
-MOVE $s7, $t1
-skip3:
-ADDIU $t1, $t1, 1
-SLTI $t5, $t1, 6
-BNE $t5, $zero, loop
-ADDIU $s4, $s4, 1
-SLTI $t5, $s4, 13
-BNE $t5, $zero, scan
-BEQ $s2, $s0, same_row
-SLT $t5, $s0, $s2
-BNE $t5, $zero, dir_down
-LI $t4, 1
-B start
-dir_down:
-LI $t4, 2
-B start
-same_row:
-BEQ $s3, $s1, dir_right
-SLT $t5, $s1, $s3
-BNE $t5, $zero, dir_right
-LI $t4, 3
-B start
-dir_right:
-LI $t4, 4
-start:
-LI $t3, 4
-LI $s5, 0
-test:
-MOVE $t5, $s0
-MOVE $t9, $s1
-LI $t2, 1
-BNE $t4, $t2, try2
-ADDIU $t5, $t5, -1
-try2:
-LI $t2, 2
-BNE $t4, $t2, try3
-ADDIU $t5, $t5, 1
-try3:
-LI $t2, 3
-BNE $t4, $t2, try4
-ADDIU $t9, $t9, -1
-try4:
-LI $t2, 4
-BNE $t4, $t2, calc
-ADDIU $t9, $t9, 1
-calc:
-SLL $t8, $t5, 1
-ADDU $t8, $t8, $t5
-SLL $t8, $t8, 1
-ADDU $t8, $t8, $t9
-LUI $t1, 0x0003
-ORI $t1, $t1, 0x0010
-ADDU $t1, $t1, $t8
-LBU $t2, 0($t1)
-BEQ $t2, $zero, next
-SUBU $t2, $t5, $s6
-BGEZ $t2, pos_r
-SUBU $t2, $zero, $t2
-pos_r:
-SLTI $t1, $t2, 2
-BEQ $t1, $zero, safe
-SUBU $t2, $t9, $s7
-BGEZ $t2, pos_c
-SUBU $t2, $zero, $t2
-pos_c:
-SLTI $t1, $t2, 2
-BNE $t1, $zero, next
-safe:
-MOVE $s5, $t4
-B done
-next:
-ADDIU $t3, $t3, -1
-BEQ $t3, $zero, done
-ADDIU $t4, $t4, 1
-SLTI $t2, $t4, 5
-BNE $t2, $zero, test
-LI $t4, 1
-B test
-done:
-BEQ $s5, $zero, write
-MOVE $t4, $s5
-write:
-LUI $t1, 0x0003
-ORI $t1, $t1, 0x0000
-SW $t4, 0($t1)
-B main`,
       MIPS_R6: `main:
 LUI $t8, 0x0003
 ORI $t8, $t8, 0x0010
@@ -657,9 +491,6 @@ BC main`
       ARM: `MOV R0, #4
 LDR R1, =0x30000
 STRB R0, [R1]`,
-      MIPS: `LI $t0, 4
-LI $t1, 0x30000
-SB $t0, 0($t1)`,
       MIPS_R6: ''
     },
   }
