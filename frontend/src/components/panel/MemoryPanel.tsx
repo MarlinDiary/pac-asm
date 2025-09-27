@@ -17,6 +17,8 @@ interface MemoryRow {
   ascii: string;
 }
 
+const BYTES_PER_ROW = 4
+
 const generateMemoryRows = (
   codeMemory?: number[], 
   stackMemory?: number[], 
@@ -24,41 +26,37 @@ const generateMemoryRows = (
 ): MemoryRow[] => {
   const rows: MemoryRow[] = []
   const memoryRegions = [
-    { start: 0x10000, name: 'Code', data: codeMemory },
-    { start: 0x20000, name: 'Stack', data: stackMemory },
-    { start: 0x30000, name: 'Data', data: dataMemory }
-  ]
-  
+    { start: 0x10000, size: 0x1000, data: codeMemory },
+    { start: 0x20000, size: 0x1000, data: stackMemory },
+    { start: 0x30000, size: 0x1C00, data: dataMemory }
+  ] as const
+
   memoryRegions.forEach(region => {
-    // Each region is 4KB (4096 bytes), showing 4 bytes per row = 1024 rows per region
-    const rowsPerRegion = 1024 // 4096 bytes / 4 bytes per row
+    const rowsPerRegion = Math.ceil(region.size / BYTES_PER_ROW)
     for (let i = 0; i < rowsPerRegion; i++) {
-      const address = region.start + (i * 4)
+      const address = region.start + (i * BYTES_PER_ROW)
       const addressHex = `0x${address.toString(16).toUpperCase().padStart(8, '0')}`
-      
-      let hexBytes = '00 00 00 00'
-      let asciiBytes = '. . . .'
-      
-      // Use actual memory data if available
+
+      const bytes = new Array(BYTES_PER_ROW).fill(0)
+
       if (region.data) {
-        const byteOffset = i * 4
-        if (byteOffset < region.data.length) {
-          // Read 4 bytes (or less if at end of data)
-          const byte0 = region.data[byteOffset] || 0
-          const byte1 = region.data[byteOffset + 1] || 0
-          const byte2 = region.data[byteOffset + 2] || 0
-          const byte3 = region.data[byteOffset + 3] || 0
-          
-          hexBytes = [byte0, byte1, byte2, byte3]
-            .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
-            .join(' ')
-          
-          asciiBytes = [byte0, byte1, byte2, byte3]
-            .map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.')
-            .join(' ')
+        const byteOffset = i * BYTES_PER_ROW
+        for (let j = 0; j < BYTES_PER_ROW; j++) {
+          const value = region.data[byteOffset + j]
+          if (value !== undefined) {
+            bytes[j] = value
+          }
         }
       }
-      
+
+      const hexBytes = bytes
+        .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+        .join(' ')
+
+      const asciiBytes = bytes
+        .map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.')
+        .join(' ')
+
       rows.push({
         address: addressHex,
         hex: hexBytes,
@@ -66,7 +64,7 @@ const generateMemoryRows = (
       })
     }
   })
-  
+
   return rows
 }
 
@@ -123,7 +121,7 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
         matchesRegion = address >= 0x30000 && address <= 0x303FF
         break
       case 'user':
-        matchesRegion = address >= 0x30400 && address <= 0x30FFF
+        matchesRegion = address >= 0x30400 && address <= 0x31BFF
         break
       case 'all':
       default:

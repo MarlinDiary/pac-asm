@@ -16,7 +16,7 @@ export default function GuidePanel() {
             <p><code className="bg-[#F7F7F8] dark:bg-[#353535] border border-[#EAEAEB] dark:border-[#4D4D4E] text-[#5B5B5B] dark:text-[#C0C2C5] text-xs px-1 rounded">0x30004</code> - Map width</p>
             <p><code className="bg-[#F7F7F8] dark:bg-[#353535] border border-[#EAEAEB] dark:border-[#4D4D4E] text-[#5B5B5B] dark:text-[#C0C2C5] text-xs px-1 rounded">0x30008</code> - Map height</p>
             <p><code className="bg-[#F7F7F8] dark:bg-[#353535] border border-[#EAEAEB] dark:border-[#4D4D4E] text-[#5B5B5B] dark:text-[#C0C2C5] text-xs px-1 rounded">0x30010</code> - Map data start</p>
-            <p><code className="bg-[#F7F7F8] dark:bg-[#353535] border border-[#EAEAEB] dark:border-[#4D4D4E] text-[#5B5B5B] dark:text-[#C0C2C5] text-xs px-1 rounded">0x30400-0x30FFF</code> - User space</p>
+            <p><code className="bg-[#F7F7F8] dark:bg-[#353535] border border-[#EAEAEB] dark:border-[#4D4D4E] text-[#5B5B5B] dark:text-[#C0C2C5] text-xs px-1 rounded">0x30400-0x31BFF</code> - User space</p>
           </div>
         </section>
 

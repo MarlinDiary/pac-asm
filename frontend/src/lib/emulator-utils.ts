@@ -26,9 +26,14 @@ export interface EmulatorInitResult {
  */
 export const MEMORY_CONFIG = {
   CODE_BASE: 0x10000,
+  CODE_SIZE: 4096,
   STACK_BASE: 0x20000,
+  STACK_SIZE: 4096,
   DATA_BASE: 0x30000,
-  MEMORY_SIZE: 4096  // 4KB per region to cover full range (0x1000 bytes)
+  DATA_SIZE: 7 * 1024,  // 7KB total data region
+  GAME_DATA_SIZE: 1 * 1024,
+  USER_DATA_BASE: 0x30400,
+  USER_DATA_SIZE: 6 * 1024
 } as const
 
 /**
@@ -47,9 +52,11 @@ export async function resetEmulatorWithMemory(emulator: EmulatorInstance): Promi
   await emulator.reset()
   
   // Initialize memory regions
-  const zeroData = new Array(MEMORY_CONFIG.MEMORY_SIZE).fill(0)
-  await emulator.writeMemory(MEMORY_CONFIG.CODE_BASE, zeroData)
-  await emulator.writeMemory(MEMORY_CONFIG.STACK_BASE, zeroData)
+  const zeroCode = new Array(MEMORY_CONFIG.CODE_SIZE).fill(0)
+  const zeroStack = new Array(MEMORY_CONFIG.STACK_SIZE).fill(0)
+  const zeroData = new Array(MEMORY_CONFIG.DATA_SIZE).fill(0)
+  await emulator.writeMemory(MEMORY_CONFIG.CODE_BASE, zeroCode)
+  await emulator.writeMemory(MEMORY_CONFIG.STACK_BASE, zeroStack)
   await emulator.writeMemory(MEMORY_CONFIG.DATA_BASE, zeroData)
 }
 
@@ -154,9 +161,9 @@ export async function fullResetAndReloadCode(
 export async function getEmulatorMemoryState(emulator: EmulatorInstance) {
   const [registers, codeMemory, stackMemory, dataMemory] = await Promise.all([
     emulator.getAllRegisters(),
-    emulator.getMemory(MEMORY_CONFIG.CODE_BASE, MEMORY_CONFIG.MEMORY_SIZE),
-    emulator.getMemory(MEMORY_CONFIG.STACK_BASE, MEMORY_CONFIG.MEMORY_SIZE),
-    emulator.getMemory(MEMORY_CONFIG.DATA_BASE, MEMORY_CONFIG.MEMORY_SIZE)
+    emulator.getMemory(MEMORY_CONFIG.CODE_BASE, MEMORY_CONFIG.CODE_SIZE),
+    emulator.getMemory(MEMORY_CONFIG.STACK_BASE, MEMORY_CONFIG.STACK_SIZE),
+    emulator.getMemory(MEMORY_CONFIG.DATA_BASE, MEMORY_CONFIG.DATA_SIZE)
   ])
   
   if (registers && codeMemory && stackMemory && dataMemory) {

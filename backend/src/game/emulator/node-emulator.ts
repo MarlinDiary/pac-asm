@@ -34,7 +34,7 @@ export class NodeEmulator {
     stackAddress: 0x20000,
     stackSize: 4096,
     dataAddress: 0x30000,
-    dataSize: 4096
+    dataSize: 7 * 1024
   }
 
   private readonly literalPoolDetector = new LiteralPoolDetector(this.config)

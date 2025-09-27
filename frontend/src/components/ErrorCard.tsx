@@ -92,12 +92,12 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
   return (
     <div
       className={`rounded-lg overflow-hidden ${
-        category === 'Timeout'
-          ? 'bg-[#FEF7EA] dark:bg-[#453A25]'
-          : category === 'Game'
-            ? 'bg-[#F5F0FF] dark:bg-[#3A2F4A]'
-            : category === 'SUBMIT'
-              ? 'bg-[#eef6ff] dark:bg-[#1f2933]'
+        category === 'Runtime' || category === 'SUBMIT'
+          ? 'bg-[#eef6ff] dark:bg-[#1f2933]'
+          : category === 'Timeout'
+            ? 'bg-[#FEF7EA] dark:bg-[#453A25]'
+            : category === 'Game'
+              ? 'bg-[#F5F0FF] dark:bg-[#3A2F4A]'
               : 'bg-[#fdf1f0] dark:bg-[#372B2B]'
       } ${
         !hasDiagnosis && !isLoading && settings.aiDiagnostics ? 'cursor-pointer' : ''
@@ -111,12 +111,12 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
       <div ref={contentRef} className="px-4 py-3">
         <div className="mb-2">
           <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${
-            category === 'Timeout'
-              ? 'bg-[#FAB007] dark:bg-[#F5C000]'
-              : category === 'Game'
-                ? 'bg-[#8B5CF6] dark:bg-[#A78BFA]'
-                : category === 'SUBMIT'
-                  ? 'bg-[#1d4ed8] dark:bg-[#2563eb]'
+            category === 'Runtime' || category === 'SUBMIT'
+              ? 'bg-[#1d4ed8] dark:bg-[#2563eb]'
+              : category === 'Timeout'
+                ? 'bg-[#FAB007] dark:bg-[#F5C000]'
+                : category === 'Game'
+                  ? 'bg-[#8B5CF6] dark:bg-[#A78BFA]'
                   : 'bg-[#DD544B] dark:bg-[#F8615C]'
           }`}>
             {category}
@@ -125,12 +125,12 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
         <div>
           <p
             className={`text-sm whitespace-pre-wrap ${
-              category === 'Timeout'
-                ? 'text-[#FAB007] dark:text-[#F5C000]'
-                : category === 'Game'
-                  ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
-                  : category === 'SUBMIT'
-                    ? 'text-[#1d4ed8] dark:text-[#60a5fa]'
+              category === 'Runtime' || category === 'SUBMIT'
+                ? 'text-[#1d4ed8] dark:text-[#60a5fa]'
+                : category === 'Timeout'
+                  ? 'text-[#FAB007] dark:text-[#F5C000]'
+                  : category === 'Game'
+                    ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
                     : 'text-[#dd544b] dark:text-[#F8615C]'
             } ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`}
           >
@@ -141,12 +141,12 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
         {hasDiagnosis && (
           <div className="mt-2">
             <p className={`text-sm whitespace-pre-wrap ${
-              category === 'Timeout'
-                ? 'text-[#FAB007] dark:text-[#F5C000]'
-                : category === 'Game'
-                  ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
-                  : category === 'SUBMIT'
-                    ? 'text-[#1d4ed8] dark:text-[#60a5fa]'
+              category === 'Runtime' || category === 'SUBMIT'
+                ? 'text-[#1d4ed8] dark:text-[#60a5fa]'
+                : category === 'Timeout'
+                  ? 'text-[#FAB007] dark:text-[#F5C000]'
+                  : category === 'Game'
+                    ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
                     : 'text-[#e34940] dark:text-[#F8615C]'
             }`}>
               {diagnosis}
