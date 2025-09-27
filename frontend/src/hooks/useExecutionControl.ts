@@ -640,17 +640,7 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
     return sorted
   }
 
-  if (levelId === 'level4') {
-    sorted.sort((a, b) => {
-      const rateDelta = (b.successRate ?? 0) - (a.successRate ?? 0)
-      if (rateDelta !== 0) return rateDelta
-      // For same success rates, earlier submission comes first
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    })
-    return sorted
-  }
-
-  // For level1-3: Sort by acceptance status first (Accepted before Failed), then by time (earliest first)
+  // For standard levels (level1-4): Sort by acceptance status first (Accepted before Failed), then by time (earliest first)
   sorted.sort((a, b) => {
     const aAccepted = a.status === 'Accepted'
     const bAccepted = b.status === 'Accepted'

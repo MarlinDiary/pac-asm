@@ -112,17 +112,19 @@ router.post('/submit', async (req: Request, res: Response) => {
 
     await SubmissionModel.deleteMany({ userId: user.id, levelId, architecture })
 
-    const submission = await SubmissionModel.create({
+    const submissionPayload = {
       userId: user.id,
       userName: user.name,
       userAvatarUrl: user.avatarUrl,
       levelId,
       architecture,
       status: metrics.status,
-      successRate: metrics.successRate,
-      averageScore: metrics.averageScore,
+      successRate: 'successRate' in metrics ? metrics.successRate : undefined,
+      averageScore: 'averageScore' in metrics ? metrics.averageScore : undefined,
       summary
-    })
+    }
+
+    const submission = await SubmissionModel.create(submissionPayload)
 
     return res.status(200).json({
       submission: toRankingEntry(submission),
@@ -172,14 +174,8 @@ function extractMetrics(levelId: string, summary: GameValidationSummary) {
     return { averageScore }
   }
 
-  if (levelId === 'level4') {
-    const winRate = Number(summary.metrics?.winRate ?? 0)
-    return { successRate: Number.isFinite(winRate) ? winRate : 0 }
-  }
-
-  return {
-    status: summary.pass ? 'Accepted' as const : 'Failed' as const
-  }
+  const status = summary.pass ? 'Accepted' as const : 'Failed' as const
+  return { status }
 }
 
 function toRankingEntry(doc: SubmissionDocument) {
@@ -201,10 +197,6 @@ function toRankingEntry(doc: SubmissionDocument) {
 function buildRankingSort(levelId: string): Record<string, 1 | -1> {
   if (levelId === 'challenge') {
     return { averageScore: -1, createdAt: -1 }
-  }
-
-  if (levelId === 'level4') {
-    return { successRate: -1, createdAt: -1 }
   }
 
   return { createdAt: -1 }

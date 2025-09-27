@@ -80,7 +80,7 @@ export interface GameValidationResult {
 
 interface LevelRule {
   attempts: number
-  mode: 'single-pass' | 'win-rate' | 'average-score'
+  mode: 'single-pass' | 'all-pass' | 'win-rate' | 'average-score'
   threshold?: number
 }
 
@@ -88,7 +88,7 @@ const LEVEL_RULES: Record<string, LevelRule> = {
   level1: { attempts: 1, mode: 'single-pass' },
   level2: { attempts: 1, mode: 'single-pass' },
   level3: { attempts: 1, mode: 'single-pass' },
-  level4: { attempts: 10, mode: 'win-rate', threshold: 0.6 },
+  level4: { attempts: 10, mode: 'all-pass' },
   challenge: { attempts: 10, mode: 'average-score', threshold: 100 }
 }
 
@@ -470,6 +470,21 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
     }
   }
 
+  if (rule.mode === 'all-pass') {
+    const failedAttempt = attempts.find(attempt => !attempt.success)
+    const pass = !failedAttempt
+
+    return {
+      pass,
+      reason: pass ? undefined : (failedAttempt?.failureReason ?? 'Attempt failed'),
+      metrics: {
+        success: pass,
+        attempts: attempts.length,
+        failures: pass ? 0 : attempts.filter(attempt => !attempt.success).length
+      }
+    }
+  }
+
   if (rule.mode === 'win-rate') {
     const wins = attempts.filter(attempt => attempt.success).length
     const total = attempts.length
@@ -522,6 +537,9 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
 
   const attempts: GameAttemptResult[] = []
   for (let attemptIndex = 0; attemptIndex < attemptsToRun; attemptIndex++) {
+    if (rule.mode === 'all-pass' && attempts.some(attempt => !attempt.success)) {
+      break
+    }
     try {
       const attemptResult = await runAttempt(
         {
@@ -535,6 +553,10 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
         cloneGameMap(map)
       )
       attempts.push(attemptResult)
+
+      if (rule.mode === 'all-pass' && !attemptResult.success) {
+        break
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       attempts.push({
@@ -552,6 +574,10 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
         await emulator.loadCode(machineCode)
         await writeCompleteMapToMemory(emulator, cloneGameMap(map), architecture)
       } catch {}
+
+      if (rule.mode === 'all-pass') {
+        break
+      }
     }
   }
 

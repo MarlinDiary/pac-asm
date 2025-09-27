@@ -22,11 +22,7 @@ export default function RankingPanel({ entries, isLoading, levelId }: RankingPan
 
   const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light'
 
-  const thirdColumnTitle = levelId === 'challenge'
-    ? 'Average Score'
-    : levelId === 'level4'
-      ? 'Success Rate'
-      : 'Status'
+  const thirdColumnTitle = levelId === 'challenge' ? 'Average Score' : 'Status'
 
   return (
     <div className="h-full flex flex-col">
@@ -109,11 +105,9 @@ export default function RankingPanel({ entries, isLoading, levelId }: RankingPan
                     className={`font-medium ${
                       levelId === 'challenge'
                         ? 'text-[#1f1f1f] dark:text-[#f5f5f5]'
-                        : levelId === 'level4'
-                          ? 'text-[#1f1f1f] dark:text-[#f5f5f5]'
-                          : isSuccessful
-                            ? 'text-[#2CBC5D]'
-                            : 'text-[#EF4843]'
+                        : isSuccessful
+                          ? 'text-[#2CBC5D]'
+                          : 'text-[#EF4843]'
                     }`}
                   >
                     {thirdColumnValue}
@@ -131,10 +125,6 @@ export default function RankingPanel({ entries, isLoading, levelId }: RankingPan
 function formatRankingValue(entry: RankingEntry, levelId: string): string {
   if (levelId === 'challenge') {
     return Math.round(entry.averageScore ?? 0).toString()
-  }
-  if (levelId === 'level4') {
-    const percent = Math.round(((entry.successRate ?? 0) + Number.EPSILON) * 100)
-    return `${percent}%`
   }
   return entry.status ?? 'Failed'
 }
