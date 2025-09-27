@@ -20,7 +20,7 @@ export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
         setIsVisible(true)
         // Start fade in with cubic-bezier easing
         requestAnimationFrame(() => {
-          setOpacity(1)
+          setOpacity(0.7)
         })
       }, 75)
 
@@ -49,30 +49,25 @@ export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
   if (!isVisible) return null
 
   return (
-    <>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
-      `}</style>
-      <div
-        className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
-        style={{
-          opacity: opacity,
-          transition: opacity === 1
-            ? 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)' // Slower fade in (300ms)
-            : 'opacity 0.2s cubic-bezier(0.4, 0, 1, 1)', // Faster fade out (200ms)
-        }}
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+      style={{
+        opacity: opacity,
+        transition: opacity === 0.7
+          ? 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)' // Slower fade in (300ms)
+          : 'opacity 0.2s cubic-bezier(0.4, 0, 1, 1)', // Faster fade out (200ms)
+      }}
+    >
+      <FuzzyText
+        fontSize="3rem"
+        fontWeight={700}
+        fontFamily="monospace"
+        color={isDarkMode ? "#FFFFFF" : "#000000"}
+        enableHover={false}
+        baseIntensity={0.25}
       >
-        <FuzzyText
-          fontSize="3rem"
-          fontWeight={400}
-          fontFamily="'Silkscreen', monospace"
-          color={isDarkMode ? "#FFFFFF" : "#000000"}
-          enableHover={false}
-          baseIntensity={0.25}
-        >
-          Game Over
-        </FuzzyText>
-      </div>
-    </>
+        GAME OVER
+      </FuzzyText>
+    </div>
   )
 }
