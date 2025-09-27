@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table"
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import MemoryFilter, { MemoryRegion } from '@/components/MemoryFilter'
 
 interface MemoryRow {
@@ -28,7 +28,7 @@ const generateMemoryRows = (
   const memoryRegions = [
     { start: 0x10000, size: 0x1000, data: codeMemory },
     { start: 0x20000, size: 0x1000, data: stackMemory },
-    { start: 0x30000, size: 0x1C00, data: dataMemory }
+    { start: 0x30000, size: 0x2000, data: dataMemory }
   ] as const
 
   memoryRegions.forEach(region => {
@@ -80,15 +80,9 @@ interface MemoryPanelProps {
   onRegionChange?: (region: MemoryRegion) => void
 }
 
-const ROWS_PER_PAGE = 100 // Initial rows to display
-const ROWS_TO_LOAD = 50 // Rows to load on each scroll
-
 export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory, dataMemory, isFilterOpen = false, onFilterClose, selectedRegion: propSelectedRegion, onRegionChange }: MemoryPanelProps) {
   const { theme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [displayedRowCount, setDisplayedRowCount] = useState(ROWS_PER_PAGE)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const loadingRef = useRef(false)
   const [selectedRegion, setSelectedRegion] = useState<MemoryRegion>(propSelectedRegion || 'all')
   const [hideZeros, setHideZeros] = useState(false)
   
@@ -97,11 +91,6 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
   useEffect(() => {
     setMounted(true)
   }, [])
-  
-  // Reset displayed count when search or filter changes
-  useEffect(() => {
-    setDisplayedRowCount(ROWS_PER_PAGE)
-  }, [searchQuery, hideZeros, selectedRegion])
   
   const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light'
   
@@ -121,7 +110,7 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
         matchesRegion = address >= 0x30000 && address <= 0x303FF
         break
       case 'user':
-        matchesRegion = address >= 0x30400 && address <= 0x31BFF
+        matchesRegion = address >= 0x30400 && address <= 0x31FFF
         break
       case 'all':
       default:
@@ -139,29 +128,6 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
     
     return matchesRegion && matchesSearch && !isAllZeros
   })
-  
-  // Only show a subset of filtered rows
-  const visibleRows = filteredRows.slice(0, displayedRowCount)
-  const hasMoreRows = displayedRowCount < filteredRows.length
-  
-  // Handle scroll to load more
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    if (loadingRef.current || !hasMoreRows) return
-    
-    const element = e.currentTarget
-    const scrollPosition = element.scrollTop + element.clientHeight
-    const scrollHeight = element.scrollHeight
-    
-    // Load more when within 200px of bottom for smoother experience
-    if (scrollHeight - scrollPosition < 200) {
-      loadingRef.current = true
-      setDisplayedRowCount(prev => Math.min(prev + ROWS_TO_LOAD, filteredRows.length))
-      // Shorter delay for more responsive loading
-      setTimeout(() => {
-        loadingRef.current = false
-      }, 50)
-    }
-  }, [hasMoreRows, filteredRows.length])
   
   // Build content depending on whether there are rows
   const renderContent = () => {
@@ -194,12 +160,10 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
       <div 
         className="w-full h-full overflow-y-auto [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        onScroll={handleScroll}
-        ref={scrollContainerRef}
       >
         <Table className="border-none">
           <TableBody>
-            {visibleRows.map((row, index) => (
+            {filteredRows.map((row, index) => (
               <TableRow key={row.address} className={`h-12 border-none ${index % 2 === 0 ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
                 <TableCell className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
                   {row.address}

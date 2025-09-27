@@ -30,10 +30,10 @@ export const MEMORY_CONFIG = {
   STACK_BASE: 0x20000,
   STACK_SIZE: 4096,
   DATA_BASE: 0x30000,
-  DATA_SIZE: 7 * 1024,  // 7KB total data region
+  DATA_SIZE: 8 * 1024,  // 8KB total data region
   GAME_DATA_SIZE: 1 * 1024,
   USER_DATA_BASE: 0x30400,
-  USER_DATA_SIZE: 6 * 1024
+  USER_DATA_SIZE: 7 * 1024
 } as const
 
 /**

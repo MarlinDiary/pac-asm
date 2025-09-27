@@ -10,10 +10,10 @@ export const MEMORY_CONFIG = {
   STACK_BASE: 0x20000,
   STACK_SIZE: 4096,
   DATA_BASE: 0x30000,
-  DATA_SIZE: 7 * 1024,
+  DATA_SIZE: 8 * 1024,
   GAME_DATA_SIZE: 1 * 1024,
   USER_DATA_BASE: 0x30400,
-  USER_DATA_SIZE: 6 * 1024
+  USER_DATA_SIZE: 7 * 1024
 } as const
 
 export async function ensureEmulatorInitialized(emulator: NodeEmulator, arch: Architecture): Promise<void> {
