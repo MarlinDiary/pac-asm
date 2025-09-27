@@ -81,45 +81,38 @@ export class ExecutionEngine {
     }
 
     const typeRaw = args[1];
-    if (typeof typeRaw !== 'number') {
+    let typeNum: number;
+    if (typeof typeRaw === 'number') {
+      typeNum = typeRaw >>> 0;
+    } else if (typeof typeRaw === 'bigint') {
+      typeNum = Number((typeRaw as bigint) & BigInt(0xFFFFFFFF)) >>> 0;
+    } else {
       return null;
-    }
-
-    // Special handling for MIPS_R6 (WASM version)
-    // The actual parameter layout we observed:
-    // args[0] = handle (number)
-    // args[1] = type (number)
-    // args[2] = addr (BigInt!)
-    // args[3] = size (number)
-    // args[4] = value (BigInt!)
-    // args[5] = user_data (object)
-    if (this.arch === 'MIPS_R6') {
-      if (args.length === 6) {
-        // Handle BigInt parameters for addr and value
-        if (typeof args[2] === 'bigint' && typeof args[3] === 'number' && typeof args[4] === 'bigint') {
-          return {
-            type: typeRaw >>> 0,
-            addr: Number(args[2] & BigInt(0xFFFFFFFF)),  // Convert BigInt to 32-bit number
-            size: (args[3] as number) >>> 0,
-            value: Number(args[4] & BigInt(0xFFFFFFFF))   // Convert BigInt to 32-bit number
-          };
-        }
-      }
     }
 
     // Standard parameter extraction for non-WASM versions
     if (args.length >= 5 && typeof args[2] === 'number' && typeof args[3] === 'number' && typeof args[4] === 'number' && typeof args[5] !== 'number') {
       return {
-        type: typeRaw >>> 0,
+        type: typeNum,
         addr: (args[2] as number) >>> 0,
         size: (args[3] as number) >>> 0,
         value: (args[4] as number) >>> 0
       };
     }
 
+    // WASM builds (ARM & MIPS) surface addr/value as BigInt via emscripten
+    if (args.length >= 5 && typeof args[2] === 'bigint' && typeof args[3] === 'number' && typeof args[4] === 'bigint') {
+      return {
+        type: typeNum,
+        addr: Number((args[2] as bigint) & BigInt(0xFFFFFFFF)),
+        size: (args[3] as number) >>> 0,
+        value: Number((args[4] as bigint) & BigInt(0xFFFFFFFF))
+      };
+    }
+
     if (args.length >= 6 && typeof args[2] === 'number' && typeof args[4] === 'number' && typeof args[5] === 'number') {
       return {
-        type: typeRaw >>> 0,
+        type: typeNum,
         addr: (args[2] as number) >>> 0,
         size: (args[4] as number) >>> 0,
         value: (args[5] as number) >>> 0
@@ -458,57 +451,14 @@ export class ExecutionEngine {
     let codeHookRegistered = false;
 
     const cb = (...hookArgs: unknown[]) => {
-      // Debug: Log all arguments for MIPS_R6
-      if (this.arch === 'MIPS_R6') {
-        const debugInfo = {
-          arch: this.arch,
-          argsLength: hookArgs.length,
-          args: hookArgs.map((arg, i) => ({
-            index: i,
-            type: typeof arg,
-            value: typeof arg === 'number' ? `0x${(arg >>> 0).toString(16)}` : typeof arg === 'bigint' ? `0x${arg.toString(16)}` : String(arg),
-            raw: arg
-          }))
-        };
-        (self as unknown as { postMessage: (msg: unknown) => void }).postMessage({
-          type: 'debug',
-          message: 'MIPS_R6 hook callback args',
-          data: debugInfo
-        });
-      }
-
       const event = this.extractMemoryHookEvent(hookArgs);
       if (!event) {
-        if (this.arch === 'MIPS_R6') {
-          (self as unknown as { postMessage: (msg: unknown) => void }).postMessage({
-            type: 'debug',
-            message: 'Failed to extract memory event'
-          });
-        }
         return;
       }
       const { type, addr, size, value } = event;
-
-      if (this.arch === 'MIPS_R6') {
-        (self as unknown as { postMessage: (msg: unknown) => void }).postMessage({
-          type: 'debug',
-          message: 'Extracted event',
-          data: { type: `0x${type.toString(16)}`, addr: `0x${addr.toString(16)}`, size, value: `0x${value.toString(16)}` }
-        });
-      }
-
       if (type !== this.uc.MEM_WRITE) return;
       if (addr < untilAddress || addr >= untilAddress + 4) return;
       const normalizedValue = this.normalizeCommandValue(value, size, validValues);
-
-      if (this.arch === 'MIPS_R6') {
-        (self as unknown as { postMessage: (msg: unknown) => void }).postMessage({
-          type: 'debug',
-          message: 'Normalized value',
-          data: { normalizedValue, validValues }
-        });
-      }
-
       if (!validValues.includes(normalizedValue)) return;
 
       let storePc = lastExecutedPc ?? 0;
@@ -516,34 +466,26 @@ export class ExecutionEngine {
 
       if (codeHookRegistered && shouldUseCodeHook) {
         stopPending = true;
+        const rawPc = this.unicorn.reg_read_i32(pcReg) >>> 0;
         if (storePc === 0) {
-          const rawPc = this.unicorn.reg_read_i32(pcReg) >>> 0;
           storePc = rawPc >= 4 ? ((rawPc - 4) >>> 0) : rawPc;
-          nextPc = rawPc;
         }
+        nextPc = rawPc;
       } else {
         const rawPc = this.unicorn.reg_read_i32(pcReg) >>> 0;
-        // For MIPS_R6, when memory write hook fires, the store instruction has already executed
-        // and PC points to the next instruction. We need to calculate where the store was.
-        storePc = rawPc >= 4 ? ((rawPc - 4) >>> 0) : rawPc;
-        nextPc = rawPc;
-
         if (this.arch === 'MIPS_R6') {
-          (self as unknown as { postMessage: (msg: unknown) => void }).postMessage({
-            type: 'debug',
-            message: 'MIPS_R6 memory write detected in hook',
-            data: {
-              rawPc: `0x${rawPc.toString(16)}`,
-              storePc: `0x${storePc.toString(16)}`,
-              value: normalizedValue
-            }
-          });
-        }
+          // For MIPS_R6, the PC has already advanced past the store when the hook fires.
+          storePc = rawPc >= 4 ? ((rawPc - 4) >>> 0) : rawPc;
+          nextPc = rawPc;
 
-        try { this.unicorn.emu_stop(); } catch {}
+        } else {
+          storePc = rawPc;
+          nextPc = rawPc;
+        }
       }
 
       memEventInfo = { address: untilAddress, value: normalizedValue, storePc, nextPc };
+      try { this.unicorn.emu_stop(); } catch {}
     };
 
     // Register hook only for the data command byte address range
@@ -590,7 +532,12 @@ export class ExecutionEngine {
         }).hook_add(
           this.uc.HOOK_CODE,
           ((...args: unknown[]) => {
-            const addr = typeof args[1] === 'number' ? args[1] : 0;
+            let addr = 0;
+            if (typeof args[1] === 'number') {
+              addr = args[1];
+            } else if (typeof args[1] === 'bigint') {
+              addr = Number((args[1] as bigint) & BigInt(0xFFFFFFFF));
+            }
             lastExecutedPc = addr >>> 0;
 
             if (stopPending) {
@@ -621,13 +568,6 @@ export class ExecutionEngine {
       Math.ceil(timeoutSeconds * estimatedInstructionsPerSecond)
     );
 
-    if (this.arch === 'MIPS_R6') {
-      (self as unknown as { postMessage: (msg: unknown) => void }).postMessage({
-        type: 'debug',
-        message: 'MIPS_R6 starting execution',
-        data: { pc: `0x${pc.toString(16)}`, endAddress: `0x${endAddress.toString(16)}` }
-      });
-    }
 
     try {
       this.unicorn.emu_start(pc, endAddress, 0, maxInstructions);
@@ -645,11 +585,12 @@ export class ExecutionEngine {
     let pcAfter = this.unicorn.reg_read_i32(pcReg) >>> 0;
 
     if (memEventInfo) {
-      const { storePc } = memEventInfo;
+      const { storePc, nextPc } = memEventInfo;
       // ARM: Pre-advance PC before any potential re-run
       // MIPS: Adjust PC only if it still points to the store instruction
       if (this.arch === 'ARM') {
-        const sequentialPc = (storePc + 4) >>> 0;
+        const basePc = nextPc ?? storePc;
+        const sequentialPc = (basePc + 4) >>> 0;
         try { this.unicorn.reg_write_i32(pcReg, sequentialPc); } catch {}
         pcAfter = sequentialPc;
       } else if (this.arch === 'MIPS_R6') {
@@ -657,25 +598,14 @@ export class ExecutionEngine {
         // The hook fires during/after the store, but we need to ensure we don't re-run it
         const advancePc = (pcAfter + 4) >>> 0;
         try { this.unicorn.reg_write_i32(pcReg, advancePc); } catch {}
-
-        (self as unknown as { postMessage: (msg: unknown) => void }).postMessage({
-          type: 'debug',
-          message: 'MIPS_R6 PC after memory write',
-          data: {
-            pcBefore: `0x${pcAfter.toString(16)}`,
-            pcAfter: `0x${advancePc.toString(16)}`,
-            storePc: `0x${storePc.toString(16)}`,
-            action: 'advanced PC by 4'
-          }
-        });
-
         pcAfter = advancePc;
       } else if (pcAfter === storePc) {
         // For MIPS, only advance if PC still points to store instruction
-        const sequentialPc = (storePc + 4) >>> 0;
+        const sequentialPc = ((nextPc ?? storePc) + 4) >>> 0;
         try { this.unicorn.reg_write_i32(pcReg, sequentialPc); } catch {}
         pcAfter = sequentialPc;
       }
+
     }
 
     let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' = 'unknown';
@@ -688,7 +618,6 @@ export class ExecutionEngine {
       // If stopped without mem-write or reaching end, it must be timeout (instruction limit reached)
       stopReason = 'timeout';
     }
-
     return {
       message: `Run stopped: ${stopReason}${memEvent ? ` @0x${memEvent.address.toString(16)}=${memEvent.value}` : ''}`,
       executedInstructions: 0,

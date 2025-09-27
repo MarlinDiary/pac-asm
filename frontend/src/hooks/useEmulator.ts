@@ -75,7 +75,6 @@ export const useEmulator = () => {
       const response = event.data;
 
       if (response.type === 'debug') {
-        console.log('[MIPS_R6 Debug]', response.message, response.data);
         return;
       }
 

@@ -81,21 +81,13 @@ export class ExecutionEngine {
     }
 
     const typeRaw = args[1]
-    if (typeof typeRaw !== 'number') {
+    let typeNum: number
+    if (typeof typeRaw === 'number') {
+      typeNum = typeRaw >>> 0
+    } else if (typeof typeRaw === 'bigint') {
+      typeNum = Number((typeRaw as bigint) & BigInt(0xffffffff)) >>> 0
+    } else {
       return null
-    }
-
-    if (this.arch === 'MIPS_R6') {
-      if (args.length === 6) {
-        if (typeof args[2] === 'bigint' && typeof args[3] === 'number' && typeof args[4] === 'bigint') {
-          return {
-            type: typeRaw >>> 0,
-            addr: Number((args[2] as bigint) & BigInt(0xffffffff)),
-            size: (args[3] as number) >>> 0,
-            value: Number((args[4] as bigint) & BigInt(0xffffffff))
-          }
-        }
-      }
     }
 
     if (
@@ -106,10 +98,25 @@ export class ExecutionEngine {
       typeof args[5] !== 'number'
     ) {
       return {
-        type: typeRaw >>> 0,
+        type: typeNum,
         addr: (args[2] as number) >>> 0,
         size: (args[3] as number) >>> 0,
         value: (args[4] as number) >>> 0
+      }
+    }
+
+    // WASM builds (ARM & MIPS) surface addr/value as BigInt via emscripten
+    if (
+      args.length >= 5 &&
+      typeof args[2] === 'bigint' &&
+      typeof args[3] === 'number' &&
+      typeof args[4] === 'bigint'
+    ) {
+      return {
+        type: typeNum,
+        addr: Number((args[2] as bigint) & BigInt(0xffffffff)),
+        size: (args[3] as number) >>> 0,
+        value: Number((args[4] as bigint) & BigInt(0xffffffff))
       }
     }
 
@@ -120,7 +127,7 @@ export class ExecutionEngine {
       typeof args[5] === 'number'
     ) {
       return {
-        type: typeRaw >>> 0,
+        type: typeNum,
         addr: (args[2] as number) >>> 0,
         size: (args[4] as number) >>> 0,
         value: (args[5] as number) >>> 0
@@ -461,23 +468,24 @@ export class ExecutionEngine {
 
       if (codeHookRegistered && shouldUseCodeHook) {
         stopPending = true
+        const rawPc = this.unicorn.reg_read_i32(pcReg) >>> 0
         if (storePc === 0) {
-          const rawPc = this.unicorn.reg_read_i32(pcReg) >>> 0
           storePc = rawPc >= 4 ? ((rawPc - 4) >>> 0) : rawPc
-          nextPc = rawPc
         }
+        nextPc = rawPc
       } else {
         const rawPc = this.unicorn.reg_read_i32(pcReg) >>> 0
         if (this.arch === 'MIPS_R6') {
           storePc = rawPc >= 4 ? ((rawPc - 4) >>> 0) : rawPc
           nextPc = rawPc
-          try { this.unicorn.emu_stop() } catch {}
         } else {
           storePc = rawPc
+          nextPc = rawPc
         }
       }
 
       memEventInfo = { address: untilAddress, value: normalizedValue, storePc, nextPc }
+      try { this.unicorn.emu_stop() } catch {}
     }
 
     let hookHandle: unknown | undefined
@@ -522,7 +530,12 @@ export class ExecutionEngine {
         }).hook_add(
           this.uc.HOOK_CODE,
           ((...args: unknown[]) => {
-            const addr = typeof args[1] === 'number' ? args[1] : 0
+            let addr = 0
+            if (typeof args[1] === 'number') {
+              addr = args[1]
+            } else if (typeof args[1] === 'bigint') {
+              addr = Number((args[1] as bigint) & BigInt(0xffffffff))
+            }
             lastExecutedPc = addr >>> 0
 
             if (stopPending) {
@@ -566,7 +579,8 @@ export class ExecutionEngine {
     if (memEventInfo) {
       const { storePc, nextPc } = memEventInfo
       if (this.arch === 'ARM') {
-        const sequentialPc = (storePc + 4) >>> 0
+        const basePc = nextPc ?? storePc
+        const sequentialPc = (basePc + 4) >>> 0
         try { this.unicorn.reg_write_i32(pcReg, sequentialPc) } catch {}
         pcAfter = sequentialPc
       } else if (this.arch === 'MIPS_R6') {

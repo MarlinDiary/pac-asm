@@ -24,11 +24,7 @@ export class UnicornLoader {
 
   async loadUnicornScript(): Promise<void> {
     try {
-      if (this.arch === 'MIPS_R6') {
-        await this.loadWasmUnicorn()
-      } else {
-        await this.loadClassicUnicorn()
-      }
+      await this.loadWasmUnicorn(this.arch)
 
       this.postMessage({
         type: 'success',
@@ -73,26 +69,9 @@ export class UnicornLoader {
     return sandbox
   }
 
-  private async loadClassicUnicorn(): Promise<void> {
-    const scriptPath = path.resolve(this.baseDir, 'unicorn-arm.min.js')
-    const source = await fs.readFile(scriptPath, 'utf8')
-
-    const sandbox = this.createSandbox(scriptPath)
-    delete sandbox.uc
-
-    const context = vm.createContext(sandbox)
-    vm.runInContext(source, context, { filename: scriptPath })
-
-    const uc = sandbox.uc as UnicornGlobal | undefined
-    if (!uc) {
-      throw new Error('Unicorn global not initialized')
-    }
-
-    this.workerSelf.uc = uc
-  }
-
-  private async loadWasmUnicorn(): Promise<void> {
-    const wasmScriptPath = path.resolve(this.baseDir, 'unicorn_wasm_mips.js')
+  private async loadWasmUnicorn(arch: Architecture): Promise<void> {
+    const buildFilenames = this.getBuildFilenames(arch)
+    const wasmScriptPath = path.resolve(this.baseDir, buildFilenames.module)
     const wrapperPath = path.resolve(this.baseDir, 'unicorn-wrapper.js')
     const [wasmSource, wrapperSource] = await Promise.all([
       fs.readFile(wasmScriptPath, 'utf8'),
@@ -125,7 +104,7 @@ export class UnicornLoader {
     const moduleInstance = await sandbox.MUnicorn({
       locateFile: (relativePath: string) => {
         if (relativePath.endsWith('.wasm')) {
-          return path.resolve(this.baseDir, 'unicorn_wasm_mips.wasm')
+          return path.resolve(this.baseDir, buildFilenames.binary)
         }
         return path.resolve(this.baseDir, relativePath)
       }
@@ -137,5 +116,16 @@ export class UnicornLoader {
     }
 
     this.workerSelf.uc = uc
+  }
+
+  private getBuildFilenames(arch: Architecture): { module: string; binary: string } {
+    switch (arch) {
+      case 'ARM':
+        return { module: 'unicorn_wasm_arm.js', binary: 'unicorn_wasm_arm.wasm' }
+      case 'MIPS_R6':
+        return { module: 'unicorn_wasm_mips.js', binary: 'unicorn_wasm_mips.wasm' }
+      default:
+        throw new Error(`Unsupported architecture: ${arch}`)
+    }
   }
 }

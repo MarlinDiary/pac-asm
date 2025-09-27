@@ -179,6 +179,9 @@ function createUC(MUnicornInstance) {
                 if (type & uc.HOOK_MEM_READ || type & uc.HOOK_MEM_WRITE || type & uc.HOOK_MEM_FETCH || type & uc.HOOK_MEM_READ_AFTER) {
                     const callback = (_, type2, addr, size, val, _2) => user_callback(handle, type2, addr, size, val, user_data);
                     callback_ptr = MUnicornInstance.addFunction(callback, 'iiijiji');
+                } else if (type & uc.HOOK_CODE || type & uc.HOOK_BLOCK) {
+                    const callback = (_, addr, size, _2) => user_callback(handle, addr, size, user_data);
+                    callback_ptr = MUnicornInstance.addFunction(callback, 'vijii');
                 } else {
                     throw 'Unimplemented hook type';
                 }

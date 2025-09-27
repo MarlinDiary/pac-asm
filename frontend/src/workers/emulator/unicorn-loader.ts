@@ -17,51 +17,37 @@ export class UnicornLoader {
   async loadUnicornScript(): Promise<void> {
     try {
       const baseUrl = this.workerSelf.location.origin;
+      const globalScope = globalThis as typeof globalThis & {
+        importScripts: (...urls: string[]) => void;
+        MUnicorn?: (moduleArg?: Record<string, unknown>) => Promise<unknown>;
+        createUC?: (moduleInstance: unknown) => UnicornGlobal;
+        uc?: unknown;
+      };
 
-      if (this.arch === 'MIPS_R6') {
-        const globalScope = globalThis as typeof globalThis & {
-          importScripts: (...urls: string[]) => void;
-          MUnicorn?: (moduleArg?: Record<string, unknown>) => Promise<unknown>;
-          createUC?: (moduleInstance: unknown) => UnicornGlobal;
-          uc?: unknown;
-        };
+      delete globalScope.uc;
 
-        delete globalScope.uc;
+      const buildFilenames = this.getBuildFilenames(this.arch);
 
-        globalScope.importScripts(`${baseUrl}/arm/unicorn_wasm_mips.js`, `${baseUrl}/arm/unicorn-wrapper.js`);
+      globalScope.importScripts(`${baseUrl}/arm/${buildFilenames.module}`, `${baseUrl}/arm/unicorn-wrapper.js`);
 
-        if (typeof globalScope.MUnicorn !== 'function') {
-          throw new Error('MUnicorn factory not found after importing Unicorn WASM scripts');
-        }
-
-        if (typeof globalScope.createUC !== 'function') {
-          throw new Error('createUC wrapper not found after importing Unicorn WASM scripts');
-        }
-
-        const moduleInstance = await globalScope.MUnicorn({
-          locateFile: (path: string) => {
-            if (path.endsWith('.wasm')) {
-              return `${baseUrl}/arm/unicorn_wasm_mips.wasm`;
-            }
-            return `${baseUrl}/arm/${path}`;
-          }
-        });
-
-        this.workerSelf.uc = globalScope.createUC(moduleInstance) as UnicornGlobal;
-      } else {
-        (globalThis as unknown as { importScripts: (url: string) => void }).importScripts(`${baseUrl}/arm/unicorn-arm.min.js`);
-
-        await new Promise<void>((resolve) => {
-          const checkUnicorn = () => {
-            if (typeof this.workerSelf.uc !== 'undefined') {
-              resolve();
-            } else {
-              setTimeout(checkUnicorn, 10);
-            }
-          };
-          checkUnicorn();
-        });
+      if (typeof globalScope.MUnicorn !== 'function') {
+        throw new Error('MUnicorn factory not found after importing Unicorn WASM scripts');
       }
+
+      if (typeof globalScope.createUC !== 'function') {
+        throw new Error('createUC wrapper not found after importing Unicorn WASM scripts');
+      }
+
+      const moduleInstance = await globalScope.MUnicorn({
+        locateFile: (path: string) => {
+          if (path.endsWith('.wasm')) {
+            return `${baseUrl}/arm/${buildFilenames.binary}`;
+          }
+          return `${baseUrl}/arm/${path}`;
+        }
+      });
+
+      this.workerSelf.uc = globalScope.createUC(moduleInstance) as UnicornGlobal;
 
       this.postMessage({
         type: 'success',
@@ -81,6 +67,17 @@ export class UnicornLoader {
       throw new Error('Unicorn.js not loaded');
     }
     return this.workerSelf.uc;
+  }
+
+  private getBuildFilenames(arch: Architecture): { module: string; binary: string } {
+    switch (arch) {
+      case 'ARM':
+        return { module: 'unicorn_wasm_arm.js', binary: 'unicorn_wasm_arm.wasm' };
+      case 'MIPS_R6':
+        return { module: 'unicorn_wasm_mips.js', binary: 'unicorn_wasm_mips.wasm' };
+      default:
+        throw new Error(`Unsupported architecture: ${arch}`);
+    }
   }
 
   private postMessage(response: Pick<EmulatorResponse, 'type' | 'payload'>): void {
