@@ -103,7 +103,7 @@ export class EmulatorWorker {
         // Close the old instance
         try {
           this.unicorn.close();
-        } catch (e) {
+        } catch {
           // Ignore close errors
         }
 
