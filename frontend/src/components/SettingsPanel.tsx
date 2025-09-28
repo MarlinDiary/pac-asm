@@ -16,6 +16,8 @@ import { useSettings } from '@/hooks/useSettings'
 interface SettingsPanelProps {
   isOpen: boolean
   onClose: () => void
+  isRunning?: boolean
+  isDebugMode?: boolean
 }
 
 interface SidebarItem {
@@ -24,7 +26,7 @@ interface SidebarItem {
   icon: React.ReactNode
 }
 
-export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
+export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDebugMode = false }: SettingsPanelProps) {
   const [selectedSection, setSelectedSection] = React.useState('general')
 
   const sidebarItems: SidebarItem[] = [
@@ -209,8 +211,19 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Architecture
                     </label>
-                    <Select value={settings.architecture} onValueChange={(value) => updateSetting('architecture', value as typeof settings.architecture)}>
-                      <SelectTrigger className="w-auto border-0 bg-transparent dark:bg-transparent p-0 h-auto cursor-pointer focus:ring-0 focus-visible:ring-0 shadow-none hover:bg-transparent dark:hover:bg-transparent">
+                    <Select
+                      value={settings.architecture}
+                      onValueChange={(value) => {
+                        if (!isRunning && !isDebugMode) {
+                          updateSetting('architecture', value as typeof settings.architecture)
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        className={`w-auto border-0 bg-transparent dark:bg-transparent p-0 h-auto cursor-pointer focus:ring-0 focus-visible:ring-0 shadow-none hover:bg-transparent dark:hover:bg-transparent ${
+                          isRunning || isDebugMode ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="min-w-[180px] rounded-lg p-2 shadow-lg shadow-black/10 dark:shadow-black/20 bg-white dark:bg-[#303030] border border-[#F0F0F0] dark:border-[#3C3C3C]">

@@ -525,7 +525,12 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         </ResizablePanelGroup>
       </div>
     </div>
-    <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    <SettingsPanel
+      isOpen={isSettingsOpen}
+      onClose={() => setIsSettingsOpen(false)}
+      isRunning={executionControl.isBusy}
+      isDebugMode={gameState.isDebugMode}
+    />
   </div>
   )
 }
