@@ -6,6 +6,7 @@ interface TabConfig {
   icon: LucideIcon
   text: string
   color: string
+  darkColor?: string
 }
 
 interface CardProps {
@@ -32,11 +33,12 @@ export default function Card({ children, tabs = [], defaultSelectedTab = 0, sele
     <div className="w-full h-full bg-white dark:bg-[#262626] rounded-lg flex flex-col overflow-hidden">
       <TabBar>
         {tabs.map((tab, index) => (
-          <Tab 
+          <Tab
             key={index}
             icon={tab.icon}
             text={tab.text}
             color={tab.color}
+            darkColor={tab.darkColor}
             isSelected={selectedTab === index}
             onClick={() => handleTabClick(index)}
           />

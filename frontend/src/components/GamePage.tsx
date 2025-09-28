@@ -15,6 +15,7 @@ import RegisterPanel from '@/components/panel/RegisterPanel'
 import MemoryPanel from '@/components/panel/MemoryPanel'
 import DiagnosticsPanel from '@/components/panel/DiagnosticsPanel'
 import GuidePanel from '@/components/panel/GuidePanel'
+import HintPanel from '@/components/panel/HintPanel'
 import RankingPanel from '@/components/panel/RankingPanel'
 import type { RankingSubmitController } from '@/components/panel/RankingPanel'
 import { MemoryRegion } from '@/components/MemoryFilter'
@@ -25,7 +26,7 @@ import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
-import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight, CircleUserRound, LogOut } from 'lucide-react'
+import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight, CircleUserRound, LogOut, Lightbulb } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useSettings } from '@/hooks/useSettings'
@@ -199,7 +200,6 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     },
     isCodeDisabled: gameState.isCodeDisabled,
     setIsCodeDisabled: gameState.setIsCodeDisabled,
-    setLeftPanelTab: gameState.setLeftPanelTab,
     setRankingLoading: executionControl.setRankingLoading,
     applySubmissionResult: executionControl.applySubmissionResult
   }), [
@@ -209,7 +209,6 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     gameState.codeOverride,
     gameState.isCodeDisabled,
     gameState.setIsCodeDisabled,
-    gameState.setLeftPanelTab,
     executionControl.setRankingLoading,
     executionControl.applySubmissionResult
   ])
@@ -218,7 +217,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab === 'ranking') {
-      gameState.setLeftPanelTab(2) // Ranking tab is at index 2
+      gameState.setLeftPanelTab(3) // Ranking tab is at index 3 (Game=0, Manual=1, Hint=2, Ranking=3)
       // Clean up the URL parameter
       const url = new URL(window.location.href)
       url.searchParams.delete('tab')
@@ -259,7 +258,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
 
   return (
     <div className="h-screen w-full overflow-hidden bg-[#f0f0f0] dark:bg-[#0f0f0f]">
-      <div className="p-2 h-full flex flex-col" style={{ zoom: settings.pageZoom / 100 }}>
+      <div className="p-2 h-full flex flex-col" style={{ zoom: settings.pageZoom === 110 ? 1.12 : settings.pageZoom / 100 }}>
         <div className="flex justify-center relative">
           <div className="absolute left-0 top-0 flex items-center h-10 gap-1">
             <IconButton
@@ -359,10 +358,11 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         <ResizablePanel defaultSize={33} ref={panelLayout.firstColumnRef} minSize={10}>
           <ResizablePanelGroup direction="vertical" className="h-full">
             <ResizablePanel defaultSize={70} ref={panelLayout.panel1Ref} minSize={10}>
-              <Card 
+              <Card
                 tabs={[
                   { icon: Gamepad2, text: "Game", color: "#3579f6" },
                   { icon: Book, text: "Manual", color: "#50AE40" },
+                  { icon: Lightbulb, text: "Hint", color: "#A2470F", darkColor: "#FFAB70" },
                   { icon: Trophy, text: "Ranking", color: "#FFB700" }
                 ]}
                 selectedTab={gameState.leftPanelTab}
@@ -410,6 +410,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                     </div>
                   </div>,
                   <GuidePanel key="guide" />,
+                  <HintPanel key="hint" />,
                   <RankingPanel
                     key="ranking"
                     levelId={normalizedLevelId}
@@ -463,7 +464,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
             tabs={[
               { icon: CircuitBoard, text: "Register", color: "#9164EA" },
               { icon: HardDrive, text: "Memory", color: "#01A2C2" },
-              { icon: Stethoscope, text: "Diagnostics", color: "#FF0033" }
+              { icon: Stethoscope, text: "Diagnostics", color: "#DF0D25", darkColor: "#FF6B6B" }
             ]}
             selectedTab={gameState.rightPanelTab}
             onTabChange={gameState.setRightPanelTab}

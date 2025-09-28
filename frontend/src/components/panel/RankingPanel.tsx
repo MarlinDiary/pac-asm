@@ -27,7 +27,6 @@ export interface RankingSubmitController {
   getSourceCode: () => SourceCodeSnapshot
   isCodeDisabled: boolean
   setIsCodeDisabled: (value: boolean) => void
-  setLeftPanelTab: (index: number) => void
   setRankingLoading: (value: boolean) => void
   applySubmissionResult: (submission: SubmissionResponse['submission']) => void
 }
@@ -272,7 +271,6 @@ async function submitRanking({ levelId, architecture, controller, user, addTagge
     const { submission } = payload as SubmissionResponse
     controller.applySubmissionResult(submission)
     controller.setRankingLoading(false)
-    controller.setLeftPanelTab(2)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     addTaggedError?.('SUBMIT', message, fallbackSource)
