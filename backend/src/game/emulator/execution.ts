@@ -450,14 +450,6 @@ export class ExecutionEngine {
     let stopPending = false
     let codeHookRegistered = false
     const shouldUseCodeHook = this.arch !== 'MIPS_R6'
-    let timeoutTriggered = false
-
-    const timeoutMs = Math.max(1, Math.ceil(timeoutUs / 1000))
-    const timeoutTimer = setTimeout(() => {
-      timeoutTriggered = true
-      stopPending = true
-      try { this.unicorn.emu_stop() } catch {}
-    }, timeoutMs)
 
     const cb = (...hookArgs: unknown[]) => {
       const event = this.extractMemoryHookEvent(hookArgs)
@@ -518,7 +510,6 @@ export class ExecutionEngine {
         end
       )
     } catch (e) {
-      clearTimeout(timeoutTimer)
       return {
         message: `Failed to register memory hook: ${String(e)}`,
         executedInstructions: 0,
@@ -571,7 +562,6 @@ export class ExecutionEngine {
     } catch {
       // Execution stopped due to hooks or timeout
     } finally {
-      clearTimeout(timeoutTimer)
       try {
         if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle)
       } catch {}
@@ -606,8 +596,6 @@ export class ExecutionEngine {
       stopReason = 'mem-write'
     } else if (pcAfter >= endAddress) {
       stopReason = 'end-of-code'
-    } else if (timeoutTriggered) {
-      stopReason = 'timeout'
     } else {
       stopReason = 'timeout'
     }
