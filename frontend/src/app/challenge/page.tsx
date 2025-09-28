@@ -1,6 +1,7 @@
 'use client'
 
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import GamePage from '@/components/GamePage'
 import { getMap } from '@/data/maps'
 
@@ -11,5 +12,9 @@ export default function ChallengePage() {
     notFound()
   }
 
-  return <GamePage levelMap={levelMap} levelId="challenge" isChallenge={true} />
+  return (
+    <Suspense fallback={null}>
+      <GamePage levelMap={levelMap} levelId="challenge" isChallenge={true} />
+    </Suspense>
+  )
 }

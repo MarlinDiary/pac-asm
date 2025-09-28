@@ -2,6 +2,7 @@
 
 import { notFound } from 'next/navigation'
 import { useParams } from 'next/navigation'
+import { Suspense } from 'react'
 import GamePage from '@/components/GamePage'
 import { getMapByLevel } from '@/data/maps'
 
@@ -15,5 +16,9 @@ export default function LevelPage() {
     notFound()
   }
 
-  return <GamePage levelMap={levelMap} levelId={id} />
+  return (
+    <Suspense fallback={null}>
+      <GamePage levelMap={levelMap} levelId={id} />
+    </Suspense>
+  )
 }

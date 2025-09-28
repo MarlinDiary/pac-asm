@@ -237,7 +237,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setIsPlayMode(false)
       setPlayStatus(undefined)
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
+  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, setLeftPanelTab, playState, errors.length])
 
   const handleDebugClick = useCallback(async () => {
 
@@ -272,7 +272,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setCodeOverride(null)
       setHighlightedLineSecondary(undefined)
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, debugState])
+  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, setLeftPanelTab, debugState])
 
   const disableStepsTemporarily = useCallback(() => {
     if (stepLockTimeoutRef.current) {
