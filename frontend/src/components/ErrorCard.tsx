@@ -92,13 +92,15 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
   return (
     <div
       className={`rounded-lg overflow-hidden ${
-        category === 'Runtime' || category === 'SUBMIT'
+        category === 'Runtime'
           ? 'bg-[#eef6ff] dark:bg-[#1f2933]'
-          : category === 'Timeout'
-            ? 'bg-[#FEF7EA] dark:bg-[#453A25]'
-            : category === 'Game'
-              ? 'bg-[#F5F0FF] dark:bg-[#3A2F4A]'
-              : 'bg-[#fdf1f0] dark:bg-[#372B2B]'
+          : category === 'SUBMIT'
+            ? 'bg-[#e0f7fa] dark:bg-[#1a3a3a]'
+            : category === 'Timeout'
+              ? 'bg-[#FEF7EA] dark:bg-[#453A25]'
+              : category === 'Game'
+                ? 'bg-[#F5F0FF] dark:bg-[#3A2F4A]'
+                : 'bg-[#fdf1f0] dark:bg-[#372B2B]'
       } ${
         !hasDiagnosis && !isLoading && settings.aiDiagnostics ? 'cursor-pointer' : ''
       }`}
@@ -111,13 +113,15 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
       <div ref={contentRef} className="px-4 py-3">
         <div className="mb-2">
           <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${
-            category === 'Runtime' || category === 'SUBMIT'
+            category === 'Runtime'
               ? 'bg-[#1d4ed8] dark:bg-[#2563eb]'
-              : category === 'Timeout'
-                ? 'bg-[#FAB007] dark:bg-[#F5C000]'
-                : category === 'Game'
-                  ? 'bg-[#8B5CF6] dark:bg-[#A78BFA]'
-                  : 'bg-[#DD544B] dark:bg-[#F8615C]'
+              : category === 'SUBMIT'
+                ? 'bg-[#0891b2] dark:bg-[#22d3ee]'
+                : category === 'Timeout'
+                  ? 'bg-[#FAB007] dark:bg-[#F5C000]'
+                  : category === 'Game'
+                    ? 'bg-[#8B5CF6] dark:bg-[#A78BFA]'
+                    : 'bg-[#DD544B] dark:bg-[#F8615C]'
           }`}>
             {category}
           </span>
@@ -125,13 +129,15 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
         <div>
           <p
             className={`text-sm whitespace-pre-wrap ${
-              category === 'Runtime' || category === 'SUBMIT'
+              category === 'Runtime'
                 ? 'text-[#1d4ed8] dark:text-[#60a5fa]'
-                : category === 'Timeout'
-                  ? 'text-[#FAB007] dark:text-[#F5C000]'
-                  : category === 'Game'
-                    ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
-                    : 'text-[#dd544b] dark:text-[#F8615C]'
+                : category === 'SUBMIT'
+                  ? 'text-[#0891b2] dark:text-[#22d3ee]'
+                  : category === 'Timeout'
+                    ? 'text-[#FAB007] dark:text-[#F5C000]'
+                    : category === 'Game'
+                      ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
+                      : 'text-[#dd544b] dark:text-[#F8615C]'
             } ${isLoading && !hasDiagnosis ? 'animate-pulse' : ''}`}
           >
             {cleanMessage}
@@ -141,13 +147,15 @@ export default function ErrorCard({ id, error, diagnosis, isLoading, hasDiagnosi
         {hasDiagnosis && (
           <div className="mt-2">
             <p className={`text-sm whitespace-pre-wrap ${
-              category === 'Runtime' || category === 'SUBMIT'
+              category === 'Runtime'
                 ? 'text-[#1d4ed8] dark:text-[#60a5fa]'
-                : category === 'Timeout'
-                  ? 'text-[#FAB007] dark:text-[#F5C000]'
-                  : category === 'Game'
-                    ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
-                    : 'text-[#e34940] dark:text-[#F8615C]'
+                : category === 'SUBMIT'
+                  ? 'text-[#0891b2] dark:text-[#22d3ee]'
+                  : category === 'Timeout'
+                    ? 'text-[#FAB007] dark:text-[#F5C000]'
+                    : category === 'Game'
+                      ? 'text-[#8B5CF6] dark:text-[#A78BFA]'
+                      : 'text-[#e34940] dark:text-[#F8615C]'
             }`}>
               {diagnosis}
             </p>
