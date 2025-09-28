@@ -362,7 +362,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               <Card 
                 tabs={[
                   { icon: Gamepad2, text: "Game", color: "#3579f6" },
-                  { icon: Book, text: "Guide", color: "#50AE40" },
+                  { icon: Book, text: "Manual", color: "#50AE40" },
                   { icon: Trophy, text: "Ranking", color: "#FFB700" }
                 ]}
                 selectedTab={gameState.leftPanelTab}
