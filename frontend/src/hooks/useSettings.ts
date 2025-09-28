@@ -9,6 +9,7 @@ interface Settings {
   aiDiagnostics: boolean
   stickyScroll: boolean
   autoSaveCode: boolean
+  pageZoom: number
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -17,7 +18,8 @@ const DEFAULT_SETTINGS: Settings = {
   fontSize: 14,
   aiDiagnostics: false,
   stickyScroll: false,
-  autoSaveCode: true
+  autoSaveCode: true,
+  pageZoom: 110
 }
 
 export function useSettings() {
