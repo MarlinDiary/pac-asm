@@ -2,23 +2,90 @@
 
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import SubBar from '@/components/bar/SubBar'
-import type { RankingEntry } from '@/hooks/useExecutionControl'
+import { LoaderCircle } from 'lucide-react'
+import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
+import type { RankingEntry, SubmissionResponse } from '@/hooks/useExecutionControl'
+import type { Architecture } from '@/hooks/useSettings'
+
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  'http://localhost:4000'
+).replace(/\/$/, '')
+
+interface SourceCodeSnapshot {
+  trimmed?: string
+  raw?: string
+}
+
+export interface RankingSubmitController {
+  isSubmitting: boolean
+  setIsSubmitting: (value: boolean) => void
+  getSourceCode: () => SourceCodeSnapshot
+  isCodeDisabled: boolean
+  setIsCodeDisabled: (value: boolean) => void
+  setLeftPanelTab: (index: number) => void
+  setRankingLoading: (value: boolean) => void
+  applySubmissionResult: (submission: SubmissionResponse['submission']) => void
+}
+
+interface SubmitRankingArgs {
+  levelId: string
+  architecture: Architecture
+  controller: RankingSubmitController
+  user: {
+    id?: string
+    name?: string
+    avatarUrl?: string
+  }
+  addTaggedError?: (tag: string, error: string, code: string) => void
+}
 
 interface RankingPanelProps {
   entries: RankingEntry[]
   isLoading: boolean
   levelId: string
+  architecture: Architecture
+  submitController?: RankingSubmitController
+  isAuthenticated?: boolean
+  onLogin?: () => void
 }
 
-export default function RankingPanel({ entries, isLoading, levelId }: RankingPanelProps) {
+export default function RankingPanel({ entries, isLoading, levelId, architecture, submitController, isAuthenticated = false, onLogin }: RankingPanelProps) {
   const { theme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const { data: session } = useSession()
+  const addTaggedError = useDiagnosticsStore((state) => state.addTaggedError)
+
+  const userInfo = useMemo(() => {
+    const id = session?.user?.email ?? session?.user?.name ?? ''
+    const name = session?.user?.name ?? session?.user?.email ?? ''
+    const avatarUrl = session?.user?.image ?? undefined
+    return { id, name, avatarUrl }
+  }, [session])
+
+  const isSubmitting = submitController?.isSubmitting ?? false
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const handleSubmit = () => {
+    if (!isAuthenticated || isSubmitting || !submitController) {
+      return
+    }
+
+    void submitRanking({
+      levelId,
+      architecture,
+      controller: submitController,
+      user: userInfo,
+      addTaggedError
+    })
+  }
 
   const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light'
 
@@ -118,8 +185,105 @@ export default function RankingPanel({ entries, isLoading, levelId }: RankingPan
           })
         )}
       </div>
+      <div className="w-full h-9 border-t border-[#f0f0f0] dark:border-[#3C3C3C] flex items-center justify-between px-3">
+        {!isAuthenticated ? (
+          <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
+            You need to log in to submit
+          </span>
+        ) : (
+          <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
+            Please avoid frequent submissions
+          </span>
+        )}
+        <button
+          onClick={isAuthenticated ? handleSubmit : onLogin}
+          disabled={isAuthenticated && isSubmitting}
+          className={`h-7 px-4 bg-[#2DB65D] hover:bg-[#279A4F] dark:bg-[#2CBC5D] dark:hover:bg-[#4CC675] text-white text-sm font-medium rounded-md mr-[-8px] flex items-center gap-1.5 transition-all duration-300 ${
+            isAuthenticated && isSubmitting ? 'opacity-70 cursor-default' : 'cursor-pointer'
+          }`}>
+          {!isAuthenticated ? (
+            'Login'
+          ) : isSubmitting ? (
+            <>
+              <LoaderCircle className="w-4 h-4 animate-spin" />
+              <span>Submit</span>
+            </>
+          ) : (
+            'Submit'
+          )}
+        </button>
+      </div>
     </div>
   )
+}
+
+async function submitRanking({ levelId, architecture, controller, user, addTaggedError }: SubmitRankingArgs) {
+  if (controller.isSubmitting) {
+    return
+  }
+
+  const { trimmed: sourceCode, raw } = controller.getSourceCode()
+  const fallbackSource = raw ?? ''
+
+  if (!sourceCode) {
+    addTaggedError?.('SUBMIT', 'Source code is empty', fallbackSource)
+    return
+  }
+
+  if (!user.id || !user.name) {
+    addTaggedError?.('SUBMIT', 'You need to log in to submit', fallbackSource)
+    return
+  }
+
+  controller.setIsSubmitting(true)
+
+  // Remember the original state of code editor
+  const wasCodeDisabled = controller.isCodeDisabled
+  // Only disable if not already disabled (e.g., not in debug/run mode)
+  if (!wasCodeDisabled) {
+    controller.setIsCodeDisabled(true)
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/game/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceCode,
+        levelId,
+        architecture,
+        user: {
+          id: user.id,
+          name: user.name,
+          avatarUrl: user.avatarUrl
+        }
+      })
+    })
+
+    const payload: SubmissionResponse | { error?: string } = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      const message = typeof payload === 'object' && 'error' in payload && payload.error
+        ? payload.error
+        : 'Submit failed'
+      throw new Error(message)
+    }
+
+    const { submission } = payload as SubmissionResponse
+    controller.applySubmissionResult(submission)
+    controller.setRankingLoading(false)
+    controller.setLeftPanelTab(2)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    addTaggedError?.('SUBMIT', message, fallbackSource)
+  } finally {
+    controller.setIsSubmitting(false)
+    // Only restore if we disabled it (don't interfere with debug/run mode)
+    if (!wasCodeDisabled) {
+      controller.setIsCodeDisabled(false)
+    }
+    controller.setRankingLoading(false)
+  }
 }
 
 function formatRankingValue(entry: RankingEntry, levelId: string): string {

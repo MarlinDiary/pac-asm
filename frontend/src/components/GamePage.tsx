@@ -16,6 +16,7 @@ import MemoryPanel from '@/components/panel/MemoryPanel'
 import DiagnosticsPanel from '@/components/panel/DiagnosticsPanel'
 import GuidePanel from '@/components/panel/GuidePanel'
 import RankingPanel from '@/components/panel/RankingPanel'
+import type { RankingSubmitController } from '@/components/panel/RankingPanel'
 import { MemoryRegion } from '@/components/MemoryFilter'
 import SubBar from '@/components/bar/SubBar'
 import QueryBar from '@/components/bar/QueryBar'
@@ -28,7 +29,7 @@ import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Max
 import { GameMap } from '@/data/maps'
 import SettingsPanel from '@/components/SettingsPanel'
 import { useSettings } from '@/hooks/useSettings'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Image from 'next/image'
 
@@ -43,10 +44,12 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const emulator = useEmulator()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const isAuthenticated = status === 'authenticated'
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Get level display name
   const getLevelDisplayName = (id: string): string => {
@@ -183,6 +186,45 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { setCurrentCode, setRightPanelTab } = gameState
   const challengeScore = executionControl.formattedScore
+  const submitController = useMemo<RankingSubmitController>(() => ({
+    isSubmitting,
+    setIsSubmitting,
+    getSourceCode: () => {
+      const raw = gameState.currentCode ?? ''
+      const codeToSubmit = gameState.codeOverride ?? gameState.currentCode ?? ''
+      return {
+        trimmed: codeToSubmit.trim(),
+        raw
+      }
+    },
+    isCodeDisabled: gameState.isCodeDisabled,
+    setIsCodeDisabled: gameState.setIsCodeDisabled,
+    setLeftPanelTab: gameState.setLeftPanelTab,
+    setRankingLoading: executionControl.setRankingLoading,
+    applySubmissionResult: executionControl.applySubmissionResult
+  }), [
+    isSubmitting,
+    setIsSubmitting,
+    gameState.currentCode,
+    gameState.codeOverride,
+    gameState.isCodeDisabled,
+    gameState.setIsCodeDisabled,
+    gameState.setLeftPanelTab,
+    executionControl.setRankingLoading,
+    executionControl.applySubmissionResult
+  ])
+
+  // Handle tab parameter from URL (e.g., after login redirect)
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'ranking') {
+      gameState.setLeftPanelTab(2) // Ranking tab is at index 2
+      // Clean up the URL parameter
+      const url = new URL(window.location.href)
+      url.searchParams.delete('tab')
+      window.history.replaceState({}, '', url.pathname)
+    }
+  }, [searchParams, gameState])
 
   // Reset code when architecture changes
   useEffect(() => {
@@ -237,10 +279,9 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
             />
           </div>
           <div className="relative">
-            <ExecutionBar 
+            <ExecutionBar
               onDebugClick={executionControl.handleDebugClick}
               onPlayClick={executionControl.handlePlayClick}
-              onSubmitClick={executionControl.handleSubmit}
               isDebugMode={gameState.isDebugMode}
               statusMessage={executionControl.statusMessage}
               isBusy={executionControl.isBusy}
@@ -372,8 +413,16 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                   <RankingPanel
                     key="ranking"
                     levelId={normalizedLevelId}
+                    architecture={settings.architecture}
                     entries={executionControl.filteredRankingEntries}
                     isLoading={executionControl.isRankingLoading}
+                    submitController={submitController}
+                    isAuthenticated={isAuthenticated}
+                    onLogin={() => {
+                      // Save current URL with ranking tab parameter
+                      const callbackUrl = `${pathname}?tab=ranking`
+                      signIn('github', { callbackUrl })
+                    }}
                   />
                 ]}
               />

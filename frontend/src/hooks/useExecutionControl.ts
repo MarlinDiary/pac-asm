@@ -83,13 +83,11 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const debugState = useDebugger()
   const playState = usePlayRunner()
   const errors = useDiagnosticsStore((state) => state.errors)
-  const addTaggedError = useDiagnosticsStore((state) => state.addTaggedError)
   const errorCountRef = useRef(errors.length)
   const [rankingEntries, setRankingEntries] = useState<RankingEntry[]>([])
   const [isRankingLoading, setIsRankingLoading] = useState(true)
   const rankingFetchedRef = useRef(false)
   const rankingAbortRef = useRef<AbortController | null>(null)
-  const [submitInFlight, setSubmitInFlight] = useState(false)
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isStepTemporarilyDisabled, setIsStepTemporarilyDisabled] = useState(false)
   const stepLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -198,9 +196,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   }, [loadRanking])
 
   const handlePlayClick = useCallback(async () => {
-    if (submitInFlight) {
-      return
-    }
 
     setLeftPanelTab(0)
 
@@ -242,12 +237,9 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setIsPlayMode(false)
       setPlayStatus(undefined)
     }
-  }, [submitInFlight, currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
+  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, playState, errors.length])
 
   const handleDebugClick = useCallback(async () => {
-    if (submitInFlight) {
-      return
-    }
 
     setLeftPanelTab(0)
 
@@ -280,102 +272,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setCodeOverride(null)
       setHighlightedLineSecondary(undefined)
     }
-  }, [submitInFlight, currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, debugState])
-
-  const handleSubmit = useCallback(async () => {
-    if (submitInFlight) {
-      return
-    }
-
-    const sourceCode = (gameState.codeOverride ?? currentCode)?.trim()
-    if (!sourceCode) {
-      addTaggedError?.('SUBMIT', 'Source code is empty', currentCode ?? '')
-      return
-    }
-
-    if (!userInfo.id || !userInfo.name) {
-      addTaggedError?.('SUBMIT', 'You need to log in to submit', currentCode ?? '')
-      return
-    }
-
-    setSubmitInFlight(true)
-    setIsCodeDisabled(true)
-    setIsPlayMode(false)
-    setIsDebugMode(false)
-    setPlayStatus('pending')
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/game/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourceCode,
-          levelId,
-          architecture,
-          user: {
-            id: userInfo.id,
-            name: userInfo.name,
-            avatarUrl: userInfo.avatarUrl
-          }
-        })
-      })
-
-      const payload: SubmissionResponse | { error?: string } = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        const message = typeof payload === 'object' && 'error' in payload && payload.error
-          ? payload.error
-          : 'Submit failed'
-        throw new Error(message)
-      }
-
-      const { submission: submissionPayload } = payload as SubmissionResponse
-      const mappedEntry = createRankingEntry(levelId, submissionPayload, { optimistic: true })
-
-      rankingFetchedRef.current = true
-      setRankingEntries((current) => {
-        const filtered = current.filter((entry) => entry.userId !== mappedEntry.userId)
-        return sortRankingEntries(levelId, [mappedEntry, ...filtered])
-      })
-
-      setIsRankingLoading(false)
-      setLeftPanelTab(2)
-
-      if (highlightTimeoutRef.current) {
-        clearTimeout(highlightTimeoutRef.current)
-      }
-      highlightTimeoutRef.current = setTimeout(() => {
-        setRankingEntries((current) =>
-          current.map((entry) =>
-            entry.id === mappedEntry.id ? { ...entry, isOptimistic: false } : entry
-          )
-        )
-      }, 3000)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      addTaggedError?.('SUBMIT', message, currentCode ?? '')
-    } finally {
-      setSubmitInFlight(false)
-      setPlayStatus(undefined)
-      setIsCodeDisabled(false)
-      setIsRankingLoading(false)
-    }
-  }, [
-    submitInFlight,
-    gameState.codeOverride,
-    currentCode,
-    addTaggedError,
-    userInfo,
-    levelId,
-    architecture,
-    setIsCodeDisabled,
-    setIsPlayMode,
-    setIsDebugMode,
-    setPlayStatus,
-    setRankingEntries,
-    setIsRankingLoading,
-    setLeftPanelTab
-  ])
+  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, debugState])
 
   const disableStepsTemporarily = useCallback(() => {
     if (stepLockTimeoutRef.current) {
@@ -450,6 +347,34 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     }
   }, [debugState, teleportPlayer, currentMap, setHighlightedLine, setHighlightedLineSecondary])
 
+  const applySubmissionResult = useCallback((submissionPayload: SubmissionResponse['submission']) => {
+    if (!submissionPayload) {
+      return
+    }
+
+    const mappedEntry = createRankingEntry(levelId, submissionPayload, { optimistic: true })
+
+    rankingFetchedRef.current = true
+    setRankingEntries((current) => {
+      const filtered = current.filter((entry) => entry.userId !== mappedEntry.userId)
+      return sortRankingEntries(levelId, [mappedEntry, ...filtered])
+    })
+
+    setIsRankingLoading(false)
+
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current)
+    }
+
+    highlightTimeoutRef.current = setTimeout(() => {
+      setRankingEntries((current) =>
+        current.map((entry) =>
+          entry.id === mappedEntry.id ? { ...entry, isOptimistic: false } : entry
+        )
+      )
+    }, 3000)
+  }, [levelId, setRankingEntries, setIsRankingLoading])
+
   // Get current and previous debug states for panels
   // In play mode, surface live emulator state so panels stay in sync with execution
   const getCurrentState = useCallback(() => {
@@ -492,11 +417,15 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     return undefined
   }, [gameState.playStatus])
 
-  const isBusy = submitInFlight || Boolean(gameState.playStatus)
+  const isBusy = Boolean(gameState.playStatus)
 
   const filteredRankingEntries = useMemo(() => {
     return rankingEntries.filter((entry) => entry.architecture === architecture)
   }, [rankingEntries, architecture])
+
+  const setRankingLoading = useCallback((value: boolean) => {
+    setIsRankingLoading(value)
+  }, [setIsRankingLoading])
 
   // Listen for play state updates (including when game ends)
   useEffect(() => {
@@ -562,12 +491,13 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     handleStepUp,
     handleStopClick,
     handleReplay,
-    handleSubmit,
 
     // Ranking
     rankingEntries,
     filteredRankingEntries,
     isRankingLoading,
+    applySubmissionResult,
+    setRankingLoading,
     currentUserId: userInfo.id,
 
     // Status helpers
@@ -656,4 +586,4 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
   return sorted
 }
 
-export type { RankingEntry }
+export type { RankingEntry, SubmissionResponse }
