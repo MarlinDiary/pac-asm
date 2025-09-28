@@ -16,6 +16,7 @@ interface ErrorCardProps {
 }
 
 const CATEGORY_MAP: Record<string, 'Assemble' | 'Runtime' | 'Timeout' | 'Game' | 'Memory' | 'Debug'> = {
+  'timeout': 'Timeout',
   'RUNTIME_ERROR': 'Runtime',
   'TIMEOUT_ERROR': 'Timeout',
   'GAMEPLAY_ERROR': 'Game',

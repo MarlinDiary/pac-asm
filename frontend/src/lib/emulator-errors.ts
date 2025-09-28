@@ -1,5 +1,5 @@
-export const EMULATOR_MESSAGE_TIMEOUT_MS = 5000;
-export const EMULATOR_RUN_TIMEOUT_MS = 3000;
+export const EMULATOR_MESSAGE_TIMEOUT_MS = 1000;
+export const EMULATOR_RUN_TIMEOUT_MS = 1000;
 export const EMULATOR_RUN_TIMEOUT_US = EMULATOR_RUN_TIMEOUT_MS * 1000;
 
 export const formatRuntimeError = (context: string, details?: string) =>
@@ -10,7 +10,7 @@ export const formatTimeoutError = (context: string, timeoutMs: number, details?:
   if (details) {
     suffix.push(details);
   }
-  return `TIMEOUT_ERROR: ${context} (${suffix.join(', ')})`;
+  return `timeout: ${context} (${suffix.join(', ')})`;
 };
 
 export const formatMemoryError = (context: string, details?: string) =>

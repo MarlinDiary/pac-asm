@@ -146,17 +146,18 @@ export const usePlayRunner = () => {
 
     let victoryAchievedThisTurn = false
 
+      const runAddress = MEMORY_CONFIG.DATA_BASE
+      const validValues = [1, 2, 3, 4]
+      const timeoutUs = EMULATOR_RUN_TIMEOUT_US
       try {
         // Execute until the program writes a move command to DATA_BASE
-        const runAddress = MEMORY_CONFIG.DATA_BASE
-        const validValues = [1, 2, 3, 4]
-        const timeoutUs = EMULATOR_RUN_TIMEOUT_US
         const result = await emulator.runUntilMemWrite(runAddress, validValues, timeoutUs)
 
         if (!result) {
-          const errorMessage = formatRuntimeError(
+          const errorMessage = formatTimeoutError(
             'runUntilMemWrite returned no result',
-            `addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}, timeout=${EMULATOR_RUN_TIMEOUT_MS}ms`
+            EMULATOR_RUN_TIMEOUT_MS,
+            `addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}`
           )
           addError(errorMessage, currentCodeRef.current)
           setMovementActionCount(movementCount)
@@ -232,6 +233,18 @@ export const usePlayRunner = () => {
 
       
       } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          const errorMessage = formatTimeoutError(
+            'No movement command observed',
+            EMULATOR_RUN_TIMEOUT_MS,
+            `addr=0x${runAddress.toString(16)}, expect=${validValues.join('/')}`
+          )
+          addError(errorMessage, currentCodeRef.current)
+          setMovementActionCount(movementCount)
+          setIsPlaying(false)
+          return { success: false as const, error: errorMessage }
+        }
+
         const detail = error instanceof Error ? error.message : 'unexpected failure'
 
         // Silently handle operation aborted without sending to diagnostics

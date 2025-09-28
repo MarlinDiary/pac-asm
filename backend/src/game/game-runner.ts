@@ -251,18 +251,45 @@ async function runAttempt(
         EMULATOR_RUN_TIMEOUT_US
       )
     } catch (error) {
-      const detail = error instanceof Error ? error.message : 'unexpected failure'
-      failureReason = formatRuntimeError('runUntilMemWrite execution failed', detail)
-      errors.push(failureReason)
       recordedMovementCount = movementCount
-      frames.push(await captureFrame(ctx.emulator, currentMapState, score, movementCount, 0, ctx.includeRegisters))
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        failureReason = formatTimeoutError(
+          'No movement command observed',
+          EMULATOR_RUN_TIMEOUT_MS,
+          `addr=0x${MEMORY_CONFIG.DATA_BASE.toString(16)}, expect=1/2/3/4`
+        )
+        errors.push(failureReason)
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          0,
+          ctx.includeRegisters,
+          undefined,
+          'timeout'
+        ))
+      } else {
+        const detail = error instanceof Error ? error.message : 'unexpected failure'
+        failureReason = formatRuntimeError('runUntilMemWrite execution failed', detail)
+        errors.push(failureReason)
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          0,
+          ctx.includeRegisters
+        ))
+      }
       break
     }
 
     if (!runResult) {
-      failureReason = formatRuntimeError(
+      failureReason = formatTimeoutError(
         'runUntilMemWrite returned no result',
-        `addr=0x${MEMORY_CONFIG.DATA_BASE.toString(16)}, expect=1/2/3/4, timeout=${EMULATOR_RUN_TIMEOUT_MS}ms`
+        EMULATOR_RUN_TIMEOUT_MS,
+        `addr=0x${MEMORY_CONFIG.DATA_BASE.toString(16)}, expect=1/2/3/4`
       )
       errors.push(failureReason)
       recordedMovementCount = movementCount

@@ -449,6 +449,14 @@ export class ExecutionEngine {
     let stopPending = false;
     const shouldUseCodeHook = this.arch !== 'MIPS_R6';
     let codeHookRegistered = false;
+    let timeoutTriggered = false;
+
+    const timeoutMs = Math.max(1, Math.ceil(timeoutUs / 1000));
+    const timeoutTimer = setTimeout(() => {
+      timeoutTriggered = true;
+      stopPending = true;
+      try { this.unicorn.emu_stop(); } catch {}
+    }, timeoutMs);
 
     const cb = (...hookArgs: unknown[]) => {
       const event = this.extractMemoryHookEvent(hookArgs);
@@ -511,6 +519,7 @@ export class ExecutionEngine {
         end
       );
     } catch (e) {
+      clearTimeout(timeoutTimer);
       return {
         message: `Failed to register memory hook: ${String(e)}`,
         executedInstructions: 0,
@@ -559,21 +568,12 @@ export class ExecutionEngine {
       }
     }
 
-    // Run with instruction count limit as timeout mechanism. timeoutUs is in microseconds,
-    // so convert to seconds first and then estimate roughly 1M instructions per second.
-    const estimatedInstructionsPerSecond = 1_000_000;
-    const timeoutSeconds = timeoutUs / 1_000_000;
-    const maxInstructions = Math.max(
-      1,
-      Math.ceil(timeoutSeconds * estimatedInstructionsPerSecond)
-    );
-
-
     try {
-      this.unicorn.emu_start(pc, endAddress, 0, maxInstructions);
+      this.unicorn.emu_start(pc, endAddress, 0, 0);
     } catch {
-      // Emulation stopped (reached instruction limit or other reason)
+      // Emulation stopped due to hook, worker shutdown, or other reason
     } finally {
+      clearTimeout(timeoutTimer);
       try {
         if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle);
       } catch {}
@@ -614,8 +614,10 @@ export class ExecutionEngine {
       stopReason = 'mem-write';
     } else if (pcAfter >= endAddress) {
       stopReason = 'end-of-code';
+    } else if (timeoutTriggered) {
+      stopReason = 'timeout';
     } else {
-      // If stopped without mem-write or reaching end, it must be timeout (instruction limit reached)
+      // No explicit stop reason reported; treat as timeout so host can handle it uniformly
       stopReason = 'timeout';
     }
     return {

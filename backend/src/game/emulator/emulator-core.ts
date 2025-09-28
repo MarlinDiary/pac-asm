@@ -1,10 +1,10 @@
 // Core EmulatorWorker class
 
 import { EMULATOR_RUN_TIMEOUT_US } from './errors';
-import { 
-  UnicornInstance, 
-  EmulatorMessage, 
-  EmulatorResponse, 
+import {
+  UnicornInstance,
+  EmulatorMessage,
+  EmulatorResponse,
   WorkerSelf,
   EmulatorConfig,
   UnicornGlobal,
@@ -14,6 +14,10 @@ import { UnicornLoader } from './unicorn-loader';
 import { LiteralPoolDetector } from './literal-pool';
 import { MemoryManager } from './memory-manager';
 import { ExecutionEngine } from './execution';
+
+interface EmulatorWorkerOptions {
+  baseDir?: string;
+}
 
 export class EmulatorWorker {
   private unicorn: UnicornInstance | null = null;
@@ -29,7 +33,7 @@ export class EmulatorWorker {
   private memoryManager: MemoryManager | null = null;
   private executionEngine: ExecutionEngine | null = null;
 
-  constructor(private workerSelf: WorkerSelf) {
+  constructor(private workerSelf: WorkerSelf, options: EmulatorWorkerOptions = {}) {
     this.config = {
       codeAddress: 0x10000,
       stackAddress: 0x20000,
@@ -38,7 +42,7 @@ export class EmulatorWorker {
       dataSize: 8 * 1024
     };
 
-    this.unicornLoader = new UnicornLoader(workerSelf);
+    this.unicornLoader = new UnicornLoader(workerSelf, { baseDir: options.baseDir });
     this.literalPoolDetector = new LiteralPoolDetector(this.config);
     
     // wait for explicit init message to set arch and load Unicorn script

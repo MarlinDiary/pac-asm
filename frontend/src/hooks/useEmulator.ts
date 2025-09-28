@@ -37,7 +37,65 @@ export const useEmulator = () => {
       }
     >
   >(new Map());
-  
+  const initializeEmulatorRef = useRef<(() => Promise<void>) | null>(null);
+
+  const flushPendingMessages = useCallback((buildError: (messageId: string) => Error) => {
+    pendingMessages.current.forEach(({ reject, timeoutId }, messageId) => {
+      clearTimeout(timeoutId);
+      try {
+        reject(buildError(messageId));
+      } catch {
+        // Swallow rejection errors to avoid cascading failures
+      }
+    });
+    pendingMessages.current.clear();
+  }, []);
+
+  const terminateWorker = useCallback(
+    (buildError?: (messageId: string) => Error) => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+      if (pendingMessages.current.size > 0) {
+        const builder = buildError ?? ((messageId: string) => new Error(
+          formatSystemError('Emulator worker terminated before response', messageId)
+        ));
+        flushPendingMessages(builder);
+      }
+    },
+    [flushPendingMessages]
+  );
+
+  const buildTimeoutError = (context: string, detail?: string) => {
+    const message = formatTimeoutError(context, EMULATOR_MESSAGE_TIMEOUT_MS, detail);
+    const error = new Error(message);
+    error.name = 'TimeoutError';
+    (error as Error & { code?: string }).code = 'timeout';
+    return error;
+  };
+
+  const handleWorkerTimeout = useCallback(
+    (triggerMessageId?: string) => {
+      const detail = triggerMessageId ? `messageId=${triggerMessageId}` : undefined;
+      terminateWorker((messageId) => buildTimeoutError('Worker unresponsive', `messageId=${messageId}`));
+
+      const timeoutMessage = buildTimeoutError('Worker unresponsive', detail).message;
+      setState((prev) => ({
+        ...prev,
+        isInitialized: false,
+        isRunning: false,
+        error: timeoutMessage,
+      }));
+
+      const reinitialize = initializeEmulatorRef.current;
+      if (reinitialize) {
+        void reinitialize().catch(() => undefined);
+      }
+    },
+    [terminateWorker]
+  );
+
   const sendMessage = useCallback((message: EmulatorMessage): Promise<EmulatorResponse> => {
     return new Promise((resolve, reject) => {
       if (!workerRef.current) {
@@ -50,22 +108,31 @@ export const useEmulator = () => {
       
       const timeoutId = setTimeout(() => {
         const pending = pendingMessages.current.get(messageId);
-        if (pending) {
-          pendingMessages.current.delete(messageId);
-          pending.reject(new Error(formatTimeoutError('Message response', EMULATOR_MESSAGE_TIMEOUT_MS)));
+        if (!pending) {
+          return;
         }
+
+        pendingMessages.current.delete(messageId);
+        clearTimeout(pending.timeoutId);
+        const timeoutError = buildTimeoutError('Message response', `messageId=${messageId}`);
+        pending.reject(timeoutError);
+        handleWorkerTimeout(messageId);
       }, EMULATOR_MESSAGE_TIMEOUT_MS);
 
       pendingMessages.current.set(messageId, { resolve, reject, timeoutId });
 
-      workerRef.current.postMessage(message);
+      try {
+        workerRef.current.postMessage(message);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        pendingMessages.current.delete(messageId);
+        reject(error as Error);
+      }
     });
-  }, []);
+  }, [handleWorkerTimeout]);
 
   const initializeEmulator = useCallback(async () => {
-    if (workerRef.current) {
-      workerRef.current.terminate();
-    }
+    terminateWorker();
 
     workerRef.current = new Worker(new URL('../workers/emulator/index.ts', import.meta.url));
     
@@ -93,14 +160,27 @@ export const useEmulator = () => {
       await sendMessage({ type: 'init', payload: { arch } });
       setState(prev => ({ ...prev, isInitialized: true, error: undefined }));
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return;
+      }
+
       const detail = error instanceof Error ? error.message : undefined;
-      setState(prev => ({ 
-        ...prev, 
-        isInitialized: false, 
-        error: formatSystemError('Initialize emulator', detail)
+      setState(prev => ({
+        ...prev,
+        isInitialized: false,
+        isRunning: false,
+        error: formatSystemError('Initialize emulator', detail),
       }));
     }
-  }, [sendMessage]);
+  }, [sendMessage, terminateWorker]);
+
+  initializeEmulatorRef.current = initializeEmulator;
 
   // React to global settings change for architecture: reset worker so it will be re-initialized next time
   useEffect(() => {
@@ -108,15 +188,12 @@ export const useEmulator = () => {
       const detail = (e as CustomEvent).detail as { architecture?: SettingsArchitecture } | undefined;
       if (!detail || !('architecture' in detail)) return;
       // Tear down current worker to force re-init with new arch on next use
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
+      terminateWorker();
       setState({ isInitialized: false, isRunning: false, currentPC: 0 });
     };
     window.addEventListener('pacasm-settings-changed', handler as EventListener);
     return () => window.removeEventListener('pacasm-settings-changed', handler as EventListener);
-  }, []);
+  }, [terminateWorker]);
 
   const loadCode = useCallback(async (machineCode: number[]) => {
     try {
@@ -125,6 +202,15 @@ export const useEmulator = () => {
         payload: machineCode 
       });
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return;
+      }
       const detail = error instanceof Error ? error.message : undefined;
       setState(prev => ({ 
         ...prev, 
@@ -147,6 +233,15 @@ export const useEmulator = () => {
       }
       return null;
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return null;
+      }
       const detail = error instanceof Error ? error.message : undefined;
       setState(prev => ({ 
         ...prev, 
@@ -172,6 +267,15 @@ export const useEmulator = () => {
       }
       return null;
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return null;
+      }
       const detail = error instanceof Error ? error.message : undefined;
       setState(prev => ({ 
         ...prev, 
@@ -210,6 +314,15 @@ export const useEmulator = () => {
         }
         return null;
       } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          setState(prev => ({
+            ...prev,
+            isInitialized: false,
+            isRunning: false,
+            error: error.message,
+          }));
+          return null;
+        }
         const timeoutMs = Math.round(timeoutUs / 1000);
         const detail = error instanceof Error
           ? error.message
@@ -234,6 +347,15 @@ export const useEmulator = () => {
         error: undefined 
       }));
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return;
+      }
       const detail = error instanceof Error ? error.message : undefined;
       setState(prev => ({ 
         ...prev, 
@@ -253,6 +375,15 @@ export const useEmulator = () => {
       }
       return null;
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return null;
+      }
       const detail = error instanceof Error ? error.message : undefined;
       setState(prev => ({ 
         ...prev, 
@@ -263,21 +394,13 @@ export const useEmulator = () => {
   }, [sendMessage]);
 
   const cleanup = useCallback(() => {
-    if (workerRef.current) {
-      workerRef.current.terminate();
-      workerRef.current = null;
-    }
+    terminateWorker();
     setState({
       isInitialized: false,
       isRunning: false,
       currentPC: 0,
     });
-    pendingMessages.current.forEach(({ reject, timeoutId }, messageId) => {
-      clearTimeout(timeoutId);
-      reject(new Error(formatSystemError('Emulator worker terminated before response', messageId)));
-    });
-    pendingMessages.current.clear();
-  }, []);
+  }, [terminateWorker]);
 
   const writeMemory = useCallback(async (address: number, data: number[]): Promise<boolean> => {
     try {
@@ -287,6 +410,15 @@ export const useEmulator = () => {
       });
       return response.type === 'success';
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return false;
+      }
       const detail = error instanceof Error ? error.message : undefined;
       setState(prev => ({ 
         ...prev, 
@@ -304,6 +436,15 @@ export const useEmulator = () => {
       }
       return null;
     } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setState(prev => ({
+          ...prev,
+          isInitialized: false,
+          isRunning: false,
+          error: error.message,
+        }));
+        return null;
+      }
       const detail = error instanceof Error ? error.message : undefined;
       setState(prev => ({ 
         ...prev, 
