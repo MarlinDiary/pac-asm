@@ -257,11 +257,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     
     const result = await debugState.startDebugLazy(currentCode, randomizedMap) // Use lazy debug initialization
     if (result.success && result.initialState) {
-      if (result.reorderedView) {
-        setCodeOverride(result.reorderedView.transformedSource)
-      } else {
-        setCodeOverride(null)
-      }
+      setCodeOverride(null)
       setCurrentMap(result.initialState.mapState)
       setHighlightedLine(result.initialState.highlightedLine)
       setHighlightedLineSecondary(result.initialState.highlightedLineSecondary)
