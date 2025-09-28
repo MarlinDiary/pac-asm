@@ -191,7 +191,7 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
           </span>
         ) : (
           <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
-            Please avoid frequent submissions
+            Your code will be ranked
           </span>
         )}
         <button
