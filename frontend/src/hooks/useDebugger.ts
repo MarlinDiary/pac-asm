@@ -63,64 +63,62 @@ export const useDebugger = () => {
   const [hasError, setHasError] = useState(false)
   const [isGameComplete, setIsGameComplete] = useState(false)
   const currentCodeRef = useRef<string>('')
-  const originalCodeMemoryRef = useRef<number[]>([])
   const [isInitializing, setIsInitializing] = useState(false)
   const [score, setScore] = useState(0)
   const scoreTrackerRef = useRef<ScoreTracker>(createScoreTracker())
+  const executionHistoryRef = useRef<PlaybackState[]>([])
+  const currentPlaybackIndexRef = useRef(-1)
+  const isGameCompleteRef = useRef(false)
+  const highlighterRef = useRef<CodeHighlighter | null>(null)
+  const stepQueueRef = useRef<Promise<void>>(Promise.resolve())
 
 
-  // Get current memory state
   const getMemoryState = async (): Promise<MemoryState | null> => {
     return await getEmulatorMemoryState(emulator)
   }
 
-
-
-  // Lazy debug mode - only prepare emulator without pre-execution
   const startDebugLazy = async (sourceCode: string, currentMap: GameMap): Promise<DebugInitializationResult> => {
     return await initializeDebugger(sourceCode, currentMap, true)
   }
 
-  // Common debugger initialization
   const initializeDebugger = async (sourceCode: string, currentMap: GameMap, lazy: boolean): Promise<DebugInitializationResult> => {
-    // Cancel any existing initialization
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
-    
-    // Reset state immediately to clear panels
+
     setExecutionHistory([])
+    executionHistoryRef.current = []
     setCurrentPlaybackIndex(-1)
+    currentPlaybackIndexRef.current = -1
     setHighlighter(null)
+    highlighterRef.current = null
     setIsLazyMode(lazy)
     setHasReachedEnd(false)
     setHasError(false)
     setIsGameComplete(false)
+    isGameCompleteRef.current = false
     setIsInitializing(true)
     setScore(0)
     scoreTrackerRef.current = createScoreTracker()
-    
+    stepQueueRef.current = Promise.resolve()
+
     currentCodeRef.current = sourceCode
-    
+
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     
     try {
-      const { codeHighlighter, machineCode } = await initializeEmulatorWithCode(emulator, sourceCode, currentMap, abortController)
-      
-      // Save original code memory for reloading in cycles
-      originalCodeMemoryRef.current = machineCode
+      const { codeHighlighter } = await initializeEmulatorWithCode(emulator, sourceCode, currentMap, abortController)
       
       const initialMemory = await getMemoryState()
-      
+
       if (!initialMemory) {
         throw new Error('Failed to get initial memory state')
       }
-      
+
       const initialState: PlaybackState = {
         mapState: { 
           ...currentMap,
-          // Ensure initial ghost animations exist
           ghostAnimations: currentMap.ghostAnimations || currentMap.ghostPositions?.map(() => ({ shouldAnimate: true })) || []
         },
         highlightedLine: undefined,
@@ -130,31 +128,33 @@ export const useDebugger = () => {
         score: 0,
         scoreTracker: createScoreTracker()
       }
-      
-      // Check if operation was aborted before setting state
+
       if (abortController.signal.aborted) {
         setIsInitializing(false)
         return { success: false, error: null }
       }
 
       setHighlighter(codeHighlighter)
+      highlighterRef.current = codeHighlighter
 
       if (lazy) {
-        // Lazy mode: only set initial state
         setExecutionHistory([initialState])
+        executionHistoryRef.current = [initialState]
         setCurrentPlaybackIndex(0)
+        currentPlaybackIndexRef.current = 0
         setScore(0)
         setIsInitializing(false)
         return { success: true, initialState }
       } else {
-        // Standard mode: pre-execute all steps
         const fullHistory = await executeAllSteps(codeHighlighter, initialState, abortController)
         if (abortController.signal.aborted) {
           setIsInitializing(false)
           return { success: false, error: null }
         }
         setExecutionHistory(fullHistory)
+        executionHistoryRef.current = fullHistory
         setCurrentPlaybackIndex(0)
+        currentPlaybackIndexRef.current = 0
         if (fullHistory.length > 0) {
           scoreTrackerRef.current = { ...fullHistory[0].scoreTracker }
         }
@@ -166,7 +166,6 @@ export const useDebugger = () => {
       setIsInitializing(false)
       const errorMessage = error instanceof Error ? error.message : String(error)
 
-      // Silently handle operation aborted without sending to diagnostics
       if (errorMessage.includes('Operation aborted') || errorMessage.includes('aborted')) {
         return { success: false, error: null }
       }
@@ -176,9 +175,7 @@ export const useDebugger = () => {
     }
   }
 
-  // Pre-execute all steps for standard debug mode
   const executeAllSteps = async (codeHighlighter: CodeHighlighter, initialState: PlaybackState, abortController: AbortController): Promise<PlaybackState[]> => {
-    // Keep standard mode simple: step sequentially, update map only when 0x30000 is written.
     let scoreTracker = createScoreTracker()
     const history: PlaybackState[] = [{ ...initialState, scoreTracker: { ...scoreTracker } }]
     let currentMapState = { ...initialState.mapState }
@@ -194,7 +191,6 @@ export const useDebugger = () => {
       const memoryState = await getMemoryState()
       if (!memoryState) continue
 
-      // Apply movement only if this step wrote to 0x30000 with value 1..4
       const ev = stepResult.memWriteEvent
       if (ev && ev.address === 0x30000 && ev.value >= 1 && ev.value <= 4) {
         currentMapState = updateMapWithMovementAndGhosts(currentMapState, ev.value)
@@ -206,7 +202,6 @@ export const useDebugger = () => {
 
       const currentScore = scoreTracker.score
 
-      // If code completed on this step, clear highlight immediately
       if (isCodeExecutionComplete(stepResult)) {
         highlightInfo = null
       }
@@ -227,7 +222,6 @@ export const useDebugger = () => {
     return history
   }
 
-  // Helper function to ensure animation state is added to a state
   const ensureAnimationState = (state: PlaybackState): PlaybackState => {
     return {
       ...state,
@@ -242,49 +236,7 @@ export const useDebugger = () => {
     }
   }
 
-  // Execute one step on demand for lazy mode
-  const stepDownLazy = async () => {
-    // Don't allow stepping during initialization
-    if (isInitializing) {
-      console.warn('[DEBUGGER] Cannot step while initializing')
-      return null
-    }
-    
-    // Check if current state has game over
-    const currentState = getCurrentState()
-    if (currentState && currentState.mapState.gameOver) {
-      console.warn('[DEBUGGER] Game is over, cannot execute new steps')
-      return null
-    }
-    
-    // First check if we can move forward in existing history (always allowed)
-    if (currentPlaybackIndex < executionHistory.length - 1) {
-      const nextIndex = currentPlaybackIndex + 1
-      setCurrentPlaybackIndex(nextIndex)
-      scoreTrackerRef.current = { ...executionHistory[nextIndex].scoreTracker }
-      setScore(executionHistory[nextIndex].score)
-      return executionHistory[nextIndex]
-    }
-    
-    // Don't allow NEW step execution if game is complete
-    if (isGameComplete) {
-      console.warn('[DEBUGGER] Game is complete, cannot execute new steps')
-      return null
-    }
-    
-    // Check if debugger is properly initialized for NEW step execution
-    if (!highlighter || executionHistory.length === 0 || currentPlaybackIndex < 0) {
-      console.error('[DEBUGGER] Debugger not properly initialized for step operation')
-      const reasons: string[] = []
-      if (!highlighter) reasons.push('highlighter not initialized')
-      if (executionHistory.length === 0) reasons.push('no execution history')
-      if (currentPlaybackIndex < 0) reasons.push('invalid playback index')
-      const errorMessage = `DEBUG_ERROR: Debugger not ready for step (${reasons.join(', ') || 'unknown reason'})`
-      addError(errorMessage, currentCodeRef.current)
-      return null
-    }
-    
-    // Execute a new step
+  const performLazyStep = async (): Promise<PlaybackState | null> => {
     try {
       const stepResult = await emulator.step()
       if (!stepResult || !stepResult.success) {
@@ -294,13 +246,21 @@ export const useDebugger = () => {
         addError(errorMessage, currentCodeRef.current)
         return null
       }
-      
-      const currentState = executionHistory[currentPlaybackIndex]
+
+      const history = executionHistoryRef.current
+      const playbackIndex = currentPlaybackIndexRef.current
+      const currentState = history[playbackIndex]
+
+      if (!currentState) {
+        setHasError(true)
+        addError(formatRuntimeError('Debugger state unavailable during step'), currentCodeRef.current)
+        return null
+      }
+
       let newMapState = { ...currentState.mapState }
-      let currentHighlight: number | undefined = undefined
-      let currentHighlightSecondary: number | undefined = undefined
-      
-      // Movement only when current step wrote to 0x30000 with 1..4
+      let currentHighlight: number | undefined
+      let currentHighlightSecondary: number | undefined
+
       const ev = stepResult.memWriteEvent
       if (ev && ev.address === 0x30000 && ev.value >= 1 && ev.value <= 4) {
         newMapState = updateMapWithMovementAndGhosts(newMapState, ev.value)
@@ -312,8 +272,8 @@ export const useDebugger = () => {
         setScore(scoreTrackerRef.current.score)
       }
 
-      const highlight = highlighter ? getHighlightFromStepResult(stepResult, highlighter) : null
-      // If code completed on this step, clear highlight immediately
+      const highlighterInstance = highlighterRef.current
+      const highlight = highlighterInstance ? getHighlightFromStepResult(stepResult, highlighterInstance) : null
       if (!isCodeExecutionComplete(stepResult) && highlight) {
         currentHighlight = highlight.lineNumbers?.[0]
         currentHighlightSecondary = highlight.lineNumbers?.[1]
@@ -334,23 +294,26 @@ export const useDebugger = () => {
         score: scoreTrackerRef.current.score,
         scoreTracker: { ...scoreTrackerRef.current }
       }
-      
-      const newHistory = [...executionHistory, newState]
-      setExecutionHistory(newHistory)
-      setCurrentPlaybackIndex(currentPlaybackIndex + 1)
 
-      // Stop stepping if code has completed
+      const updatedHistory = [...history, newState]
+      executionHistoryRef.current = updatedHistory
+      setExecutionHistory(updatedHistory)
+
+      const nextIndex = playbackIndex + 1
+      currentPlaybackIndexRef.current = nextIndex
+      setCurrentPlaybackIndex(nextIndex)
+
       if (isCodeExecutionComplete(stepResult)) {
         setHasReachedEnd(true)
         setIsGameComplete(true)
+        isGameCompleteRef.current = true
       }
-      
+
       return newState
     } catch (error) {
       setHasError(true)
       const errorMessage = error instanceof Error ? error.message : String(error)
 
-      // Silently handle operation aborted without sending to diagnostics
       if (errorMessage.includes('Operation aborted') || errorMessage.includes('aborted')) {
         return null
       }
@@ -360,38 +323,105 @@ export const useDebugger = () => {
     }
   }
 
-  const stepDown = () => {
-    if (currentPlaybackIndex < executionHistory.length - 1) {
-      const nextIndex = currentPlaybackIndex + 1
+  const stepDownLazy = async (): Promise<PlaybackState | null> => {
+    if (isInitializing) {
+      return null
+    }
+
+    const history = executionHistoryRef.current
+    const playbackIndex = currentPlaybackIndexRef.current
+    const currentState = history[playbackIndex]
+
+    if (currentState && currentState.mapState.gameOver) {
+      return null
+    }
+
+    if (playbackIndex < history.length - 1) {
+      const nextIndex = playbackIndex + 1
+      const nextState = history[nextIndex]
+      if (!nextState) {
+        return null
+      }
+
+      currentPlaybackIndexRef.current = nextIndex
       setCurrentPlaybackIndex(nextIndex)
-      scoreTrackerRef.current = { ...executionHistory[nextIndex].scoreTracker }
-      setScore(executionHistory[nextIndex].score)
-      return ensureAnimationState(executionHistory[nextIndex])
+      scoreTrackerRef.current = { ...nextState.scoreTracker }
+      setScore(nextState.score)
+      return nextState
+    }
+
+    if (isGameCompleteRef.current) {
+      return null
+    }
+
+    const highlighterInstance = highlighterRef.current
+    if (!highlighterInstance || history.length === 0 || playbackIndex < 0) {
+      const reasons: string[] = []
+      if (!highlighterInstance) reasons.push('highlighter not initialized')
+      if (history.length === 0) reasons.push('no execution history')
+      if (playbackIndex < 0) reasons.push('invalid playback index')
+      const errorMessage = `DEBUG_ERROR: Debugger not ready for step (${reasons.join(', ') || 'unknown reason'})`
+      addError(errorMessage, currentCodeRef.current)
+      return null
+    }
+
+    const resultPromise = stepQueueRef.current.then(() => performLazyStep())
+    stepQueueRef.current = resultPromise.then(
+      () => undefined,
+      () => undefined
+    )
+    return resultPromise
+  }
+
+  const stepDown = () => {
+    const history = executionHistoryRef.current
+    const playbackIndex = currentPlaybackIndexRef.current
+    if (playbackIndex < history.length - 1) {
+      const nextIndex = playbackIndex + 1
+      const nextState = history[nextIndex]
+      if (!nextState) {
+        return null
+      }
+
+      currentPlaybackIndexRef.current = nextIndex
+      setCurrentPlaybackIndex(nextIndex)
+      scoreTrackerRef.current = { ...nextState.scoreTracker }
+      setScore(nextState.score)
+      return ensureAnimationState(nextState)
     }
     return null
   }
 
   const stepUp = () => {
-    if (currentPlaybackIndex > 0) {
-      const prevIndex = currentPlaybackIndex - 1
+    const history = executionHistoryRef.current
+    const playbackIndex = currentPlaybackIndexRef.current
+    if (playbackIndex > 0) {
+      const prevIndex = playbackIndex - 1
+      const prevState = history[prevIndex]
+      if (!prevState) {
+        return null
+      }
+
+      currentPlaybackIndexRef.current = prevIndex
       setCurrentPlaybackIndex(prevIndex)
-      // Reset error state when stepping back, allowing forward stepping again
       if (hasError) {
         setHasError(false)
       }
-      scoreTrackerRef.current = { ...executionHistory[prevIndex].scoreTracker }
-      setScore(executionHistory[prevIndex].score)
-      return ensureAnimationState(executionHistory[prevIndex])
+      scoreTrackerRef.current = { ...prevState.scoreTracker }
+      setScore(prevState.score)
+      return ensureAnimationState(prevState)
     }
     return null
   }
 
   const replay = () => {
-    if (executionHistory.length > 0) {
+    const history = executionHistoryRef.current
+    if (history.length > 0) {
+      currentPlaybackIndexRef.current = 0
       setCurrentPlaybackIndex(0)
-      scoreTrackerRef.current = { ...executionHistory[0].scoreTracker }
-      setScore(executionHistory[0].score)
-      return executionHistory[0]
+      scoreTrackerRef.current = { ...history[0].scoreTracker }
+      setScore(history[0].score)
+      return history[0]
     }
     return null
   }
@@ -401,23 +431,26 @@ export const useDebugger = () => {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
-    
-    // Clear state
     setCurrentPlaybackIndex(-1)
+    currentPlaybackIndexRef.current = -1
     setExecutionHistory([])
+    executionHistoryRef.current = []
     setHighlighter(null)
+    highlighterRef.current = null
     setIsLazyMode(false)
     setHasReachedEnd(false)
     setHasError(false)
     setIsGameComplete(false)
+    isGameCompleteRef.current = false
     setIsInitializing(false)
     setScore(0)
     scoreTrackerRef.current = createScoreTracker()
+    stepQueueRef.current = Promise.resolve()
     
     try {
       await emulator.reset()
     } catch {
-      // Silently handle reset failure
+      return
     }
   }, [emulator])
 
@@ -449,7 +482,7 @@ export const useDebugger = () => {
     canStepUp: currentPlaybackIndex > 0 && !isInitializing,
     canStepDown: !isInitializing && emulator.state.isInitialized && !hasError && !isGameOver && (
       isLazyMode ? 
-        (currentPlaybackIndex < executionHistory.length - 1 || !isGameComplete) : // In lazy mode, allow if in history OR if game not complete
+        (currentPlaybackIndex < executionHistory.length - 1 || !isGameComplete) :
         (!isGameComplete && currentPlaybackIndex < executionHistory.length - 1)
     ),
     startDebugLazy,
