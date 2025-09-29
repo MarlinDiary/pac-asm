@@ -348,8 +348,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     const activeBreakpoints = Array.from(new Set(breakpoints)).filter((line) => line > 0)
 
     if (activeBreakpoints.length === 0) {
-      // No breakpoints - only lock during map animation
-      void (async () => {
+      // No breakpoints - lock during entire execution
+      void runWithStepLock(async () => {
         const nextState = await debugState.stepDownLazy()
         if (!nextState) {
           return
@@ -357,17 +357,11 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
         const animation = nextState.animationFrames
         if (animation?.forward?.length) {
-          // Lock buttons only during map update animation
-          lockSteps()
-          try {
-            await playAnimationFrames(animation.forward, animation.frameDurationMs)
-          } finally {
-            unlockSteps()
-          }
+          await playAnimationFrames(animation.forward, animation.frameDurationMs)
         }
 
         applyFinalState(nextState)
-      })()
+      })
       return
     }
 
@@ -420,57 +414,31 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     applyFinalState,
     breakpoints,
     debugState,
-    lockSteps,
     playAnimationFrames,
     runWithStepLock,
     setCurrentMap,
     setHighlightedLine,
-    setHighlightedLineSecondary,
-    unlockSteps
+    setHighlightedLineSecondary
   ])
 
   const handleStepUp = useCallback(() => {
     const currentState = debugState.getCurrentState()
-    const activeBreakpoints = Array.from(new Set(breakpoints)).filter((line) => line > 0)
 
-    if (activeBreakpoints.length === 0) {
-      // No breakpoints - only lock during map animation
-      void (async () => {
-        const prevState = debugState.stepUp()
-        if (!prevState) {
-          return
-        }
+    // Always use lock for consistency
+    void runWithStepLock(async () => {
+      const prevState = debugState.stepUp()
+      if (!prevState) {
+        return
+      }
 
-        const reverseAnimation = currentState?.animationFrames
-        if (reverseAnimation?.reverse?.length) {
-          // Lock buttons only during map update animation
-          lockSteps()
-          try {
-            await playAnimationFrames(reverseAnimation.reverse, reverseAnimation.frameDurationMs)
-          } finally {
-            unlockSteps()
-          }
-        }
+      const reverseAnimation = currentState?.animationFrames
+      if (reverseAnimation?.reverse?.length) {
+        await playAnimationFrames(reverseAnimation.reverse, reverseAnimation.frameDurationMs)
+      }
 
-        applyFinalState(prevState)
-      })()
-    } else {
-      // With breakpoints - use lock to prevent UI inconsistencies
-      void runWithStepLock(async () => {
-        const prevState = debugState.stepUp()
-        if (!prevState) {
-          return
-        }
-
-        const reverseAnimation = currentState?.animationFrames
-        if (reverseAnimation?.reverse?.length) {
-          await playAnimationFrames(reverseAnimation.reverse, reverseAnimation.frameDurationMs)
-        }
-
-        applyFinalState(prevState)
-      })
-    }
-  }, [applyFinalState, breakpoints, debugState, lockSteps, playAnimationFrames, runWithStepLock, unlockSteps])
+      applyFinalState(prevState)
+    })
+  }, [applyFinalState, debugState, playAnimationFrames, runWithStepLock])
 
   const handleStopClick = useCallback(async () => {
     setIsCodeDisabled(false)
