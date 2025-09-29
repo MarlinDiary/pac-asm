@@ -14,6 +14,8 @@ interface CodeEditorProps {
   className?: string
   highlightedLine?: number
   highlightedLineSecondary?: number
+  breakpoints?: number[]
+  onBreakpointsChange?: (updater: number[] | ((prev: number[]) => number[])) => void
 }
 
 export default function CodeEditor({
@@ -24,11 +26,15 @@ export default function CodeEditor({
   disabled = false,
   className = '',
   highlightedLine,
-  highlightedLineSecondary
+  highlightedLineSecondary,
+  breakpoints = [],
+  onBreakpointsChange
 }: CodeEditorProps) {
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
   const decorationsRef = useRef<string[]>([])
+  const breakpointDecorationsRef = useRef<import('monaco-editor').editor.IEditorDecorationsCollection | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  const hoverDecorationsRef = useRef<string[]>([])
   const { theme, systemTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
@@ -388,6 +394,57 @@ export default function CodeEditor({
     const currentTheme = isDark ? 'custom-assembly-dark' : 'custom-assembly-light'
     monaco.editor.setTheme(currentTheme)
     
+    // Handle breakpoint clicks in glyph margin
+    editor.onMouseDown((e) => {
+      // MouseTargetType.GUTTER_GLYPH_MARGIN = 2 (empty glyph margin)
+      // MouseTargetType.GUTTER_LINE_DECORATIONS = 4 (glyph decoration)
+      // Also check type 3 (GUTTER_LINE_NUMBERS) for wider click area
+      if ((e.target.type === 2 || e.target.type === 3 || e.target.type === 4) && onBreakpointsChange) {
+        const lineNumber = e.target.position?.lineNumber
+        if (lineNumber) {
+          e.event.preventDefault()
+          e.event.stopPropagation()
+          // Use callback pattern to avoid stale closure issues
+          onBreakpointsChange((prevBreakpoints) => {
+            // Toggle breakpoint at this line
+            if (prevBreakpoints.includes(lineNumber)) {
+              return prevBreakpoints.filter(bp => bp !== lineNumber)
+            } else {
+              return [...prevBreakpoints, lineNumber].sort((a, b) => a - b)
+            }
+          })
+        }
+      }
+    })
+
+    // Handle hover effect for glyph margin
+    editor.onMouseMove((e) => {
+      // Show hover decoration when hovering over glyph margin (type 2 or 3)
+      if ((e.target.type === 2 || e.target.type === 3) && !breakpoints.includes(e.target.position?.lineNumber || 0)) {
+        const lineNumber = e.target.position?.lineNumber
+        if (lineNumber) {
+          // Add hover decoration
+          hoverDecorationsRef.current = editor.deltaDecorations(hoverDecorationsRef.current, [
+            {
+              range: new monaco.Range(lineNumber, 1, lineNumber, 1),
+              options: {
+                isWholeLine: false,
+                glyphMarginClassName: 'breakpoint-hover-glyph'
+              }
+            }
+          ])
+        }
+      } else {
+        // Clear hover decoration
+        hoverDecorationsRef.current = editor.deltaDecorations(hoverDecorationsRef.current, [])
+      }
+    })
+
+    // Clear hover decoration when mouse leaves editor
+    editor.onMouseLeave(() => {
+      hoverDecorationsRef.current = editor.deltaDecorations(hoverDecorationsRef.current, [])
+    })
+
     // Mark editor as ready after a short delay
     setTimeout(() => setEditorReady(true), 10)
   }
@@ -585,6 +642,40 @@ export default function CodeEditor({
     decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [])
   }, [highlightedLine, highlightedLineSecondary])
 
+  // Effect to handle breakpoint decorations
+  useEffect(() => {
+    if (!editorRef.current || !monacoRef.current) {
+      return
+    }
+
+    const editor = editorRef.current
+    const monaco = monacoRef.current
+
+    // Clear old collection if it exists
+    if (breakpointDecorationsRef.current) {
+      breakpointDecorationsRef.current.clear()
+    }
+
+    // Create new decorations collection
+    if (breakpoints.length > 0) {
+      const newDecorations = breakpoints.map(line => ({
+        range: new monaco.Range(line, 1, line, 1),
+        options: {
+          isWholeLine: false,
+          glyphMarginClassName: 'breakpoint-glyph',
+          stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+        }
+      }))
+
+      // Create decorations collection if not exists
+      if (!breakpointDecorationsRef.current) {
+        breakpointDecorationsRef.current = editor.createDecorationsCollection(newDecorations)
+      } else {
+        breakpointDecorationsRef.current.set(newDecorations)
+      }
+    }
+  }, [breakpoints])
+
   return (
     <div 
       className={`h-full w-full ${className} ${disabled ? 'disabled-editor' : ''}`}
@@ -695,6 +786,56 @@ export default function CodeEditor({
           .disabled-editor .scrollbar {
             pointer-events: auto !important;
           }
+          /* Breakpoint styles */
+          .monaco-editor .glyph-margin {
+            cursor: pointer !important;
+          }
+          /* Hover effect for glyph margin */
+          .monaco-editor .breakpoint-hover-glyph {
+            background: transparent;
+            cursor: pointer !important;
+          }
+          .monaco-editor .breakpoint-hover-glyph::before {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(212, 125, 120, 0.3);
+            pointer-events: none;
+          }
+          .dark .monaco-editor .breakpoint-hover-glyph::before {
+            background-color: rgba(212, 125, 120, 0.3);
+          }
+          /* Actual breakpoint styles */
+          .monaco-editor .breakpoint-glyph {
+            background: transparent;
+            cursor: pointer !important;
+          }
+          .monaco-editor .breakpoint-glyph::before {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #D47D78;
+            pointer-events: none;
+          }
+          .dark .monaco-editor .breakpoint-glyph::before {
+            background-color: #D47D78;
+          }
+          /* Ensure glyphs are clickable */
+          .monaco-editor .margin-view-overlays .glyph-margin-widgets {
+            pointer-events: auto !important;
+          }
         `
       }} />
       <Editor
@@ -712,8 +853,8 @@ export default function CodeEditor({
           fontSize: settings.fontSize,
           fontFamily: 'Menlo, Monaco, "Courier New", monospace',
           lineNumbers: 'on',
-          lineNumbersMinChars: 5,
-          glyphMargin: false,
+          lineNumbersMinChars: 3,
+          glyphMargin: true,
           roundedSelection: false,
           scrollBeyondLastLine: false,
           automaticLayout: true,

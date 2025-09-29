@@ -56,9 +56,8 @@ export class EmulatorWorker {
         const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
         // Match GAS target mips-linux-gnu (big-endian)
         const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
-        const r6Bit = uc.MODE_MIPS32R6 || (uc as unknown as Record<string, number>).MODE_MIPS32R6 || 0;
-        const modeConst = this.arch === 'MIPS_R6' && r6Bit ? (baseMode | r6Bit) : baseMode;
-        this.unicorn = new uc.Unicorn(archConst, modeConst);
+        // The shipped unicorn_wasm_mips.wasm already targets MIPS R6, so avoid setting the mode flag again.
+        this.unicorn = new uc.Unicorn(archConst, baseMode);
       } else {
         this.unicorn = new uc.Unicorn(uc.ARCH_ARM, uc.MODE_ARM);
       }
@@ -111,9 +110,7 @@ export class EmulatorWorker {
         const uc = this.uc;
         const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
         const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
-        const r6Bit = uc.MODE_MIPS32R6 || (uc as unknown as Record<string, number>).MODE_MIPS32R6 || 0;
-        const modeConst = (baseMode | r6Bit);
-        this.unicorn = new uc.Unicorn(archConst, modeConst);
+        this.unicorn = new uc.Unicorn(archConst, baseMode);
 
         // Reinitialize managers with new instance
         this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.arch);
@@ -269,14 +266,13 @@ export class EmulatorWorker {
     }
   }
 
-  private runUntilMemWrite(address: number, validValues?: number[], timeoutUs?: number): void {
+  private runUntilMemWrite(address: number, validValues?: number[], timeoutUs?: number, breakpointAddresses?: number[]): void {
     try {
       if (!this.executionEngine || !this.isInitialized) {
         throw new Error('Emulator not initialized');
       }
 
-      const effectiveTimeoutUs = timeoutUs ?? EMULATOR_RUN_TIMEOUT_US;
-      const result = this.executionEngine.runUntilMemoryWrite(address, validValues, effectiveTimeoutUs);
+      const result = this.executionEngine.runUntilMemoryWrite(address, validValues, timeoutUs ?? EMULATOR_RUN_TIMEOUT_US, breakpointAddresses ?? []);
 
       this.postMessage({
         type: 'execution-complete',
@@ -395,9 +391,15 @@ export class EmulatorWorker {
         break;
       case 'run':
         if (typeof message.payload === 'object' && message.payload) {
-          const p = message.payload as { instructionCount?: number; untilMemWriteAt?: number; validValues?: number[]; timeoutUs?: number };
+          const p = message.payload as {
+            instructionCount?: number
+            untilMemWriteAt?: number
+            validValues?: number[]
+            timeoutUs?: number
+            breakpointAddresses?: number[]
+          };
           if (p.untilMemWriteAt !== undefined) {
-            this.runUntilMemWrite(p.untilMemWriteAt, p.validValues, p.timeoutUs);
+            this.runUntilMemWrite(p.untilMemWriteAt, p.validValues, p.timeoutUs, p.breakpointAddresses);
           } else if (p.instructionCount !== undefined) {
             this.runExecution(p.instructionCount);
           } else {

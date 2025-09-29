@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { GameMap, getPlayerPosition } from '@/data/maps'
 import { useDebugger } from './useDebugger'
+import type { PlaybackState } from './useDebugger'
 import { usePlayRunner } from './usePlayRunner'
 import { useGameState } from './useGameState'
-import { ensurePlayerAnimation, checkVictoryCondition } from '@/lib/game-animation'
+import { ensurePlayerAnimation, checkVictoryCondition, DEBUG_STEP_FRAME_DELAY_MS, cloneGameMap } from '@/lib/game-animation'
+import type { AnimatedGameState } from '@/lib/game-animation'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import type { Architecture } from '@/hooks/useSettings'
 
@@ -78,6 +80,18 @@ const handleVictoryCheck = (
   }
 }
 
+const waitForAnimationWindow = async (duration: number) => {
+  await new Promise<void>((resolve) => {
+    if (typeof window === 'undefined') {
+      setTimeout(resolve, duration)
+      return
+    }
+    window.requestAnimationFrame(() => {
+      setTimeout(resolve, duration)
+    })
+  })
+}
+
 export const useExecutionControl = ({ gameState, levelMap, levelId, architecture }: UseExecutionControlProps) => {
   const { data: session } = useSession()
   const debugState = useDebugger()
@@ -91,6 +105,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isStepTemporarilyDisabled, setIsStepTemporarilyDisabled] = useState(false)
   const stepLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stepLockCountRef = useRef(0)
+  const [isDebuggerBarVisible, setIsDebuggerBarVisible] = useState(true)
   const userInfo = useMemo(() => {
     const id = session?.user?.email ?? session?.user?.name ?? ''
     const name = session?.user?.name ?? session?.user?.email ?? ''
@@ -129,6 +145,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setCurrentPlayGameOver,
     setHighlightedLine,
     setHighlightedLineSecondary,
+    breakpoints,
     setCurrentMap,
     setLeftPanelTab,
     setCodeOverride,
@@ -242,6 +259,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const handleDebugClick = useCallback(async () => {
 
     setLeftPanelTab(0)
+    setIsDebuggerBarVisible(true)
 
     // Use level map as-is (disable Level 4 dot randomization)
     const randomizedMap = levelMap
@@ -270,57 +288,189 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     }
   }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, setLeftPanelTab, debugState])
 
-  const disableStepsTemporarily = useCallback(() => {
+  const lockSteps = useCallback(() => {
     if (stepLockTimeoutRef.current) {
       clearTimeout(stepLockTimeoutRef.current)
-    }
-    setIsStepTemporarilyDisabled(true)
-    stepLockTimeoutRef.current = setTimeout(() => {
-      setIsStepTemporarilyDisabled(false)
       stepLockTimeoutRef.current = null
-    }, 100)
-  }, [])
-
-  const handleStepDown = useCallback(async () => {
-    const previousMap = currentMap
-    const nextState = await debugState.stepDownLazy()
-    if (nextState) {
-      const stateWithAnimation = ensurePlayerAnimation(nextState)
-      setCurrentMap(stateWithAnimation.mapState)
-      setHighlightedLine(nextState.highlightedLine)
-      setHighlightedLineSecondary(nextState.highlightedLineSecondary)
-      const memEvent = nextState.stepResult?.memWriteEvent
-      const isMovementCommand = memEvent?.address === 0x30000 && memEvent.value >= 1 && memEvent.value <= 4
-      if (isMovementCommand || didPlayerPositionChange(previousMap, stateWithAnimation.mapState)) {
-        disableStepsTemporarily()
-      }
     }
-  }, [currentMap, debugState, disableStepsTemporarily, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
+    if (stepLockCountRef.current === 0) {
+      setIsStepTemporarilyDisabled(true)
+    }
+    stepLockCountRef.current += 1
+  }, [setIsStepTemporarilyDisabled])
+
+  const unlockSteps = useCallback(() => {
+    if (stepLockCountRef.current === 0) {
+      return
+    }
+    stepLockCountRef.current -= 1
+    if (stepLockCountRef.current === 0) {
+      setIsStepTemporarilyDisabled(false)
+    }
+  }, [setIsStepTemporarilyDisabled])
+
+  const runWithStepLock = useCallback(async (task: () => Promise<void> | void) => {
+    lockSteps()
+    try {
+      await task()
+    } finally {
+      unlockSteps()
+    }
+  }, [lockSteps, unlockSteps])
+
+  const playAnimationFrames = useCallback(async (
+    frames: GameMap[] | undefined,
+    frameDurationMs?: number
+  ) => {
+    if (!frames || frames.length === 0) {
+      return
+    }
+    const duration = frameDurationMs && frameDurationMs > 0
+      ? frameDurationMs
+      : DEBUG_STEP_FRAME_DELAY_MS
+    const framesToPlay = frames.map((frame) => cloneGameMap(frame))
+
+    for (const frame of framesToPlay) {
+      const animatedFrame = ensurePlayerAnimation({ mapState: frame } as AnimatedGameState)
+      setCurrentMap(animatedFrame.mapState)
+      await waitForAnimationWindow(duration)
+    }
+  }, [setCurrentMap])
+
+  const applyFinalState = useCallback((state: PlaybackState) => {
+    const stateWithAnimation = ensurePlayerAnimation(state)
+    setCurrentMap(stateWithAnimation.mapState)
+    setHighlightedLine(state.highlightedLine)
+    setHighlightedLineSecondary(state.highlightedLineSecondary)
+  }, [setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
+
+  const handleStepDown = useCallback(() => {
+    const activeBreakpoints = Array.from(new Set(breakpoints)).filter((line) => line > 0)
+
+    if (activeBreakpoints.length === 0) {
+      // No breakpoints - step queue already handles serialization, no need for lock
+      void (async () => {
+        const nextState = await debugState.stepDownLazy()
+        if (!nextState) {
+          return
+        }
+
+        const animation = nextState.animationFrames
+        if (animation?.forward?.length) {
+          await playAnimationFrames(animation.forward, animation.frameDurationMs)
+        }
+
+        applyFinalState(nextState)
+      })()
+      return
+    }
+
+    void runWithStepLock(async () => {
+      setHighlightedLine(undefined)
+      setHighlightedLineSecondary(undefined)
+
+      let finalState: PlaybackState | null = null
+      try {
+        finalState = await debugState.runToBreakpoints(activeBreakpoints, {
+          onIntermediate: async ({ mapState, animationFrames }) => {
+            if (animationFrames?.forward?.length) {
+              await playAnimationFrames(animationFrames.forward, animationFrames.frameDurationMs)
+              return
+            }
+
+            const animated = ensurePlayerAnimation({ mapState } as AnimatedGameState)
+            setCurrentMap(animated.mapState)
+            await waitForAnimationWindow(animationFrames?.frameDurationMs ?? DEBUG_STEP_FRAME_DELAY_MS)
+          }
+        })
+      } catch (error) {
+        if (error instanceof Error && error.name === 'BreakpointRunError') {
+          return
+        }
+        throw error
+      }
+
+      if (finalState) {
+        applyFinalState(finalState)
+        return
+      }
+
+      if (debugState.hasError) {
+        return
+      }
+
+      const fallbackState = await debugState.stepDownLazy()
+      if (!fallbackState) {
+        return
+      }
+
+      const animation = fallbackState.animationFrames
+      if (animation?.forward?.length) {
+        await playAnimationFrames(animation.forward, animation.frameDurationMs)
+      }
+      applyFinalState(fallbackState)
+    })
+  }, [
+    applyFinalState,
+    breakpoints,
+    debugState,
+    playAnimationFrames,
+    runWithStepLock,
+    setCurrentMap,
+    setHighlightedLine,
+    setHighlightedLineSecondary
+  ])
 
   const handleStepUp = useCallback(() => {
-    const previousMap = currentMap
-    const prevState = debugState.stepUp()
-    if (prevState) {
-      const stateWithAnimation = ensurePlayerAnimation(prevState)
-      setCurrentMap(stateWithAnimation.mapState)
-      setHighlightedLine(prevState.highlightedLine)
-      setHighlightedLineSecondary(prevState.highlightedLineSecondary)
-      if (didPlayerPositionChange(previousMap, stateWithAnimation.mapState)) {
-        disableStepsTemporarily()
-      }
+    const currentState = debugState.getCurrentState()
+    const activeBreakpoints = Array.from(new Set(breakpoints)).filter((line) => line > 0)
+
+    if (activeBreakpoints.length === 0) {
+      // No breakpoints - no need for lock
+      void (async () => {
+        const prevState = debugState.stepUp()
+        if (!prevState) {
+          return
+        }
+
+        const reverseAnimation = currentState?.animationFrames
+        if (reverseAnimation?.reverse?.length) {
+          await playAnimationFrames(reverseAnimation.reverse, reverseAnimation.frameDurationMs)
+        }
+
+        applyFinalState(prevState)
+      })()
+    } else {
+      // With breakpoints - use lock to prevent UI inconsistencies
+      void runWithStepLock(async () => {
+        const prevState = debugState.stepUp()
+        if (!prevState) {
+          return
+        }
+
+        const reverseAnimation = currentState?.animationFrames
+        if (reverseAnimation?.reverse?.length) {
+          await playAnimationFrames(reverseAnimation.reverse, reverseAnimation.frameDurationMs)
+        }
+
+        applyFinalState(prevState)
+      })
     }
-  }, [currentMap, debugState, disableStepsTemporarily, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
+  }, [applyFinalState, breakpoints, debugState, playAnimationFrames, runWithStepLock])
 
   const handleStopClick = useCallback(async () => {
     setIsCodeDisabled(false)
     setIsDebugMode(false)
+    setIsDebuggerBarVisible(true)
     setHighlightedLine(undefined)
     setHighlightedLineSecondary(undefined)
     setCodeOverride(null)
+    setPlayStatus(undefined)
     if (stepLockTimeoutRef.current) {
       clearTimeout(stepLockTimeoutRef.current)
       stepLockTimeoutRef.current = null
     }
+    stepLockCountRef.current = 0
     setIsStepTemporarilyDisabled(false)
     
     const currentPlayerPos = getPlayerPosition(currentMap)
@@ -331,7 +481,20 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       debugState.reset(),
       playState.reset()
     ])
-  }, [setIsCodeDisabled, setIsDebugMode, setHighlightedLine, setHighlightedLineSecondary, setCodeOverride, teleportPlayer, levelMap, currentMap, debugState, playState])
+  }, [
+    setIsCodeDisabled,
+    setIsDebugMode,
+    setIsDebuggerBarVisible,
+    setHighlightedLine,
+    setHighlightedLineSecondary,
+    setCodeOverride,
+    setPlayStatus,
+    teleportPlayer,
+    levelMap,
+    currentMap,
+    debugState,
+    playState
+  ])
 
   const handleReplay = useCallback(async () => {
     const firstState = debugState.replay()
@@ -499,30 +662,12 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     // Status helpers
     statusMessage,
     isBusy,
+    isDebuggerBarVisible,
 
     // Score display helpers
     score: activeScore,
     formattedScore: activeFormattedScore
   }
-}
-
-function didPlayerPositionChange(previousMap?: GameMap, nextMap?: GameMap): boolean {
-  if (!previousMap || !nextMap) {
-    return false
-  }
-
-  const prevPosition = previousMap.playerPosition
-  const nextPosition = nextMap.playerPosition
-
-  if (!prevPosition || !nextPosition) {
-    return false
-  }
-
-  return (
-    prevPosition.row !== nextPosition.row ||
-    prevPosition.col !== nextPosition.col ||
-    prevPosition.direction !== nextPosition.direction
-  )
 }
 
 function mapRankingResponse(levelId: string, data: RankingResponse): RankingEntry[] {

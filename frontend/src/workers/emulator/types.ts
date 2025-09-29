@@ -139,6 +139,7 @@ export interface EmulatorMessage {
         untilMemWriteAt?: number;
         validValues?: number[];
         timeoutUs?: number;
+        breakpointAddresses?: number[];
         // For init
         arch?: Architecture;
       }
@@ -183,8 +184,10 @@ export interface EmulatorResponse {
     | {
         message: string;
         executedInstructions?: number;
-        stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown';
+        stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' | 'breakpoint';
         memEvent?: { address: number; value: number };
+        pc?: number;
+        breakpoint?: { address: number };
       };
   messageId?: string;
 }

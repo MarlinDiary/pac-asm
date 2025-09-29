@@ -21,3 +21,34 @@ export const formatSystemError = (context: string, details?: string) =>
 
 export const formatLoadError = (context: string, details?: string) =>
   `LOAD_ERROR: ${context}${details ? `: ${details}` : ''}`;
+
+const stripErrorPrefix = (message: string): string => message.replace(/^Error:\s*/i, '').trim();
+
+const appendGuidance = (message: string): string => {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const needsInitHint = /emulator\s+not\s+initialized/i.test(trimmed);
+  const hasInitHintAlready = /please\s+click\s+assemble/i.test(trimmed);
+
+  if (needsInitHint && !hasInitHintAlready) {
+    return `${trimmed}. Please click Assemble to initialize the emulator before running or debugging.`;
+  }
+
+  return trimmed;
+};
+
+export const normalizeWorkerErrorMessage = (raw?: string): string | undefined => {
+  if (!raw) {
+    return undefined;
+  }
+
+  const stripped = stripErrorPrefix(raw);
+  if (!stripped) {
+    return undefined;
+  }
+
+  return appendGuidance(stripped);
+};

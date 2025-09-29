@@ -288,16 +288,24 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               currentLevel={normalizedLevelId}
               isChallenge={isChallenge}
             />
-            <div className={`absolute inset-0 transition-opacity duration-200 ${gameState.isDebugMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <DebuggerBar 
-                onReturnClick={() => gameState.setIsDebugMode(false)} 
-                onStopClick={executionControl.handleStopClick}
-                onStepDown={executionControl.handleStepDown}
-                onStepUp={executionControl.handleStepUp}
-                onReplay={executionControl.handleReplay}
-                canStepUp={executionControl.debugState.canStepUp}
-                canStepDown={executionControl.debugState.canStepDown}
-              />
+            <div
+              className={`absolute inset-0 transition-opacity duration-200 ${
+                gameState.isDebugMode && executionControl.isDebuggerBarVisible
+                  ? 'opacity-100'
+                  : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              {gameState.isDebugMode && executionControl.isDebuggerBarVisible ? (
+                <DebuggerBar 
+                  onReturnClick={() => gameState.setIsDebugMode(false)} 
+                  onStopClick={executionControl.handleStopClick}
+                  onStepDown={executionControl.handleStepDown}
+                  onStepUp={executionControl.handleStepUp}
+                  onReplay={executionControl.handleReplay}
+                  canStepUp={executionControl.debugState.canStepUp}
+                  canStepDown={executionControl.debugState.canStepDown}
+                />
+              ) : null}
             </div>
           </div>
           <div className="absolute right-0 top-0 flex items-center gap-2">
@@ -439,8 +447,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         {/* Second column */}
         <ResizablePanel defaultSize={34} ref={panelLayout.panel3Ref} minSize={10}>
           <Card tabs={[{ icon: CodeXml, text: "Code", color: "#4fae40" }]}>
-            <CodeEditor 
-              value={gameState.codeOverride ?? gameState.currentCode} 
+            <CodeEditor
+              value={gameState.codeOverride ?? gameState.currentCode}
               onChange={(value) => {
                 if (!gameState.codeOverride) {
                   gameState.setCurrentCode(value || '')
@@ -449,6 +457,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               disabled={gameState.isCodeDisabled}
               highlightedLine={gameState.highlightedLine}
               highlightedLineSecondary={gameState.highlightedLineSecondary}
+              breakpoints={gameState.breakpoints}
+              onBreakpointsChange={gameState.setBreakpoints}
             />
           </Card>
         </ResizablePanel>

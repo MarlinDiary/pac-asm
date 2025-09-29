@@ -148,6 +148,31 @@ export class CodeHighlighter {
   }
 
   /**
+   * Get all machine addresses mapped to a specific source line
+   */
+  getAddressesForLine(lineNumber: number): number[] {
+    const matches: number[] = [];
+    this.addressMap.forEach((mapping) => {
+      if (mapping.lineNumber === lineNumber) {
+        matches.push(mapping.address);
+      }
+    });
+    return matches.sort((a, b) => a - b);
+  }
+
+  /**
+   * Resolve an array of line numbers to unique machine addresses
+   */
+  getAddressesForLines(lineNumbers: number[]): number[] {
+    const unique = new Set<number>();
+    lineNumbers.forEach((line) => {
+      const addresses = this.getAddressesForLine(line);
+      addresses.forEach((addr) => unique.add(addr));
+    });
+    return Array.from(unique).sort((a, b) => a - b);
+  }
+
+  /**
    * Get all address mappings
    */
   getAllMappings(): AddressMapping[] {

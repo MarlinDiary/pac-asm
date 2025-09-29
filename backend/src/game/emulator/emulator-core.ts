@@ -60,9 +60,8 @@ export class EmulatorWorker {
         const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
         // Match GAS target mips-linux-gnu (big-endian)
         const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
-        const r6Bit = uc.MODE_MIPS32R6 || (uc as unknown as Record<string, number>).MODE_MIPS32R6 || 0;
-        const modeConst = this.arch === 'MIPS_R6' && r6Bit ? (baseMode | r6Bit) : baseMode;
-        this.unicorn = new uc.Unicorn(archConst, modeConst);
+        // unicorn_wasm_mips.wasm already targets R6; using base mode avoids redundant flagging.
+        this.unicorn = new uc.Unicorn(archConst, baseMode);
       } else {
         this.unicorn = new uc.Unicorn(uc.ARCH_ARM, uc.MODE_ARM);
       }
@@ -110,9 +109,7 @@ export class EmulatorWorker {
         const uc = this.uc;
         const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
         const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
-        const r6Bit = uc.MODE_MIPS32R6 || (uc as unknown as Record<string, number>).MODE_MIPS32R6 || 0;
-        const modeConst = baseMode | r6Bit;
-        this.unicorn = new uc.Unicorn(archConst, modeConst);
+        this.unicorn = new uc.Unicorn(archConst, baseMode);
 
         this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.arch);
         this.executionEngine = new ExecutionEngine(

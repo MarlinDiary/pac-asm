@@ -16,6 +16,42 @@ export interface AnimatedGameState {
   [key: string]: unknown
 }
 
+export const DEBUG_STEP_FRAME_DELAY_MS = 150
+
+export function cloneGameMap(map: GameMap): GameMap {
+  return {
+    ...map,
+    tiles: map.tiles.map((row) => [...row]),
+    ghostPositions: map.ghostPositions.map((pos) => ({ ...pos })),
+    ghostPreviousPositions: map.ghostPreviousPositions
+      ? map.ghostPreviousPositions.map((pos) => ({ ...pos }))
+      : undefined,
+    playerPosition: map.playerPosition ? { ...map.playerPosition } : map.playerPosition,
+    playerAnimation: map.playerAnimation
+      ? {
+          ...map.playerAnimation,
+          animationPosition: map.playerAnimation.animationPosition
+            ? { ...map.playerAnimation.animationPosition }
+            : undefined
+        }
+      : undefined,
+    ghostAnimations: map.ghostAnimations
+      ? map.ghostAnimations.map((animation) =>
+          animation
+            ? {
+                ...animation,
+                animationPosition: animation.animationPosition
+                  ? { ...animation.animationPosition }
+                  : undefined
+              }
+            : animation
+        )
+      : undefined,
+    dotAnimations: map.dotAnimations ? map.dotAnimations.map((dot) => ({ ...dot })) : undefined,
+    waterBackground: map.waterBackground ? { ...map.waterBackground } : undefined
+  }
+}
+
 export const checkVictoryCondition = (map: GameMap): boolean => {
   for (let row = 0; row < map.height; row++) {
     for (let col = 0; col < map.width; col++) {

@@ -179,7 +179,10 @@ function createUC(MUnicornInstance) {
                 if (type & uc.HOOK_MEM_READ || type & uc.HOOK_MEM_WRITE || type & uc.HOOK_MEM_FETCH || type & uc.HOOK_MEM_READ_AFTER) {
                     const callback = (_, type2, addr, size, val, _2) => user_callback(handle, type2, addr, size, val, user_data);
                     callback_ptr = MUnicornInstance.addFunction(callback, 'iiijiji');
-                } else if (type & uc.HOOK_CODE || type & uc.HOOK_BLOCK) {
+                } else if (type & uc.HOOK_CODE) {
+                    const callback = (_, addr, size, _2) => user_callback(handle, addr, size, user_data);
+                    callback_ptr = MUnicornInstance.addFunction(callback, 'vijii');
+                } else if (type & uc.HOOK_BLOCK) {
                     const callback = (_, addr, size, _2) => user_callback(handle, addr, size, user_data);
                     callback_ptr = MUnicornInstance.addFunction(callback, 'vijii');
                 } else {
@@ -226,6 +229,10 @@ function createUC(MUnicornInstance) {
                 const handle = MUnicornInstance.getValue(this.handle_ptr, '*');
                 const ret = MUnicornInstance.ccall('uc_emu_stop', 'number', ['pointer'], [handle]);
                 if (ret !== uc.ERR_OK) throw `uc_emu_stop failed code ${ret}: ${uc.strerror(ret)}`;
+            };
+
+            this.cycle_count = function () {
+                return MUnicornInstance._uc_get_cycle_count();
             };
 
             this.errno = function () {

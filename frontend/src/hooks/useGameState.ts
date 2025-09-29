@@ -21,6 +21,7 @@ export interface GameState {
   currentMap: GameMap
   highlightedLine: number | undefined
   highlightedLineSecondary: number | undefined
+  breakpoints: number[]
   
   // Panel states
   leftPanelTab: number
@@ -49,6 +50,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [currentMap, setCurrentMap] = useState(initialMap)
   const [highlightedLine, setHighlightedLine] = useState<number | undefined>(undefined)
   const [highlightedLineSecondary, setHighlightedLineSecondary] = useState<number | undefined>(undefined)
+  const [breakpoints, setBreakpoints] = useState<number[]>([])
   
   // Panel states
   const [leftPanelTab, setLeftPanelTab] = useState(0)
@@ -209,6 +211,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     currentMap,
     highlightedLine,
     highlightedLineSecondary,
+    breakpoints,
     leftPanelTab,
     rightPanelTab,
     memorySearchQuery,
@@ -229,6 +232,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setCurrentMap,
     setHighlightedLine,
     setHighlightedLineSecondary,
+    setBreakpoints,
     setLeftPanelTab,
     setRightPanelTab,
     setMemorySearchQuery,

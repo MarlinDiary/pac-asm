@@ -9,6 +9,7 @@ import {
   formatRuntimeError,
   formatSystemError,
   formatTimeoutError,
+  normalizeWorkerErrorMessage,
 } from '@/lib/emulator-errors';
 
 interface EmulatorState {
@@ -96,6 +97,29 @@ export const useEmulator = () => {
     [terminateWorker]
   );
 
+  const buildWorkerError = useCallback((payload: unknown): Error => {
+    let raw: string | undefined;
+
+    if (typeof payload === 'string') {
+      raw = payload;
+    } else if (payload instanceof Error) {
+      raw = payload.message;
+    } else if (payload && typeof payload === 'object') {
+      try {
+        raw = JSON.stringify(payload);
+      } catch {
+        raw = String(payload);
+      }
+    } else if (payload !== undefined && payload !== null) {
+      raw = String(payload);
+    }
+
+    const normalized = normalizeWorkerErrorMessage(raw) ?? raw ?? 'Unknown worker error';
+    const error = new Error(normalized);
+    error.name = 'WorkerError';
+    return error;
+  }, []);
+
   const sendMessage = useCallback((message: EmulatorMessage): Promise<EmulatorResponse> => {
     return new Promise((resolve, reject) => {
       if (!workerRef.current) {
@@ -150,7 +174,11 @@ export const useEmulator = () => {
         if (pending) {
           clearTimeout(pending.timeoutId);
           pendingMessages.current.delete(response.messageId);
-          pending.resolve(response);
+          if (response.type === 'error') {
+            pending.reject(buildWorkerError(response.payload));
+          } else {
+            pending.resolve(response);
+          }
         }
       }
     };
@@ -171,14 +199,15 @@ export const useEmulator = () => {
       }
 
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({
         ...prev,
         isInitialized: false,
         isRunning: false,
-        error: formatSystemError('Initialize emulator', detail),
+        error: formatSystemError('Initialize emulator', normalizedDetail),
       }));
     }
-  }, [sendMessage, terminateWorker]);
+  }, [sendMessage, terminateWorker, buildWorkerError]);
 
   initializeEmulatorRef.current = initializeEmulator;
 
@@ -212,9 +241,10 @@ export const useEmulator = () => {
         return;
       }
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({ 
         ...prev, 
-        error: formatLoadError('Failed to load code into emulator', detail)
+        error: formatLoadError('Failed to load code into emulator', normalizedDetail)
       }));
     }
   }, [sendMessage]);
@@ -243,9 +273,11 @@ export const useEmulator = () => {
         return null;
       }
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({ 
         ...prev, 
-        error: formatRuntimeError('step-debug request failed', detail)
+        isRunning: false,
+        error: formatRuntimeError('step-debug request failed', normalizedDetail)
       }));
       return null;
     }
@@ -277,9 +309,11 @@ export const useEmulator = () => {
         return null;
       }
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({ 
         ...prev, 
-        error: formatRuntimeError('run request failed', detail)
+        isRunning: false,
+        error: formatRuntimeError('run request failed', normalizedDetail)
       }));
       return null;
     }
@@ -289,27 +323,32 @@ export const useEmulator = () => {
     async (
       address: number,
       validValues: number[] = [1, 2, 3, 4],
-      timeoutUs: number = EMULATOR_RUN_TIMEOUT_US
+      timeoutUs: number = EMULATOR_RUN_TIMEOUT_US,
+      breakpointAddresses: number[] = []
     ): Promise<
       | {
           message: string;
           executedInstructions?: number;
-          stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown';
+          stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' | 'breakpoint';
           memEvent?: { address: number; value: number };
+          pc?: number;
+          breakpoint?: { address: number };
         }
       | null
     > => {
       try {
         const response = await sendMessage({
           type: 'run',
-          payload: { untilMemWriteAt: address, validValues, timeoutUs }
+          payload: { untilMemWriteAt: address, validValues, timeoutUs, breakpointAddresses }
         });
         if (response.type === 'execution-complete' && response.payload) {
           return response.payload as {
             message: string;
             executedInstructions?: number;
-            stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown';
+            stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' | 'breakpoint';
             memEvent?: { address: number; value: number };
+            pc?: number;
+            breakpoint?: { address: number };
           };
         }
         return null;
@@ -327,9 +366,13 @@ export const useEmulator = () => {
         const detail = error instanceof Error
           ? error.message
           : `addr=0x${address.toString(16)}, timeout=${timeoutMs}ms`;
+        const normalizedDetail = error instanceof Error
+          ? (normalizeWorkerErrorMessage(detail) ?? detail)
+          : detail;
         setState(prev => ({
           ...prev,
-          error: formatRuntimeError('runUntilMemWrite failed', detail)
+          isRunning: false,
+          error: formatRuntimeError('runUntilMemWrite failed', normalizedDetail)
         }));
         return null;
       }
@@ -357,9 +400,11 @@ export const useEmulator = () => {
         return;
       }
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({ 
         ...prev, 
-        error: formatSystemError('Reset failed', detail)
+        isRunning: false,
+        error: formatSystemError('Reset failed', normalizedDetail)
       }));
     }
   }, [sendMessage]);
@@ -385,9 +430,10 @@ export const useEmulator = () => {
         return null;
       }
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({ 
         ...prev, 
-        error: formatMemoryError('Read memory failed', detail)
+        error: formatMemoryError('Read memory failed', normalizedDetail)
       }));
       return null;
     }
@@ -420,9 +466,10 @@ export const useEmulator = () => {
         return false;
       }
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({ 
         ...prev, 
-        error: formatMemoryError('Write memory failed', detail)
+        error: formatMemoryError('Write memory failed', normalizedDetail)
       }));
       return false;
     }
@@ -446,9 +493,10 @@ export const useEmulator = () => {
         return null;
       }
       const detail = error instanceof Error ? error.message : undefined;
+      const normalizedDetail = normalizeWorkerErrorMessage(detail) ?? detail;
       setState(prev => ({ 
         ...prev, 
-        error: formatSystemError('Failed to get registers', detail)
+        error: formatSystemError('Failed to get registers', normalizedDetail)
       }));
       return null;
     }

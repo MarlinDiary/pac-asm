@@ -436,8 +436,16 @@ export class ExecutionEngine {
   runUntilMemoryWrite(
     untilAddress: number,
     validValues: number[] = [1, 2, 3, 4],
-    timeoutUs: number = EMULATOR_RUN_TIMEOUT_US
-  ): { message: string; executedInstructions: number; stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown'; memEvent?: { address: number; value: number } } {
+    timeoutUs: number = EMULATOR_RUN_TIMEOUT_US,
+    breakpointAddresses: number[] = []
+  ): {
+    message: string;
+    executedInstructions: number;
+    stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' | 'breakpoint';
+    memEvent?: { address: number; value: number };
+    pc?: number;
+    breakpoint?: { address: number };
+  } {
     const endAddress = this.config.codeAddress + 4096;
     const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
@@ -447,8 +455,13 @@ export class ExecutionEngine {
     let memEventInfo: { address: number; value: number; storePc: number; nextPc?: number } | undefined;
     let lastExecutedPc: number | undefined;
     let stopPending = false;
-    const shouldUseCodeHook = this.arch !== 'MIPS_R6';
+    const breakpointSet = new Set((breakpointAddresses ?? []).map((addr) => (addr >>> 0)));
+    const shouldUseCodeHook = this.arch !== 'MIPS_R6' || breakpointSet.size > 0;
     let codeHookRegistered = false;
+    let breakpointHit = false;
+    let breakpointAddress = 0;
+    let stopAfterNextInstruction = false;
+    let resumePcAfterBreakpoint: number | undefined;
 
     const cb = (...hookArgs: unknown[]) => {
       const event = this.extractMemoryHookEvent(hookArgs);
@@ -540,6 +553,23 @@ export class ExecutionEngine {
             }
             lastExecutedPc = addr >>> 0;
 
+            const currentAddr = addr >>> 0;
+
+            if (stopAfterNextInstruction) {
+              stopAfterNextInstruction = false;
+              stopPending = false;
+              resumePcAfterBreakpoint = currentAddr;
+              try { this.unicorn.emu_stop(); } catch {}
+              return;
+            }
+
+            if (breakpointSet.size > 0 && breakpointSet.has(currentAddr)) {
+              breakpointHit = true;
+              breakpointAddress = currentAddr;
+              stopAfterNextInstruction = true;
+              return;
+            }
+
             if (stopPending) {
               stopPending = false;
               try { this.unicorn.emu_stop(); } catch {}
@@ -572,9 +602,9 @@ export class ExecutionEngine {
       } catch {}
     }
 
-    let pcAfter = this.unicorn.reg_read_i32(pcReg) >>> 0;
+    let pcAfter = resumePcAfterBreakpoint ?? (this.unicorn.reg_read_i32(pcReg) >>> 0);
 
-    if (memEventInfo) {
+    if (memEventInfo && !breakpointHit) {
       const { storePc, nextPc } = memEventInfo;
       // ARM: Pre-advance PC before any potential re-run
       // MIPS: Adjust PC only if it still points to the store instruction
@@ -598,9 +628,16 @@ export class ExecutionEngine {
 
     }
 
-    let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' = 'unknown';
+    let stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown' | 'breakpoint' = 'unknown';
     const memEvent = memEventInfo ? { address: memEventInfo.address, value: memEventInfo.value } : undefined;
-    if (memEvent) {
+    if (breakpointHit) {
+      stopReason = 'breakpoint';
+      const sequentialPc = (resumePcAfterBreakpoint !== undefined)
+        ? (resumePcAfterBreakpoint >>> 0)
+        : ((breakpointAddress + 4) >>> 0);
+      pcAfter = sequentialPc;
+      try { this.unicorn.reg_write_i32(pcReg, pcAfter); } catch {}
+    } else if (memEvent) {
       stopReason = 'mem-write';
     } else if (pcAfter >= endAddress) {
       stopReason = 'end-of-code';
@@ -608,11 +645,16 @@ export class ExecutionEngine {
       // No explicit stop reason reported; treat as timeout so host can handle it uniformly
       stopReason = 'timeout';
     }
+    const timeoutMs = Math.round((timeoutUs ?? EMULATOR_RUN_TIMEOUT_US) / 1000)
+    const timeoutSuffix = stopReason === 'timeout' ? ` (timeout ${timeoutMs}ms)` : ''
+
     return {
-      message: `Run stopped: ${stopReason}${memEvent ? ` @0x${memEvent.address.toString(16)}=${memEvent.value}` : ''}`,
+      message: `Run stopped: ${stopReason}${memEvent ? ` @0x${memEvent.address.toString(16)}=${memEvent.value}` : ''}${breakpointHit ? ` @0x${(breakpointAddress >>> 0).toString(16)}` : ''}${timeoutSuffix}`,
       executedInstructions: 0,
       stopReason,
-      memEvent
+      memEvent,
+      pc: pcAfter >>> 0,
+      breakpoint: breakpointHit ? { address: breakpointAddress >>> 0 } : undefined
     };
   }
 }
