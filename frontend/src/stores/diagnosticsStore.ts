@@ -1,4 +1,7 @@
+"use client"
+
 import { create } from 'zustand'
+import { trackDiagnosticError } from '@/components/providers/PostHogProvider'
 
 export interface DiagnosticError {
   id: string
@@ -17,6 +20,35 @@ interface DiagnosticsStore {
   addTaggedError: (tag: string, error: string, code: string) => void
   generateDiagnosis: (id: string) => void
   clearErrors: () => void
+}
+
+const CATEGORY_MAP: Record<string, 'Assemble' | 'Runtime' | 'Timeout' | 'Game' | 'Memory' | 'Debug'> = {
+  timeout: 'Timeout',
+  RUNTIME_ERROR: 'Runtime',
+  TIMEOUT_ERROR: 'Timeout',
+  GAMEPLAY_ERROR: 'Game',
+  MEMORY_ERROR: 'Memory',
+  DEBUG_ERROR: 'Debug',
+  LINK_ERROR: 'Assemble'
+}
+
+function deriveEventTag(error: string, explicitTag?: string): string {
+  if (explicitTag && explicitTag.trim().length > 0) {
+    return explicitTag.trim().toUpperCase()
+  }
+
+  const trimmed = error.trim()
+  for (const key of Object.keys(CATEGORY_MAP)) {
+    if (trimmed.startsWith(`${key}:`)) {
+      return CATEGORY_MAP[key as keyof typeof CATEGORY_MAP]
+    }
+  }
+
+  if (trimmed.startsWith('Game Over')) {
+    return 'Game'
+  }
+
+  return 'Assemble'
 }
 
 async function fetchDiagnosis(error: string, code: string): Promise<string> {
@@ -44,7 +76,8 @@ export const useDiagnosticsStore = create<DiagnosticsStore>((set, get) => ({
   
   addError: (error, code) => {
     const id = `${Date.now()}_${Math.random()}`
-    
+    const eventTag = deriveEventTag(error)
+
     // Add error immediately without diagnosis
     set((state) => ({
       errors: [
@@ -60,10 +93,16 @@ export const useDiagnosticsStore = create<DiagnosticsStore>((set, get) => ({
         ...state.errors
       ]
     }))
+
+    trackDiagnosticError({
+      error,
+      tag: eventTag,
+    })
   },
 
   addTaggedError: (tag, error, code) => {
     const id = `${Date.now()}_${Math.random()}`
+    const eventTag = deriveEventTag(error, tag)
 
     set((state) => ({
       errors: [
@@ -80,6 +119,11 @@ export const useDiagnosticsStore = create<DiagnosticsStore>((set, get) => ({
         ...state.errors
       ]
     }))
+
+    trackDiagnosticError({
+      error,
+      tag: eventTag,
+    })
   },
   
   generateDiagnosis: async (id) => {

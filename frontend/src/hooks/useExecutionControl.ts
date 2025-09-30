@@ -11,6 +11,7 @@ import { ensurePlayerAnimation, checkVictoryCondition, DEBUG_STEP_FRAME_DELAY_MS
 import type { AnimatedGameState } from '@/lib/game-animation'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import type { Architecture } from '@/hooks/useSettings'
+import { trackDebugClicked, trackRunClicked } from '@/components/providers/PostHogProvider'
 
 interface UseExecutionControlProps {
   gameState: ReturnType<typeof useGameState>
@@ -213,7 +214,36 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     }
   }, [loadRanking])
 
+  const persistRunCode = useCallback(
+    (runId: string | undefined, sourceCode: string) => {
+      if (!runId) {
+        return
+      }
+
+      const payload = {
+        runId,
+        sourceCode,
+        levelId,
+        architecture,
+      }
+
+      void fetch(`${API_BASE_URL}/game/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch((error) => {
+        console.warn('[RunLog] Failed to persist run code', error)
+      })
+    },
+    [architecture, levelId]
+  )
+
   const handlePlayClick = useCallback(async () => {
+    const runId = trackRunClicked({
+      architecture,
+    })
+
+    persistRunCode(runId, currentCode)
 
     setLeftPanelTab(0)
 
@@ -264,9 +294,12 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     if ('objectiveNotMet' in result && result.objectiveNotMet) {
       setCurrentPlayObjectiveNotMet(true)
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setCurrentPlayObjectiveNotMet, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, setLeftPanelTab, playState, errors.length])
+  }, [architecture, currentCode, errors.length, gameState.currentMap, levelId, levelMap, persistRunCode, playState, setCodeOverride, setCurrentPlayGameOver, setCurrentPlayObjectiveNotMet, setCurrentPlayWon, setHighlightedLine, setHighlightedLineSecondary, setIsCodeDisabled, setIsPlayMode, setLeftPanelTab, setPlayStatus, setShouldShakePlayer, teleportPlayer])
 
   const handleDebugClick = useCallback(async () => {
+    trackDebugClicked({
+      architecture,
+    })
 
     setLeftPanelTab(0)
     setIsDebuggerBarVisible(true)
@@ -296,7 +329,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setCodeOverride(null)
       setHighlightedLineSecondary(undefined)
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setIsDebugMode, setIsCodeDisabled, setCurrentMap, setCodeOverride, setLeftPanelTab, debugState])
+  }, [architecture, currentCode, debugState, gameState.currentMap, levelId, levelMap, setCodeOverride, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary, setIsCodeDisabled, setIsDebugMode, setLeftPanelTab, teleportPlayer])
 
   const lockSteps = useCallback(() => {
     if (stepLockTimeoutRef.current) {

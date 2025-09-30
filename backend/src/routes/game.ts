@@ -1,8 +1,9 @@
 import { Request, Response, Router } from 'express'
 
-import { validateGame, GameValidationResult, GameValidationSummary } from '../game'
+import { validateGame, GameValidationSummary } from '../game'
 import { Architecture } from '../game/emulator/types'
 import SubmissionModel, { SubmissionDocument } from '../models/submission'
+import RunLogModel from '../models/run-log'
 
 const router = Router()
 
@@ -15,12 +16,18 @@ interface ValidateGameBody {
   includeRegisters?: boolean | string
 }
 
+interface UserInfo {
+  id?: string
+  name?: string
+  avatarUrl?: string
+}
+
 interface SubmitBody extends ValidateGameBody {
-  user?: {
-    id?: string
-    name?: string
-    avatarUrl?: string
-  }
+  user?: UserInfo
+}
+
+interface RunLogBody extends ValidateGameBody {
+  runId?: string
 }
 
 const ALLOWED_LEVEL_IDS = new Set(['level1', 'level2', 'level3', 'level4', 'challenge'])
@@ -64,6 +71,43 @@ router.post('/validate', async (req: Request, res: Response) => {
     })
 
     return res.status(200).json(result)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return res.status(500).json({ error: message })
+  }
+})
+
+router.post('/runs', async (req: Request, res: Response) => {
+  const body = req.body as RunLogBody
+  const { runId, sourceCode, levelId, architecture } = body
+
+  if (!runId || typeof runId !== 'string') {
+    return res.status(400).json({ error: 'runId is required' })
+  }
+  if (!sourceCode || typeof sourceCode !== 'string') {
+    return res.status(400).json({ error: 'sourceCode is required' })
+  }
+  if (!levelId || typeof levelId !== 'string' || !ALLOWED_LEVEL_IDS.has(levelId)) {
+    return res.status(400).json({ error: 'levelId is required' })
+  }
+  if (!isArchitecture(architecture)) {
+    return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
+  }
+
+  const update: Record<string, unknown> = {
+    runId,
+    sourceCode,
+    levelId,
+    architecture,
+  }
+
+  try {
+    await RunLogModel.findOneAndUpdate(
+      { runId },
+      update,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    )
+    return res.status(204).end()
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return res.status(500).json({ error: message })
