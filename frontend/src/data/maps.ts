@@ -153,10 +153,10 @@ export const MAPS: GameMap[] = [
 LDR R1, =0x30000
 STR R0, [R1]
 STR R0, [R1]`,
-      MIPS_R6: `ORI $t0, $zero, 4
-LUI $t1, 0x3
-SW $t0, 0($t1)
-SW $t0, 0($t1)`
+      MIPS_R6: `ORI $t0, $zero, 4     # Load immediate value 4 into $t0 (the command code for "go right")
+LUI $t1, 0x3          # Load upper immediate: $t1 = 0x00030000 ($t1 points to the movement control register)
+SW $t0, 0($t1)        # Write 4 ("go right") to the control register -> tells the pacman to move right
+SW $t0, 0($t1)        # Write 4 ("go right") again`
     },
   },
   {
@@ -182,27 +182,25 @@ LDR R1, =0x30000
 STR R0, [R1]
 B main`,
       MIPS_R6: `main:
-LUI $t1, 0x3
-ORI $t1, $t1, 0x0400
-LW $t2, 0($t1)
+    ORI $t2, $zero, 0         # Initialize counter in $t2 to 0
 
-SLTI $t3, $t2, 4
-BEQZC $t3, down
+loop:
+    SLTI $t3, $t2, 4          # $t3 = 1 if $t2 < 4
+    BEQZC $t3, down           # If $t2 >= 4, branch to 'down'
 
-ORI $t0, $zero, 4
-BC continue
+    # If $t2 < 4: go right
+    ORI $t0, $zero, 4         # $t0 = 4 (command: go right)
+    ADDIU $t2, $t2, 1         # Increment counter ($t2 += 1)
+    BC send_command           # Skip 'down' section
 
 down:
-ORI $t0, $zero, 2
+    ORI $t0, $zero, 2         # $t0 = 2 (command: go down)
 
-continue:
-ADDIU $t2, $t2, 1
-SW $t2, 0($t1)
+send_command:
+    LUI $t1, 0x3              # $t1 = 0x30000 (upper part of command register address)
+    SW $t0, 0($t1)            # Send command (2 or 4) to command register
 
-LUI $t1, 0x3
-SW $t0, 0($t1)
-
-BC main`
+    BC loop                   # Repeat the loop`
     },
   },
   {
