@@ -92,11 +92,7 @@ export const usePlayRunner = () => {
 
       setIsInitializing(false)
 
-      if (executionResult && executionResult.success === false) {
-        return executionResult
-      }
-
-      return { success: true }
+      return executionResult
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
@@ -135,6 +131,7 @@ export const usePlayRunner = () => {
     let movementCount = 0
     let recordedMovementCount = 0
     let stagnantSteps = 0
+    let victoryAchievedOverall = false
 
     // Continuous execution: emulator runs until it writes a command to 0x30000
     while (movementCount < 300) {
@@ -144,7 +141,7 @@ export const usePlayRunner = () => {
         return { success: false as const, error: null }
       }
 
-    let victoryAchievedThisTurn = false
+      let victoryAchievedThisTurn = false
 
       const runAddress = MEMORY_CONFIG.DATA_BASE
       const validValues = [1, 2, 3, 4]
@@ -275,6 +272,7 @@ export const usePlayRunner = () => {
 
         // Check victory condition after movement
         if (victoryAchievedThisTurn) {
+          victoryAchievedOverall = true
           break
         }
 
@@ -311,7 +309,13 @@ export const usePlayRunner = () => {
     setHighlightedLine(undefined)
     setIsPlaying(false)
 
-    return { success: true as const }
+    const objectiveNotMet = !victoryAchievedOverall
+
+    return {
+      success: true as const,
+      victoryAchieved: victoryAchievedOverall,
+      objectiveNotMet
+    }
   }
 
   const stopPlay = useCallback(() => {

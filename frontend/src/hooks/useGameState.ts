@@ -14,6 +14,7 @@ export interface GameState {
   currentPlayWon: boolean // This play won (temporary)
   shouldShakePlayer: boolean // Shake animation flag
   currentPlayGameOver: boolean // This play ended with death (temporary)
+  currentPlayObjectiveNotMet: boolean // This play ended without accomplishing objective (temporary)
   
   // Code and map states
   currentCode: string
@@ -43,6 +44,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [currentPlayWon, setCurrentPlayWon] = useState(false)
   const [shouldShakePlayer, setShouldShakePlayer] = useState(false)
   const [currentPlayGameOver, setCurrentPlayGameOver] = useState(false)
+  const [currentPlayObjectiveNotMet, setCurrentPlayObjectiveNotMet] = useState(false)
   
   // Code and map states
   const [currentCode, setCurrentCode] = useState(initialCode)
@@ -189,6 +191,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setIsCodeDisabled(false)
     setPlayStatus(undefined)
     setCurrentPlayWon(false)
+    setCurrentPlayObjectiveNotMet(false)
     setHighlightedLine(undefined)
     setHighlightedLineSecondary(undefined)
     
@@ -206,6 +209,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     currentPlayWon,
     shouldShakePlayer,
     currentPlayGameOver,
+    currentPlayObjectiveNotMet,
     currentCode,
     codeOverride,
     currentMap,
@@ -227,6 +231,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setCurrentPlayWon,
     setShouldShakePlayer,
     setCurrentPlayGameOver,
+    setCurrentPlayObjectiveNotMet,
     setCurrentCode,
     setCodeOverride,
     setCurrentMap,

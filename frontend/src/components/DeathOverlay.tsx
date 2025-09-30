@@ -3,10 +3,12 @@ import FuzzyText from './FuzzyText'
 
 interface DeathOverlayProps {
   show: boolean
+  message?: string
+  fontSize?: string
   onComplete?: () => void
 }
 
-export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
+export default function DeathOverlay({ show, message, fontSize, onComplete }: DeathOverlayProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [opacity, setOpacity] = useState(0)
 
@@ -48,6 +50,8 @@ export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
 
   if (!isVisible) return null
 
+  const displayText = message ?? 'GAME OVER'
+
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
@@ -59,14 +63,14 @@ export default function DeathOverlay({ show, onComplete }: DeathOverlayProps) {
       }}
     >
       <FuzzyText
-        fontSize="3rem"
+        fontSize={fontSize ?? '3rem'}
         fontWeight={700}
         fontFamily="monospace"
         color={isDarkMode ? "#FFFFFF" : "#000000"}
         enableHover={false}
         baseIntensity={0.25}
       >
-        GAME OVER
+        {displayText}
       </FuzzyText>
     </div>
   )

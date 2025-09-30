@@ -143,6 +143,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setCurrentPlayWon,
     setShouldShakePlayer,
     setCurrentPlayGameOver,
+    setCurrentPlayObjectiveNotMet,
     setHighlightedLine,
     setHighlightedLineSecondary,
     breakpoints,
@@ -226,6 +227,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setHighlightedLineSecondary(undefined)
     setCurrentPlayWon(false) // Reset current play victory status
     setCurrentPlayGameOver(false) // Reset game over status
+    setCurrentPlayObjectiveNotMet(false) // Reset objective status
     setShouldShakePlayer(false) // Clear any shake animation
     // Don't clear hasWon - keep Next button permanently after first victory
 
@@ -238,23 +240,31 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setPlayStatus('running') // Show "Running..." immediately
     
     const result = await playState.startPlay(currentCode, randomizedMap)
-    if (!result.success && result.error) {
-      // Handle error - reset UI state
-      setIsCodeDisabled(false)
-      setIsPlayMode(false)
-      setPlayStatus(undefined)
-      // Check if it's a game over (collision with ghost)
-      if ('gameOver' in result && result.gameOver) {
-        setCurrentPlayGameOver(true)
+
+    if (!result.success) {
+      if (result.error) {
+        // Handle error - reset UI state
+        setIsCodeDisabled(false)
+        setIsPlayMode(false)
+        setPlayStatus(undefined)
+        // Check if it's a game over (collision with ghost)
+        if ('gameOver' in result && result.gameOver) {
+          setCurrentPlayGameOver(true)
+        }
+        // Play failure already handled by diagnostics
+      } else {
+        // User cancelled - reset UI state without error
+        setIsCodeDisabled(false)
+        setIsPlayMode(false)
+        setPlayStatus(undefined)
       }
-      // Play failure already handled by diagnostics
-    } else if (!result.success && !result.error) {
-      // User cancelled - reset UI state without error
-      setIsCodeDisabled(false)
-      setIsPlayMode(false)
-      setPlayStatus(undefined)
+      return
     }
-  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, setLeftPanelTab, playState, errors.length])
+
+    if ('objectiveNotMet' in result && result.objectiveNotMet) {
+      setCurrentPlayObjectiveNotMet(true)
+    }
+  }, [currentCode, levelMap, gameState.currentMap, teleportPlayer, setHighlightedLine, setHighlightedLineSecondary, setCurrentPlayWon, setCurrentPlayGameOver, setCurrentPlayObjectiveNotMet, setShouldShakePlayer, setIsCodeDisabled, setIsPlayMode, setPlayStatus, setCodeOverride, setLeftPanelTab, playState, errors.length])
 
   const handleDebugClick = useCallback(async () => {
 

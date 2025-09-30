@@ -401,6 +401,12 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                         show={gameState.currentPlayGameOver}
                         onComplete={() => gameState.setCurrentPlayGameOver(false)}
                       />
+                      <DeathOverlay
+                        show={gameState.currentPlayObjectiveNotMet}
+                        message="OBJECTIVE NOT MET"
+                        fontSize="2rem"
+                        onComplete={() => gameState.setCurrentPlayObjectiveNotMet(false)}
+                      />
                       {levelMap.waterBackground && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="relative flex items-center justify-center">
