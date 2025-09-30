@@ -34,6 +34,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Image from 'next/image'
 
+const AUTO_SAVE_DEBOUNCE_MS = 400
+
 interface GamePageProps {
   levelMap: GameMap
   levelId: string
@@ -233,7 +235,14 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   useEffect(() => {
     if (!settings.autoSaveCode) return
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(codeStorageKey, gameState.currentCode ?? '')
+
+    const timeoutId = window.setTimeout(() => {
+      window.localStorage.setItem(codeStorageKey, gameState.currentCode ?? '')
+    }, AUTO_SAVE_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
   }, [settings.autoSaveCode, codeStorageKey, gameState.currentCode])
 
   useEffect(() => {
