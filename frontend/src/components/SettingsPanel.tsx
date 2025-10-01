@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { Cog, CodeXml } from 'lucide-react'
+import { Cog, CodeXml, RefreshCcw } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import {
   Select,
@@ -18,6 +18,7 @@ interface SettingsPanelProps {
   onClose: () => void
   isRunning?: boolean
   isDebugMode?: boolean
+  onResetCode: () => void
 }
 
 interface SidebarItem {
@@ -26,7 +27,7 @@ interface SidebarItem {
   icon: React.ReactNode
 }
 
-export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDebugMode = false }: SettingsPanelProps) {
+export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDebugMode = false, onResetCode }: SettingsPanelProps) {
   const [selectedSection, setSelectedSection] = React.useState('general')
 
   const sidebarItems: SidebarItem[] = [
@@ -255,14 +256,21 @@ export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDe
                   </div>
                   <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Auto Save Code
+                      Reset to Initial Code
                     </label>
-                    <Switch
-                      checked={settings.autoSaveCode}
-                      onCheckedChange={(checked) => updateSetting('autoSaveCode', checked)}
-                      aria-label="Toggle auto save code"
-                      className="data-[state=checked]:bg-[#2483E2] data-[state=unchecked]:bg-[#DBDAD7] dark:data-[state=unchecked]:bg-[#535454] [&>span]:bg-white [&>span]:dark:bg-white"
-                    />
+                    <button
+                      type="button"
+                      onClick={onResetCode}
+                      disabled={isRunning || isDebugMode}
+                      className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-all ${
+                        isRunning || isDebugMode
+                          ? 'opacity-40 cursor-not-allowed bg-[#f0f0f0] dark:bg-[#353535] text-[#a0a0a0] dark:text-[#7a7a7a]'
+                          : 'bg-[#f0f0f0] dark:bg-[#353535] text-[#262626] dark:text-[#f5f5f5] hover:bg-[#e0e0e0] dark:hover:bg-[#404040] active:scale-95 cursor-pointer'
+                      }`}
+                    >
+                      <RefreshCcw className="w-3.5 h-3.5" />
+                      <span>Reset</span>
+                    </button>
                   </div>
                   <div className="flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">

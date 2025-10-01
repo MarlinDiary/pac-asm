@@ -114,27 +114,26 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     [levelId, settings.architecture]
   )
 
-  // Get architecture-specific initial code
-  const getInitialCode = useCallback((code: string | { ARM: string; MIPS_R6: string } | undefined): string => {
-    if (typeof window !== 'undefined' && settings.autoSaveCode) {
+  const defaultLevelCode = useMemo(() => {
+    const code = levelMap.initialCode
+    if (!code) return ''
+    if (typeof code === 'string') return code
+    return settings.architecture === 'ARM' ? code.ARM : code.MIPS_R6
+  }, [levelMap.initialCode, settings.architecture])
+
+  const getInitialCode = useCallback((): string => {
+    if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem(codeStorageKey)
       if (stored !== null) {
         return stored
       }
     }
-
-    if (!code) return ''
-    if (typeof code === 'string') return code
-    if (settings.architecture === 'ARM') return code.ARM
-    if (settings.architecture === 'MIPS_R6') {
-      return code.MIPS_R6
-    }
-    return code.MIPS_R6
-  }, [settings.autoSaveCode, codeStorageKey, settings.architecture])
+    return defaultLevelCode
+  }, [codeStorageKey, defaultLevelCode])
 
   const initialCode = useMemo(
-    () => getInitialCode(levelMap.initialCode),
-    [levelMap.initialCode, getInitialCode]
+    () => getInitialCode(),
+    [getInitialCode]
   )
 
   const normalizedLevelId = useMemo(() => {
@@ -187,7 +186,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const [isMemoryFilterOpen, setIsMemoryFilterOpen] = useState(false)
   const [selectedMemoryRegion, setSelectedMemoryRegion] = useState<MemoryRegion>('all')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const { setCurrentCode, setRightPanelTab } = gameState
+  const { setCurrentCode, setRightPanelTab, setCodeOverride } = gameState
   const challengeScore = executionControl.formattedScore
   const submitController = useMemo<RankingSubmitController>(() => ({
     isSubmitting,
@@ -232,8 +231,15 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     setCurrentCode(initialCode)
   }, [initialCode, setCurrentCode])
 
+  const handleResetCode = useCallback(() => {
+    setCodeOverride(null)
+    setCurrentCode(defaultLevelCode)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(codeStorageKey, defaultLevelCode)
+    }
+  }, [setCodeOverride, setCurrentCode, defaultLevelCode, codeStorageKey])
+
   useEffect(() => {
-    if (!settings.autoSaveCode) return
     if (typeof window === 'undefined') return
 
     const timeoutId = window.setTimeout(() => {
@@ -243,14 +249,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [settings.autoSaveCode, codeStorageKey, gameState.currentCode])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (!settings.autoSaveCode) {
-      window.localStorage.removeItem(codeStorageKey)
-    }
-  }, [settings.autoSaveCode, codeStorageKey])
+  }, [codeStorageKey, gameState.currentCode])
   // Cleanup emulator on unmount
   useEffect(() => {
     return () => {
@@ -555,6 +554,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
       onClose={() => setIsSettingsOpen(false)}
       isRunning={executionControl.isBusy}
       isDebugMode={gameState.isDebugMode}
+      onResetCode={handleResetCode}
     />
   </div>
   )
