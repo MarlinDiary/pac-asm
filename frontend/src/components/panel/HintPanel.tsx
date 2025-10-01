@@ -88,8 +88,8 @@ export default function HintPanel() {
       }}
     >
       <div className="max-w-4xl [&::-webkit-scrollbar]:hidden">
-        <h1 className="text-2xl font-bold mb-6 text-[#1f1f1f] dark:text-[#f5f5f5]">{hintData.title}</h1>
-        <ul className="list-disc space-y-3 text-[#5a5a5a] dark:text-[#BDBEC2] pl-5">
+        <h1 className="text-xl font-bold mb-5 text-[#1f1f1f] dark:text-[#f5f5f5]">{hintData.title}</h1>
+        <ul className="list-disc space-y-2.5 text-sm text-[#5a5a5a] dark:text-[#BDBEC2] pl-5">
           {hintData.content.map((hint, index) => (
             <li key={index} className="leading-relaxed pl-2">{hint}</li>
           ))}
