@@ -89,7 +89,7 @@ const LEVEL_RULES: Record<string, LevelRule> = {
   level1: { attempts: 1, mode: 'single-pass' },
   level2: { attempts: 1, mode: 'single-pass' },
   level3: { attempts: 1, mode: 'single-pass' },
-  level4: { attempts: 30, mode: 'all-pass' },
+  level4: { attempts: 500, mode: 'all-pass' },
   challenge: { attempts: 10, mode: 'average-score', threshold: 100 }
 }
 
@@ -528,9 +528,17 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
   if (rule.mode === 'all-pass') {
     const failedAttempt = attempts.find(attempt => !attempt.success)
     const pass = !failedAttempt
-    const recordedCycleCounts = attempts.map(attempt => attempt.cycleCount ?? 0)
-    const averageCycleCount = recordedCycleCounts.length > 0
-      ? recordedCycleCounts.reduce((sum, value) => sum + value, 0) / recordedCycleCounts.length
+    const cycleCounts = attempts
+      .map(attempt => {
+        const value = typeof attempt.cycleCount === 'number' ? attempt.cycleCount : null
+        if (value === null || !Number.isFinite(value) || value < 0) {
+          return null
+        }
+        return value
+      })
+      .filter((value): value is number => value !== null)
+    const resolvedMinCycleCount = cycleCounts.length > 0
+      ? cycleCounts.reduce((min, value) => Math.min(min, value), cycleCounts[0])
       : 0
 
     return {
@@ -540,8 +548,8 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
         success: pass,
         attempts: attempts.length,
         failures: pass ? 0 : attempts.filter(attempt => !attempt.success).length,
-        averageCycleCount,
-        cycleCounts: recordedCycleCounts
+        minCycleCount: resolvedMinCycleCount,
+        cycleCounts
       }
     }
   }

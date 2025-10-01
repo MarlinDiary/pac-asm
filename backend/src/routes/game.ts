@@ -225,13 +225,17 @@ function extractMetrics(levelId: string, summary: GameValidationSummary) {
 
   if (typeof summaryMetrics.cycleCount === 'number') {
     cycleCount = Number(summaryMetrics.cycleCount)
+  } else if (typeof summaryMetrics.minCycleCount === 'number') {
+    cycleCount = Number(summaryMetrics.minCycleCount)
   } else if (typeof summaryMetrics.averageCycleCount === 'number') {
     cycleCount = Number(summaryMetrics.averageCycleCount)
   } else {
     const cycleCounts = summaryMetrics.cycleCounts
     if (Array.isArray(cycleCounts) && cycleCounts.length > 0) {
-      const total = cycleCounts.reduce((sum: number, value: unknown) => sum + (typeof value === 'number' ? value : 0), 0)
-      cycleCount = total / cycleCounts.length
+      const validCycleCounts = cycleCounts.filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value))
+      if (validCycleCounts.length > 0) {
+        cycleCount = validCycleCounts.reduce((min, value) => Math.min(min, value), validCycleCounts[0])
+      }
     }
   }
 
