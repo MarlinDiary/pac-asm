@@ -240,42 +240,67 @@ LDR R1, =0x30000
 STR R0, [R1]
 B main`,
       MIPS_R6: `main:
+# Set $t1 = 0x30010, the start of map data in memory
 LUI $t1, 0x3
 ORI $t1, $t1, 0x0010
+
+# Initialize loop counter $t2 = 169 (maximum tiles to scan)
 ORI $t2, $zero, 169
 
 loop:
+# Read one map tile (current byte in the map)
 LBU $t3, 0($t1)
+
+# Advance to the next tile
 ADDIU $t1, $t1, 1
+
+# Load constant 3 = Player tile
 ORI $t4, $zero, 3
+
+# If this tile is the Player (Pac-Man), branch to "check"
 BEQC $t3, $t4, check
+
+# Otherwise, reduce the counter and keep searching
 ADDIU $t2, $t2, -1
 BNEZC $t2, loop
 
 check:
+# Look 14 tiles back. If that tile = Dot (2), Pac-Man must move Up
 LBU $t3, -14($t1)
 ORI $t4, $zero, 2
 BNEC $t3, $t4, next1
-ORI $t0, $zero, 1
+ORI $t0, $zero, 1   # Move Up command
 
 next1:
+# Look 12 tiles forward. If that tile = Dot (2), Pac-Man must move Down
 LBU $t3, 12($t1)
 BNEC $t3, $t4, next2
-ORI $t0, $zero, 2
+ORI $t0, $zero, 2   # Move Down command
+
+# Tips The map is stored row by row in memory. Each row has 13 tiles (since width = 13).
+# Moving up or down one row means moving ±13 tiles in memory.
+# At first glance, you’d expect -13 and +13. But the loop increments $t1 by 1 after reading Pac-Man’s tile.
 
 next2:
+# Look 2 tiles back. If that tile = Dot (2), Pac-Man must move Left
 LBU $t3, -2($t1)
 BNEC $t3, $t4, next3
-ORI $t0, $zero, 3
+ORI $t0, $zero, 3   # Move Left command
 
 next3:
+# Look at the current tile. If it = Dot (2), Pac-Man must move Right
 LBU $t3, 0($t1)
 BNEC $t3, $t4, done
-ORI $t0, $zero, 4
+ORI $t0, $zero, 4   # Move Right command
 
 done:
+# Reset $t1 = 0x30000 (movement command address)
 LUI $t1, 0x3
+
+# Write Pac-Man’s movement command into 0x30000
 SW $t0, 0($t1)
+
+# Jump back to main loop
 BC main`
     },
   },
@@ -365,114 +390,7 @@ MOVNE R4, R11
 LDR R1, =0x30000
 STR R4, [R1]
 B main`,
-      MIPS_R6: `main:
-LUI $t8, 0x0003
-ORI $t8, $t8, 0x0010
-ORI $s4, $zero, 0
-scan:
-ORI $t1, $zero, 0
-loop:
-LBU $t2, 0($t8)
-ADDIU $t8, $t8, 1
-ORI $t5, $zero, 3
-BNEC $t2, $t5, skip1
-OR $s0, $s4, $zero
-OR $s1, $t1, $zero
-skip1:
-ORI $t5, $zero, 2
-BNEC $t2, $t5, skip2
-OR $s2, $s4, $zero
-OR $s3, $t1, $zero
-skip2:
-ORI $t5, $zero, 4
-BNEC $t2, $t5, skip3
-OR $s6, $s4, $zero
-OR $s7, $t1, $zero
-skip3:
-ADDIU $t1, $t1, 1
-SLTI $t5, $t1, 6
-BNEZC $t5, loop
-ADDIU $s4, $s4, 1
-SLTI $t5, $s4, 13
-BNEZC $t5, scan
-BEQC $s2, $s0, same_row
-SLT $t5, $s0, $s2
-BNEZC $t5, dir_down
-ORI $t4, $zero, 1
-BC start
-dir_down:
-ORI $t4, $zero, 2
-BC start
-same_row:
-BEQC $s3, $s1, dir_right
-SLT $t5, $s1, $s3
-BNEZC $t5, dir_right
-ORI $t4, $zero, 3
-BC start
-dir_right:
-ORI $t4, $zero, 4
-start:
-ORI $t3, $zero, 4
-ORI $s5, $zero, 0
-test:
-OR $t5, $s0, $zero
-OR $t9, $s1, $zero
-ORI $t2, $zero, 1
-BNEC $t4, $t2, try2
-ADDIU $t5, $t5, -1
-try2:
-ORI $t2, $zero, 2
-BNEC $t4, $t2, try3
-ADDIU $t5, $t5, 1
-try3:
-ORI $t2, $zero, 3
-BNEC $t4, $t2, try4
-ADDIU $t9, $t9, -1
-try4:
-ORI $t2, $zero, 4
-BNEC $t4, $t2, calc
-ADDIU $t9, $t9, 1
-calc:
-SLL $t8, $t5, 1
-ADDU $t8, $t8, $t5
-SLL $t8, $t8, 1
-ADDU $t8, $t8, $t9
-LUI $t1, 0x0003
-ORI $t1, $t1, 0x0010
-ADDU $t1, $t1, $t8
-LBU $t2, 0($t1)
-BEQZC $t2, next
-SUBU $t2, $t5, $s6
-BGEZC $t2, pos_r
-SUBU $t2, $zero, $t2
-pos_r:
-SLTI $t1, $t2, 2
-BEQZC $t1, safe
-SUBU $t2, $t9, $s7
-BGEZC $t2, pos_c
-SUBU $t2, $zero, $t2
-pos_c:
-SLTI $t1, $t2, 2
-BNEZC $t1, next
-safe:
-OR $s5, $t4, $zero
-BC done
-next:
-ADDIU $t3, $t3, -1
-BEQZC $t3, done
-ADDIU $t4, $t4, 1
-SLTI $t2, $t4, 5
-BNEZC $t2, test
-ORI $t4, $zero, 1
-BC test
-done:
-BEQZC $s5, write
-OR $t4, $s5, $zero
-write:
-LUI $t1, 0x0003
-ORI $t1, $t1, 0x0000
-SW $t4, 0($t1)
-BC main`
+      MIPS_R6: `main:`
     },
   },
   {
