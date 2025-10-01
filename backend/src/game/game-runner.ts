@@ -89,7 +89,7 @@ const LEVEL_RULES: Record<string, LevelRule> = {
   level1: { attempts: 1, mode: 'single-pass' },
   level2: { attempts: 1, mode: 'single-pass' },
   level3: { attempts: 1, mode: 'single-pass' },
-  level4: { attempts: 500, mode: 'all-pass' },
+  level4: { attempts: 2000, mode: 'all-pass' },
   challenge: { attempts: 10, mode: 'average-score', threshold: 100 }
 }
 
@@ -150,6 +150,18 @@ function applyScoreDelta(score: number, delta: number): number {
   return Math.max(0, score + delta)
 }
 
+function computeMedian(values: number[]): number {
+  if (values.length === 0) {
+    return 0
+  }
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2
+  }
+  return sorted[middle]
+}
+
 function createInitialFrame(map: GameMap, registers?: RegisterInfo[]): GameFrame {
   return {
     step: 0,
@@ -197,6 +209,7 @@ interface AttemptContext {
   maxSteps: number
   attemptIndex: number
   includeRegisters: boolean
+  recordFrames: boolean
 }
 
 async function prepareEmulatorForAttempt(
@@ -229,16 +242,20 @@ async function runAttempt(
     baselineCycleCount = null
   }
 
-  let initialRegisters: RegisterInfo[] | undefined = undefined
-  if (ctx.includeRegisters) {
-    try {
-      initialRegisters = (await ctx.emulator.getAllRegisters()) ?? []
-    } catch {
-      initialRegisters = []
-    }
-  }
+  const shouldRecordFrames = Boolean(ctx.recordFrames)
+  const frames: GameFrame[] = []
 
-  const frames: GameFrame[] = [createInitialFrame(initialMap, initialRegisters)]
+  if (shouldRecordFrames) {
+    let initialRegisters: RegisterInfo[] | undefined = undefined
+    if (ctx.includeRegisters) {
+      try {
+        initialRegisters = (await ctx.emulator.getAllRegisters()) ?? []
+      } catch {
+        initialRegisters = []
+      }
+    }
+    frames.push(createInitialFrame(initialMap, initialRegisters))
+  }
 
   let currentMapState = cloneGameMap(initialMap)
   let previousMapState = cloneGameMap(initialMap)
@@ -267,28 +284,32 @@ async function runAttempt(
           `addr=0x${MEMORY_CONFIG.DATA_BASE.toString(16)}, expect=1/2/3/4`
         )
         errors.push(failureReason)
-        frames.push(await captureFrame(
-          ctx.emulator,
-          currentMapState,
-          score,
-          movementCount,
-          0,
-          ctx.includeRegisters,
-          undefined,
-          'timeout'
-        ))
+        if (shouldRecordFrames) {
+          frames.push(await captureFrame(
+            ctx.emulator,
+            currentMapState,
+            score,
+            movementCount,
+            0,
+            ctx.includeRegisters,
+            undefined,
+            'timeout'
+          ))
+        }
       } else {
         const detail = error instanceof Error ? error.message : 'unexpected failure'
         failureReason = formatRuntimeError('runUntilMemWrite execution failed', detail)
         errors.push(failureReason)
-        frames.push(await captureFrame(
-          ctx.emulator,
-          currentMapState,
-          score,
-          movementCount,
-          0,
-          ctx.includeRegisters
-        ))
+        if (shouldRecordFrames) {
+          frames.push(await captureFrame(
+            ctx.emulator,
+            currentMapState,
+            score,
+            movementCount,
+            0,
+            ctx.includeRegisters
+          ))
+        }
       }
       break
     }
@@ -301,7 +322,16 @@ async function runAttempt(
       )
       errors.push(failureReason)
       recordedMovementCount = movementCount
-      frames.push(await captureFrame(ctx.emulator, currentMapState, score, movementCount, 0, ctx.includeRegisters))
+      if (shouldRecordFrames) {
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          0,
+          ctx.includeRegisters
+        ))
+      }
       break
     }
 
@@ -313,31 +343,35 @@ async function runAttempt(
       )
       errors.push(failureReason)
       recordedMovementCount = movementCount
-      frames.push(await captureFrame(
-        ctx.emulator,
-        currentMapState,
-        score,
-        movementCount,
-        0,
-        ctx.includeRegisters,
-        runResult.memEvent,
-        runResult.stopReason
-      ))
+      if (shouldRecordFrames) {
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          0,
+          ctx.includeRegisters,
+          runResult.memEvent,
+          runResult.stopReason
+        ))
+      }
       break
     }
 
     if (runResult.stopReason === 'end-of-code' || runResult.stopReason === 'unknown') {
       recordedMovementCount = movementCount
-      frames.push(await captureFrame(
-        ctx.emulator,
-        currentMapState,
-        score,
-        movementCount,
-        0,
-        ctx.includeRegisters,
-        runResult.memEvent,
-        runResult.stopReason
-      ))
+      if (shouldRecordFrames) {
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          0,
+          ctx.includeRegisters,
+          runResult.memEvent,
+          runResult.stopReason
+        ))
+      }
       break
     }
 
@@ -385,16 +419,18 @@ async function runAttempt(
       failureReason = 'GAMEPLAY_ERROR: PacMan has not moved for 10 consecutive steps'
       errors.push(failureReason)
       recordedMovementCount = movementCount
-      frames.push(await captureFrame(
-        ctx.emulator,
-        currentMapState,
-        score,
-        movementCount,
-        nextAction,
-        ctx.includeRegisters,
-        runResult.memEvent,
-        runResult.stopReason
-      ))
+      if (shouldRecordFrames) {
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          nextAction,
+          ctx.includeRegisters,
+          runResult.memEvent,
+          runResult.stopReason
+        ))
+      }
       break
     }
 
@@ -402,16 +438,18 @@ async function runAttempt(
       failureReason = 'Game Over: Collision with ghost!'
       errors.push(failureReason)
       recordedMovementCount = movementCount
-      frames.push(await captureFrame(
-        ctx.emulator,
-        currentMapState,
-        score,
-        movementCount,
-        nextAction,
-        ctx.includeRegisters,
-        runResult.memEvent,
-        runResult.stopReason
-      ))
+      if (shouldRecordFrames) {
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          nextAction,
+          ctx.includeRegisters,
+          runResult.memEvent,
+          runResult.stopReason
+        ))
+      }
       break
     }
 
@@ -423,16 +461,18 @@ async function runAttempt(
         )
         errors.push(failureReason)
         recordedMovementCount = movementCount
-        frames.push(await captureFrame(
-          ctx.emulator,
-          currentMapState,
-          score,
-          movementCount,
-          nextAction,
-          ctx.includeRegisters,
-          runResult.memEvent,
-          runResult.stopReason
-        ))
+        if (shouldRecordFrames) {
+          frames.push(await captureFrame(
+            ctx.emulator,
+            currentMapState,
+            score,
+            movementCount,
+            nextAction,
+            ctx.includeRegisters,
+            runResult.memEvent,
+            runResult.stopReason
+          ))
+        }
         break
       }
     } catch (error) {
@@ -443,6 +483,25 @@ async function runAttempt(
       )
       errors.push(failureReason)
       recordedMovementCount = movementCount
+      if (shouldRecordFrames) {
+        frames.push(await captureFrame(
+          ctx.emulator,
+          currentMapState,
+          score,
+          movementCount,
+          nextAction,
+          ctx.includeRegisters,
+          runResult.memEvent,
+          runResult.stopReason
+        ))
+      }
+      break
+    }
+
+    recordedMovementCount = movementCount
+    previousMapState = cloneGameMap(currentMapState)
+
+    if (shouldRecordFrames) {
       frames.push(await captureFrame(
         ctx.emulator,
         currentMapState,
@@ -453,22 +512,7 @@ async function runAttempt(
         runResult.memEvent,
         runResult.stopReason
       ))
-      break
     }
-
-    recordedMovementCount = movementCount
-    previousMapState = cloneGameMap(currentMapState)
-
-    frames.push(await captureFrame(
-      ctx.emulator,
-      currentMapState,
-      score,
-      movementCount,
-      nextAction,
-      ctx.includeRegisters,
-      runResult.memEvent,
-      runResult.stopReason
-    ))
 
     if (victoryAchieved) {
       break
@@ -537,8 +581,8 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
         return value
       })
       .filter((value): value is number => value !== null)
-    const resolvedMinCycleCount = cycleCounts.length > 0
-      ? cycleCounts.reduce((min, value) => Math.min(min, value), cycleCounts[0])
+    const resolvedMedianCycleCount = cycleCounts.length > 0
+      ? computeMedian(cycleCounts)
       : 0
 
     return {
@@ -548,7 +592,7 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
         success: pass,
         attempts: attempts.length,
         failures: pass ? 0 : attempts.filter(attempt => !attempt.success).length,
-        minCycleCount: resolvedMinCycleCount,
+        medianCycleCount: resolvedMedianCycleCount,
         cycleCounts
       }
     }
@@ -617,7 +661,8 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
           architecture,
           maxSteps,
           attemptIndex,
-          includeRegisters: options.includeRegisters ?? false
+          includeRegisters: options.includeRegisters ?? false,
+          recordFrames: false
         },
         cloneGameMap(map)
       )

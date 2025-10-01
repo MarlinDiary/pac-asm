@@ -221,21 +221,31 @@ function extractMetrics(levelId: string, summary: GameValidationSummary) {
 
   const status = summary.pass ? 'Accepted' as const : 'Failed' as const
   const summaryMetrics = (summary.metrics ?? {}) as Record<string, unknown>
+  const cycleCountsRaw = summaryMetrics.cycleCounts
+  const validCycleCounts = Array.isArray(cycleCountsRaw)
+    ? cycleCountsRaw.filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value))
+    : []
   let cycleCount: number | undefined
 
-  if (typeof summaryMetrics.cycleCount === 'number') {
-    cycleCount = Number(summaryMetrics.cycleCount)
-  } else if (typeof summaryMetrics.minCycleCount === 'number') {
-    cycleCount = Number(summaryMetrics.minCycleCount)
-  } else if (typeof summaryMetrics.averageCycleCount === 'number') {
-    cycleCount = Number(summaryMetrics.averageCycleCount)
-  } else {
-    const cycleCounts = summaryMetrics.cycleCounts
-    if (Array.isArray(cycleCounts) && cycleCounts.length > 0) {
-      const validCycleCounts = cycleCounts.filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value))
-      if (validCycleCounts.length > 0) {
-        cycleCount = validCycleCounts.reduce((min, value) => Math.min(min, value), validCycleCounts[0])
-      }
+  if (levelId === 'level4') {
+    if (typeof summaryMetrics.medianCycleCount === 'number' && Number.isFinite(summaryMetrics.medianCycleCount)) {
+      cycleCount = Number(summaryMetrics.medianCycleCount)
+    } else if (validCycleCounts.length > 0) {
+      const sortedCounts = [...validCycleCounts].sort((a, b) => a - b)
+      const middle = Math.floor(sortedCounts.length / 2)
+      cycleCount = sortedCounts.length % 2 === 0
+        ? (sortedCounts[middle - 1] + sortedCounts[middle]) / 2
+        : sortedCounts[middle]
+    }
+  }
+
+  if (cycleCount === undefined) {
+    if (typeof summaryMetrics.cycleCount === 'number') {
+      cycleCount = Number(summaryMetrics.cycleCount)
+    } else if (typeof summaryMetrics.averageCycleCount === 'number') {
+      cycleCount = Number(summaryMetrics.averageCycleCount)
+    } else if (validCycleCounts.length > 0) {
+      cycleCount = validCycleCounts.reduce((min, value) => Math.min(min, value), validCycleCounts[0])
     }
   }
 
