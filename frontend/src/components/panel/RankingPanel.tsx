@@ -11,9 +11,7 @@ import type { RankingEntry, SubmissionResponse } from '@/hooks/useExecutionContr
 import type { Architecture } from '@/hooks/useSettings'
 
 const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  'http://localhost:4000'
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000'
 ).replace(/\/$/, '')
 
 interface SourceCodeSnapshot {
@@ -315,23 +313,6 @@ async function submitRanking({ levelId, architecture, controller, user, addTagge
     }
     controller.setRankingLoading(false)
   }
-}
-
-function formatRankingValue(entry: RankingEntry, levelId: string): string {
-  if (levelId === 'challenge') {
-    return Math.round(entry.averageScore ?? 0).toString()
-  }
-
-  const status = entry.status ?? 'Failed'
-
-  if (typeof entry.cycleCount === 'number' && Number.isFinite(entry.cycleCount)) {
-    const rounded = Math.max(0, Math.round(entry.cycleCount))
-    const formatted = new Intl.NumberFormat().format(rounded)
-    const unit = rounded === 1 ? 'cycle' : 'cycles'
-    return `${status} · ${formatted} ${unit}`
-  }
-
-  return status
 }
 
 interface AvatarProps {
