@@ -37,7 +37,7 @@ export default function WaterRenderer({
             alt="Water tile"
             width={tileSize}
             height={tileSize}
-            className="object-cover opacity-[0.09] dark:opacity-[0.008]"
+            className="object-cover opacity-[0.13] dark:opacity-[0.008]"
             priority
           />
         </div>
