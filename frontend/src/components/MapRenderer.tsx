@@ -75,8 +75,20 @@ export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps
                 height: tileSize
               }}
             >
-              {/* Background tile (grass for everything except air) */}
-              {tileType !== 'air' && (
+              {/* Background tile */}
+              {tileType === 'air' ? (
+                <Image
+                  src="/res/wood.png"
+                  alt="wood tile"
+                  width={tileSize}
+                  height={tileSize}
+                  className="object-cover pointer-events-none select-none opacity-40"
+                  style={{
+                    filter: 'var(--tile-filter)'
+                  }}
+                  priority
+                />
+              ) : (
                 <Image
                   src="/res/grass.png"
                   alt="grass tile"
