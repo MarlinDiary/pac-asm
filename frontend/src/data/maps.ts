@@ -390,7 +390,122 @@ MOVNE R4, R11
 LDR R1, =0x30000
 STR R4, [R1]
 B main`,
-      MIPS_R6: `main:`
+      MIPS_R6: `main:
+#TOFILL     Load upper 16 bits of $t8 with 0x0003 (high part of map base address)
+#TOFILL     Set $t8 = 0x30010, starting address of map data
+#TOFILL     Initialize $s4 = 0 (row counter)
+scan:
+ORI $t1, $zero, 0        # Initialize $t1 = 0 (column counter)
+loop:
+#TOFILL     Load byte from map at address in $t8 (current tile)
+ADDIU $t8, $t8, 1        # Increment map pointer to next tile
+ORI $t5, $zero, 3         # Prepare value 3 (player) in $t5
+BNEC $t2, $t5, skip1     # If current tile != player, skip block
+#TOFILL     Store current row in $s0 (player row)
+OR $s1, $t1, $zero       # Store current column in $s1 (player column)
+skip1:
+ORI $t5, $zero, 2         # Prepare value 2 (dot) in $t5
+BNEC $t2, $t5, skip2     # If current tile != dot, skip block
+OR $s2, $s4, $zero       # Store current row in $s2 (dot row)
+#TOFILL     Store current column in $s3 (dot column)
+skip2:
+ORI $t5, $zero, 4         # Prepare value 4 (ghost) in $t5
+BNEC $t2, $t5, skip3     # If current tile != ghost, skip block
+OR $s6, $s4, $zero       # Store current row in $s6 (ghost row)
+#TOFILL     Store current column in $s7 (ghost column)
+skip3:
+#TOFILL     Increment column counter
+#TOFILL     Check if column < 6
+#TOFILL     If yes, continue loop over columns
+ADDIU $s4, $s4, 1        # Increment row counter
+SLTI $t5, $s4, 13        # Check if row < 13
+#TOFILL     If yes, continue scanning next row
+
+# Determine movement direction
+#TOFILL     If dot is in same row as player, go to same_row
+#TOFILL     Check if player row < dot row
+#TOFILL     If yes, move down
+ORI $t4, $zero, 1        # Else, move up (1)
+BC start
+dir_down:
+#TOFILL     Move down (2)
+BC start
+same_row:
+BEQC $s3, $s1, dir_right  # If dot column = player column, move right
+#TOFILL     Check if player column < dot column
+#TOFILL     If yes, move right
+ORI $t4, $zero, 3        # Else, move left
+BC start
+dir_right:
+#TOFILL     Move right (4)
+
+start:
+ORI $t3, $zero, 4        # Max 4 attempts to adjust move if unsafe
+#TOFILL     Initialize selected move = 0
+
+test:
+OR $t5, $s0, $zero       # Copy target row to $t5
+OR $t9, $s1, $zero       # Copy target column to $t9
+ORI $t2, $zero, 1
+BNEC $t4, $t2, try2      # If move != up, skip
+#TOFILL     Adjust row for up
+try2:
+ORI $t2, $zero, 2
+#TOFILL     If move != down, skip
+#TOFILL     Adjust row for down
+try3:
+ORI $t2, $zero, 3
+BNEC $t4, $t2, try4      # If move != left, skip
+#TOFILL     Adjust column for left
+try4:
+ORI $t2, $zero, 4
+BNEC $t4, $t2, calc      # If move != right, skip
+ADDIU $t9, $t9, 1        # Adjust column for right
+
+calc:
+SLL $t8, $t5, 1
+ADDU $t8, $t8, $t5
+SLL $t8, $t8, 1
+#TOFILL     Compute offset = row*6 + column
+LUI $t1, 0x0003
+ORI $t1, $t1, 0x0010
+ADDU $t1, $t1, $t8       # Address of target tile
+LBU $t2, 0($t1)          # Load target tile
+BEQZC $t2, next          # If empty, tile safe
+#TOFILL     Check row distance to ghost
+BGEZC $t2, pos_r
+SUBU $t2, $zero, $t2
+pos_r:
+SLTI $t1, $t2, 2         # If distance < 2, not safe
+BEQZC $t1, safe
+SUBU $t2, $t9, $s7       # Check column distance to ghost
+BGEZC $t2, pos_c
+SUBU $t2, $zero, $t2
+pos_c:
+#TOFILL     If distance < 2, not safe
+BNEZC $t1, next
+safe:
+OR $s5, $t4, $zero       # Move is safe, select it
+BC done
+next:
+ADDIU $t3, $t3, -1       # Decrement attempts
+#TOFILL     If no attempts left, finish
+ADDIU $t4, $t4, 1        # Try next direction
+SLTI $t2, $t4, 5
+BNEZC $t2, test           # Repeat test
+ORI $t4, $zero, 1
+BC test
+
+done:
+BEQZC $s5, write         # If no safe move, proceed to write
+OR $t4, $s5, $zero       # Use selected move
+
+write:
+LUI $t1, 0x0003
+ORI $t1, $t1, 0x0000     # Base address for movement command (0x30000)
+SW $t4, 0($t1)           # Write movement command to move Pac-Man
+#TOFILL     Repeat main loop
+`
     },
   },
   {
