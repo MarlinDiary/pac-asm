@@ -80,13 +80,21 @@ export default function HintPanel() {
   }
 
   return (
-    <div className="p-4 max-w-3xl mx-auto font-sans">
-      <h1 className="text-2xl font-bold mb-4">{hintData.title}</h1>
-      <ul className="list-disc list-inside">
-        {hintData.content.map((hint, index) => (
-          <li key={index}>{hint}</li>
-        ))}
-      </ul>
+    <div
+      className="w-full h-full overflow-y-auto px-4 py-3"
+      style={{
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
+      }}
+    >
+      <div className="max-w-4xl [&::-webkit-scrollbar]:hidden">
+        <h1 className="text-2xl font-bold mb-6 text-[#1f1f1f] dark:text-[#f5f5f5]">{hintData.title}</h1>
+        <ul className="list-disc space-y-3 text-[#5a5a5a] dark:text-[#BDBEC2] pl-5">
+          {hintData.content.map((hint, index) => (
+            <li key={index} className="leading-relaxed pl-2">{hint}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }
