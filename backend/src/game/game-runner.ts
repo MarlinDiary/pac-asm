@@ -89,7 +89,7 @@ const LEVEL_RULES: Record<string, LevelRule> = {
   level1: { attempts: 1, mode: 'single-pass' },
   level2: { attempts: 1, mode: 'single-pass' },
   level3: { attempts: 1, mode: 'single-pass' },
-  level4: { attempts: 10, mode: 'all-pass' },
+  level4: { attempts: 30, mode: 'all-pass' },
   challenge: { attempts: 10, mode: 'average-score', threshold: 100 }
 }
 
