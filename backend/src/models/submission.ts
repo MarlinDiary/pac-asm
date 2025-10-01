@@ -11,6 +11,7 @@ export interface SubmissionDocument extends Document {
   status?: 'Accepted' | 'Failed';
   successRate?: number;
   averageScore?: number;
+  cycleCount?: number;
   summary: GameValidationSummary;
   createdAt: Date;
   updatedAt: Date;
@@ -45,6 +46,7 @@ const submissionSchema = new Schema<SubmissionDocument>(
     },
     successRate: Number,
     averageScore: Number,
+    cycleCount: Number,
     summary: {
       type: Schema.Types.Mixed,
       required: true

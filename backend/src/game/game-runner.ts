@@ -51,6 +51,7 @@ export interface GameAttemptResult {
   victory: boolean
   score: number
   steps: number
+  cycleCount: number
   frames: GameFrame[]
   failureReason?: string
   errors: string[]
@@ -220,6 +221,13 @@ async function runAttempt(
   const errors: string[] = []
   const initialMap = cloneGameMap(baseMap)
   await prepareEmulatorForAttempt(ctx, initialMap)
+
+  let baselineCycleCount: number | null = null
+  try {
+    baselineCycleCount = await ctx.emulator.getCycleCount()
+  } catch {
+    baselineCycleCount = null
+  }
 
   let initialRegisters: RegisterInfo[] | undefined = undefined
   if (ctx.includeRegisters) {
@@ -469,12 +477,31 @@ async function runAttempt(
 
   const success = victoryAchieved && !failureReason
 
+  let cycleCount = 0
+  try {
+    const finalCycleCount = await ctx.emulator.getCycleCount()
+    if (typeof finalCycleCount === 'number') {
+      if (typeof baselineCycleCount === 'number') {
+        const delta = finalCycleCount - baselineCycleCount
+        cycleCount = delta >= 0 ? Math.round(delta) : Math.round(finalCycleCount)
+      } else {
+        cycleCount = Math.round(finalCycleCount)
+      }
+      if (!Number.isFinite(cycleCount) || cycleCount < 0) {
+        cycleCount = 0
+      }
+    }
+  } catch {
+    cycleCount = 0
+  }
+
   return {
     attempt: ctx.attemptIndex + 1,
     success,
     victory: victoryAchieved,
     score,
     steps: recordedMovementCount,
+    cycleCount,
     frames,
     failureReason,
     errors
@@ -492,7 +519,8 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
       metrics: {
         success: firstAttempt?.success ?? false,
         score: firstAttempt?.score ?? 0,
-        steps: firstAttempt?.steps ?? 0
+        steps: firstAttempt?.steps ?? 0,
+        cycleCount: firstAttempt?.cycleCount ?? 0
       }
     }
   }
@@ -500,6 +528,10 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
   if (rule.mode === 'all-pass') {
     const failedAttempt = attempts.find(attempt => !attempt.success)
     const pass = !failedAttempt
+    const recordedCycleCounts = attempts.map(attempt => attempt.cycleCount ?? 0)
+    const averageCycleCount = recordedCycleCounts.length > 0
+      ? recordedCycleCounts.reduce((sum, value) => sum + value, 0) / recordedCycleCounts.length
+      : 0
 
     return {
       pass,
@@ -507,7 +539,9 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
       metrics: {
         success: pass,
         attempts: attempts.length,
-        failures: pass ? 0 : attempts.filter(attempt => !attempt.success).length
+        failures: pass ? 0 : attempts.filter(attempt => !attempt.success).length,
+        averageCycleCount,
+        cycleCounts: recordedCycleCounts
       }
     }
   }
@@ -592,6 +626,7 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
         victory: false,
         score: 0,
         steps: 0,
+        cycleCount: 0,
         frames: [],
         failureReason: message,
         errors: [message]

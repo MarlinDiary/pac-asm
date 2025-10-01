@@ -165,6 +165,7 @@ router.post('/submit', async (req: Request, res: Response) => {
       status: metrics.status,
       successRate: 'successRate' in metrics ? metrics.successRate : undefined,
       averageScore: 'averageScore' in metrics ? metrics.averageScore : undefined,
+      cycleCount: 'cycleCount' in metrics ? metrics.cycleCount : undefined,
       summary
     }
 
@@ -200,7 +201,7 @@ router.get('/ranking', async (req: Request, res: Response) => {
       query.architecture = architecture
     }
 
-    const submissions = await SubmissionModel.find(query).sort(sort).limit(50).exec()
+    const submissions = await SubmissionModel.find(query).sort(sort).limit(200).exec()
     const ranking = submissions.map(toRankingEntry)
 
     return res.status(200).json({ submissions: ranking })
@@ -219,6 +220,25 @@ function extractMetrics(levelId: string, summary: GameValidationSummary) {
   }
 
   const status = summary.pass ? 'Accepted' as const : 'Failed' as const
+  const summaryMetrics = (summary.metrics ?? {}) as Record<string, unknown>
+  let cycleCount: number | undefined
+
+  if (typeof summaryMetrics.cycleCount === 'number') {
+    cycleCount = Number(summaryMetrics.cycleCount)
+  } else if (typeof summaryMetrics.averageCycleCount === 'number') {
+    cycleCount = Number(summaryMetrics.averageCycleCount)
+  } else {
+    const cycleCounts = summaryMetrics.cycleCounts
+    if (Array.isArray(cycleCounts) && cycleCounts.length > 0) {
+      const total = cycleCounts.reduce((sum: number, value: unknown) => sum + (typeof value === 'number' ? value : 0), 0)
+      cycleCount = total / cycleCounts.length
+    }
+  }
+
+  if (typeof cycleCount === 'number' && Number.isFinite(cycleCount)) {
+    return { status, cycleCount: Math.max(0, Math.round(cycleCount)) }
+  }
+
   return { status }
 }
 
@@ -233,6 +253,7 @@ function toRankingEntry(doc: SubmissionDocument) {
     status: doc.status,
     successRate: doc.successRate ?? 0,
     averageScore: doc.averageScore ?? 0,
+    cycleCount: typeof doc.cycleCount === 'number' ? doc.cycleCount : undefined,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString()
   }
@@ -240,10 +261,14 @@ function toRankingEntry(doc: SubmissionDocument) {
 
 function buildRankingSort(levelId: string): Record<string, 1 | -1> {
   if (levelId === 'challenge') {
-    return { averageScore: -1, createdAt: -1 }
+    return { averageScore: -1, createdAt: 1 }
   }
 
-  return { createdAt: -1 }
+  return {
+    status: 1,
+    cycleCount: 1,
+    createdAt: 1
+  }
 }
 
 function parseOptionalNumber(value: unknown): number | undefined | typeof Number.NaN {

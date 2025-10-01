@@ -30,6 +30,7 @@ interface RankingEntry {
   status?: 'Accepted' | 'Failed'
   successRate?: number
   averageScore?: number
+  cycleCount?: number
   createdAt: string
   updatedAt: string
   isOptimistic?: boolean
@@ -46,6 +47,7 @@ type RankingResponse = {
     status?: 'Accepted' | 'Failed'
     successRate?: number
     averageScore?: number
+    cycleCount?: number
     createdAt: string
     updatedAt: string
   }>
@@ -717,6 +719,7 @@ function createRankingEntry(
     status: submission.status,
     successRate: typeof submission.successRate === 'number' ? submission.successRate : 0,
     averageScore: typeof submission.averageScore === 'number' ? submission.averageScore : 0,
+    cycleCount: typeof submission.cycleCount === 'number' ? submission.cycleCount : undefined,
     createdAt: submission.createdAt,
     updatedAt: submission.updatedAt,
     isOptimistic: options.optimistic ?? false
@@ -736,7 +739,7 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
     return sorted
   }
 
-  // For standard levels (level1-4): Sort by acceptance status first (Accepted before Failed), then by time (earliest first)
+  // For standard levels (level1-4): Accepted first, then lower cycle counts, then earlier submissions
   sorted.sort((a, b) => {
     const aAccepted = a.status === 'Accepted'
     const bAccepted = b.status === 'Accepted'
@@ -746,7 +749,14 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
       return aAccepted ? -1 : 1
     }
 
-    // If both have same status, sort by time (earliest first)
+    const aCycle = typeof a.cycleCount === 'number' && Number.isFinite(a.cycleCount) ? a.cycleCount : Number.POSITIVE_INFINITY
+    const bCycle = typeof b.cycleCount === 'number' && Number.isFinite(b.cycleCount) ? b.cycleCount : Number.POSITIVE_INFINITY
+    const cycleDelta = aCycle - bCycle
+    if (cycleDelta !== 0) {
+      return cycleDelta
+    }
+
+    // If cycle count ties, earlier submission comes first
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   })
   return sorted

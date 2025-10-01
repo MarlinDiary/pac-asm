@@ -324,6 +324,33 @@ export class EmulatorWorker {
     }
   }
 
+  private getCycleCount(): void {
+    try {
+      if (!this.unicorn || !this.isInitialized) {
+        throw new Error('Emulator not initialized');
+      }
+
+      if (typeof this.unicorn.cycle_count !== 'function') {
+        this.postMessage({ type: 'cycle-count', payload: { cycles: 0 } });
+        return;
+      }
+
+      const rawCount = this.unicorn.cycle_count();
+      const numericCount = typeof rawCount === 'bigint' ? Number(rawCount) : Number(rawCount);
+      const cycles = Number.isFinite(numericCount) ? numericCount : 0;
+
+      this.postMessage({
+        type: 'cycle-count',
+        payload: { cycles }
+      });
+    } catch (error) {
+      this.postMessage({
+        type: 'error',
+        payload: `Failed to get cycle count: ${error}`
+      });
+    }
+  }
+
   private reset(): void {
     try {
       if (!this.memoryManager || !this.isInitialized) {
@@ -410,6 +437,9 @@ export class EmulatorWorker {
         if (typeof message.payload === 'object' && message.payload && 'address' in message.payload && 'data' in message.payload) {
           this.writeMemory(message.payload.address!, message.payload.data!);
         }
+        break;
+      case 'get-cycle-count':
+        this.getCycleCount();
         break;
       case 'reset':
         this.reset();

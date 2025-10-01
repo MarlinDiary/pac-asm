@@ -105,6 +105,7 @@ export interface UnicornInstance {
   emu_start(begin: number, until: number, timeout: number, count: number): void;
   emu_stop(): void;
   close(): void;
+  cycle_count?: () => number | bigint;
   // Hook APIs
   hook_add(
     type: number,
@@ -126,7 +127,7 @@ export interface UnicornInstance {
 }
 
 export interface EmulatorMessage {
-  type: 'init' | 'load-code' | 'set-register' | 'get-register' | 'get-all-registers' | 'step' | 'step-debug' | 'run' | 'stop' | 'reset' | 'get-memory' | 'write-memory';
+  type: 'init' | 'load-code' | 'set-register' | 'get-register' | 'get-all-registers' | 'step' | 'step-debug' | 'run' | 'stop' | 'reset' | 'get-memory' | 'write-memory' | 'get-cycle-count';
   payload?:
     | {
         register?: string;
@@ -173,7 +174,7 @@ export interface StepResult {
 }
 
 export interface EmulatorResponse {
-  type: 'success' | 'error' | 'register-value' | 'registers-data' | 'memory-data' | 'execution-complete' | 'step-result';
+  type: 'success' | 'error' | 'register-value' | 'registers-data' | 'memory-data' | 'execution-complete' | 'step-result' | 'cycle-count';
   payload?:
     | string
     | RegisterInfo
@@ -185,7 +186,8 @@ export interface EmulatorResponse {
         executedInstructions?: number;
         stopReason?: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown';
         memEvent?: { address: number; value: number };
-      };
+      }
+    | { cycles: number };
   messageId?: string;
 }
 

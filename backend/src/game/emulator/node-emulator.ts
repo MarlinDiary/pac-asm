@@ -286,6 +286,27 @@ export class NodeEmulator {
     throw new Error('Unexpected response from emulator run')
   }
 
+  async getCycleCount(): Promise<number | null> {
+    this.ensureReady()
+    const response = await this.sendMessage({ type: 'get-cycle-count' })
+    if (response.type === 'cycle-count') {
+      const rawPayload = response.payload as unknown
+      if (typeof rawPayload === 'number') {
+        return rawPayload
+      }
+      if (rawPayload && typeof rawPayload === 'object' && 'cycles' in rawPayload) {
+        const cycles = (rawPayload as { cycles?: unknown }).cycles
+        if (typeof cycles === 'number') {
+          return cycles
+        }
+      }
+    }
+    if (response.type === 'error') {
+      throw new Error(response.payload as string)
+    }
+    return null
+  }
+
   async close(): Promise<void> {
     await this.terminateWorker()
     this.state.isInitialized = false

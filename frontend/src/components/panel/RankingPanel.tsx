@@ -87,15 +87,21 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
   }
 
   const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light'
-
-  const thirdColumnTitle = levelId === 'challenge' ? 'Average Score' : 'Status'
+  const isChallenge = levelId === 'challenge'
 
   return (
     <div className="h-full flex flex-col">
       <SubBar>
         <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-3" style={{ width: '25%' }}>Rank</div>
-        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '45%' }}>Name</div>
-        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '30%' }}>{thirdColumnTitle}</div>
+        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: isChallenge ? '45%' : '35%' }}>Name</div>
+        {isChallenge ? (
+          <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '30%' }}>Average Score</div>
+        ) : (
+          <>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '25%' }}>Status</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '25%' }}>Cycles</div>
+          </>
+        )}
       </SubBar>
       <div
         className="flex-1 overflow-y-auto"
@@ -118,14 +124,27 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                   <div className="h-4 w-6 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
                 {/* Name skeleton */}
-                <div style={{ width: '45%' }} className="flex items-center gap-2 pl-2">
+                <div style={{ width: isChallenge ? '45%' : '35%' }} className="flex items-center gap-2 pl-2">
                   <div className="w-5 h-5 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded-full animate-pulse" />
                   <div className="h-4 w-24 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
-                {/* Status/Score skeleton */}
-                <div style={{ width: '30%' }} className="pl-2">
-                  <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
-                </div>
+                {isChallenge ? (
+                  /* Score skeleton */
+                  <div style={{ width: '30%' }} className="pl-2">
+                    <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Status skeleton */}
+                    <div style={{ width: '25%' }} className="pl-2">
+                      <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    </div>
+                    {/* Cycles skeleton */}
+                    <div style={{ width: '25%' }} className="pl-2">
+                      <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -145,8 +164,11 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
           </div>
         ) : (
           entries.map((entry, index) => {
-            const thirdColumnValue = formatRankingValue(entry, levelId)
+            const status = entry.status ?? 'Failed'
             const isSuccessful = entry.status === 'Accepted'
+            const cycleCount = typeof entry.cycleCount === 'number' && Number.isFinite(entry.cycleCount)
+              ? Math.max(0, Math.round(entry.cycleCount))
+              : null
 
             return (
               <div
@@ -160,25 +182,36 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                 <div style={{ width: '25%' }} className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] pl-3">
                   {index + 1}
                 </div>
-                <div style={{ width: '45%' }} className="flex items-center gap-2 pl-2">
+                <div style={{ width: isChallenge ? '45%' : '35%' }} className="flex items-center gap-2 pl-2">
                   <Avatar name={entry.userName} avatarUrl={entry.userAvatarUrl} />
                   <span className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] truncate">
                     {entry.userName}
                   </span>
                 </div>
-                <div style={{ width: '30%' }} className="text-sm pl-2">
-                  <span
-                    className={`font-medium ${
-                      levelId === 'challenge'
-                        ? 'text-[#1f1f1f] dark:text-[#f5f5f5]'
-                        : isSuccessful
-                          ? 'text-[#2CBC5D]'
-                          : 'text-[#EF4843]'
-                    }`}
-                  >
-                    {thirdColumnValue}
-                  </span>
-                </div>
+                {isChallenge ? (
+                  <div style={{ width: '30%' }} className="text-sm pl-2">
+                    <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
+                      {Math.round(entry.averageScore ?? 0).toString()}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                      <span
+                        className={`font-medium ${
+                          isSuccessful ? 'text-[#2CBC5D]' : 'text-[#EF4843]'
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                      <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
+                        {cycleCount !== null ? new Intl.NumberFormat().format(cycleCount) : '-'}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             )
           })
@@ -288,7 +321,17 @@ function formatRankingValue(entry: RankingEntry, levelId: string): string {
   if (levelId === 'challenge') {
     return Math.round(entry.averageScore ?? 0).toString()
   }
-  return entry.status ?? 'Failed'
+
+  const status = entry.status ?? 'Failed'
+
+  if (typeof entry.cycleCount === 'number' && Number.isFinite(entry.cycleCount)) {
+    const rounded = Math.max(0, Math.round(entry.cycleCount))
+    const formatted = new Intl.NumberFormat().format(rounded)
+    const unit = rounded === 1 ? 'cycle' : 'cycles'
+    return `${status} · ${formatted} ${unit}`
+  }
+
+  return status
 }
 
 interface AvatarProps {
