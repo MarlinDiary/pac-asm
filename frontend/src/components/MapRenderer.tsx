@@ -82,7 +82,7 @@ export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps
                   alt="wood tile"
                   width={tileSize}
                   height={tileSize}
-                  className="object-cover pointer-events-none select-none opacity-80"
+                  className="object-cover pointer-events-none select-none"
                   style={{
                     filter: 'var(--tile-filter)'
                   }}
