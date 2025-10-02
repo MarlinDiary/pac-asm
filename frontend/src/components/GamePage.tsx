@@ -266,7 +266,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
 
   return (
     <div className="h-screen w-full overflow-hidden bg-[#f0f0f0] dark:bg-[#0f0f0f]">
-      <div className="p-2 h-full flex flex-col" style={{ zoom: settings.pageZoom === 110 ? 1.12 : settings.pageZoom / 100 }}>
+      <div className="p-2 h-full flex flex-col" style={{ zoom: settings.pageZoom === 110 ? 1.11 : settings.pageZoom / 100 }}>
         <div className="flex justify-center relative">
           <div className="absolute left-0 top-0 flex items-center h-10 gap-1">
             <IconButton
