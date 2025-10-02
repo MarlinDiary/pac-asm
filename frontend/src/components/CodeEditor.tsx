@@ -872,7 +872,7 @@ export default function CodeEditor({
           foldingHighlight: false,
           unfoldOnClickAfterEndOfLine: false,
           selectOnLineNumbers: true,
-          padding: { top: 8 },
+          padding: { top: 3 },
           scrollbar: {
             vertical: 'hidden',
             horizontal: 'hidden'
