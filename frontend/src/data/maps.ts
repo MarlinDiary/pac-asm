@@ -309,7 +309,7 @@ BC main`
     name: 'Level 4',
     width: 6,
     height: 13,
-    tileSize: 48,
+    tileSize: 42,
     tiles: parseMapFromString(LEVEL4_RAW_MAP),
     playerPosition: { row: 1, col: 1, direction: 'right' },
     ghostPositions: [{ row: 6, col: 2 }],
