@@ -44,8 +44,6 @@ if (typeof window !== "undefined" && POSTHOG_KEY) {
     defaults: '2025-05-24',
     capture_pageview: 'history_change',
     capture_pageleave: true,
-    autocapture: false,
-    disable_session_recording: true,
   });
 
   ensureFingerprintIdentity();
