@@ -1,5 +1,7 @@
 'use client'
 
+import Image from 'next/image';
+
 export default function GuidePanel() {
   return (
     <div
@@ -71,28 +73,44 @@ export default function GuidePanel() {
                 <tr className="bg-[#f7f7f8] dark:bg-[#353535]">
                   <th className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-left text-xs font-semibold text-[#1f1f1f] dark:text-[#f5f5f5]">Value</th>
                   <th className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-left text-xs font-semibold text-[#1f1f1f] dark:text-[#f5f5f5]">Meaning</th>
+                  <th className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-left text-xs font-semibold text-[#1f1f1f] dark:text-[#f5f5f5]">Sprite</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="bg-white dark:bg-[#262626]">
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs font-mono text-[#5a5a5a] dark:text-[#BDBEC2]">0</td>
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">Wall</td>
+                  <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5">
+                    <Image src="/res/wood.png" alt="Wall" width={24} height={24} className="object-cover" style={{ filter: 'var(--tile-filter)' }} />
+                  </td>
                 </tr>
                 <tr className="bg-[#f7f7f8] dark:bg-[#353535]">
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs font-mono text-[#5a5a5a] dark:text-[#BDBEC2]">1</td>
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">Grass</td>
+                  <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5">
+                    <Image src="/res/grass.png" alt="Grass" width={24} height={24} className="object-cover" style={{ filter: 'var(--tile-filter)' }} />
+                  </td>
                 </tr>
                 <tr className="bg-white dark:bg-[#262626]">
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs font-mono text-[#5a5a5a] dark:text-[#BDBEC2]">2</td>
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">Dot</td>
+                  <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5">
+                    <Image src="/res/dot.gif" alt="Dot" width={24} height={24} className="object-cover" unoptimized />
+                  </td>
                 </tr>
                 <tr className="bg-[#f7f7f8] dark:bg-[#353535]">
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs font-mono text-[#5a5a5a] dark:text-[#BDBEC2]">3</td>
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">Player</td>
+                  <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5">
+                    <Image src="/res/player.gif" alt="Player" width={24} height={24} className="object-cover" unoptimized />
+                  </td>
                 </tr>
                 <tr className="bg-white dark:bg-[#262626]">
                   <td className="px-4 py-2.5 text-xs font-mono text-[#5a5a5a] dark:text-[#BDBEC2]">4</td>
                   <td className="px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">Ghost</td>
+                  <td className="px-4 py-2.5">
+                    <Image src="/res/ghost.gif" alt="Ghost" width={24} height={24} className="object-cover" unoptimized />
+                  </td>
                 </tr>
               </tbody>
             </table>
