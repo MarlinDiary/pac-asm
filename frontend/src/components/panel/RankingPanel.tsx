@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import SubBar from '@/components/bar/SubBar'
-import { LoaderCircle } from 'lucide-react'
+import { LoaderCircle, Check, X } from 'lucide-react'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import type { RankingEntry, SubmissionResponse } from '@/hooks/useExecutionControl'
 import type { Architecture } from '@/hooks/useSettings'
@@ -13,6 +13,35 @@ import type { Architecture } from '@/hooks/useSettings'
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000'
 ).replace(/\/$/, '')
+
+function formatSubmitTime(createdAt: string): string {
+  try {
+    const date = new Date(createdAt)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+    if (diffInSeconds < 60) {
+      return 'Just now'
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60)
+      return `${minutes}m ago`
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600)
+      return `${hours}h ago`
+    } else if (diffInSeconds < 604800) {
+      const days = Math.floor(diffInSeconds / 86400)
+      return `${days}d ago`
+    } else {
+      // Format as MM/DD/YYYY for older dates
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${month}/${day}/${year}`
+    }
+  } catch {
+    return '-'
+  }
+}
 
 interface SourceCodeSnapshot {
   trimmed?: string
@@ -90,14 +119,18 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
   return (
     <div className="h-full flex flex-col">
       <SubBar>
-        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-3" style={{ width: '25%' }}>Rank</div>
-        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: isChallenge ? '45%' : '35%' }}>Name</div>
+        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-3" style={{ width: '6%' }}></div>
+        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: isChallenge ? '40%' : '28%' }}>Name</div>
         {isChallenge ? (
-          <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '30%' }}>Average Score</div>
+          <>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '27%' }}>Average Score</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '27%' }}>Time</div>
+          </>
         ) : (
           <>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '25%' }}>Status</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '16%' }}>Status</div>
             <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '25%' }}>Cycles</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '25%' }}>Time</div>
           </>
         )}
       </SubBar>
@@ -118,27 +151,37 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                 }`}
               >
                 {/* Rank skeleton */}
-                <div style={{ width: '25%' }} className="pl-3">
-                  <div className="h-4 w-6 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                <div style={{ width: '6%' }} className="pl-3">
+                  <div className="h-4 w-3 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
                 {/* Name skeleton */}
-                <div style={{ width: isChallenge ? '45%' : '35%' }} className="flex items-center gap-2 pl-2">
+                <div style={{ width: isChallenge ? '40%' : '28%' }} className="flex items-center gap-2 pl-2">
                   <div className="w-5 h-5 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded-full animate-pulse" />
                   <div className="h-4 w-24 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
                 {isChallenge ? (
-                  /* Score skeleton */
-                  <div style={{ width: '30%' }} className="pl-2">
-                    <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
-                  </div>
+                  <>
+                    {/* Score skeleton */}
+                    <div style={{ width: '27%' }} className="pl-2">
+                      <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    </div>
+                    {/* Submit Time skeleton */}
+                    <div style={{ width: '27%' }} className="pl-2">
+                      <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    </div>
+                  </>
                 ) : (
                   <>
                     {/* Status skeleton */}
-                    <div style={{ width: '25%' }} className="pl-2">
-                      <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    <div style={{ width: '16%' }} className="pl-2 flex items-center">
+                      <div className="h-4 w-4 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Cycles skeleton */}
-                    <div style={{ width: '25%' }} className="pl-2">
+                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                      <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    </div>
+                    {/* Submit Time skeleton */}
+                    <div style={{ width: '25%' }} className="text-sm pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                   </>
@@ -162,7 +205,6 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
           </div>
         ) : (
           entries.map((entry, index) => {
-            const status = entry.status ?? 'Failed'
             const isSuccessful = entry.status === 'Accepted'
             const cycleCount = typeof entry.cycleCount === 'number' && Number.isFinite(entry.cycleCount)
               ? Math.max(0, Math.round(entry.cycleCount))
@@ -177,35 +219,45 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                     : 'bg-[#f7f7f8] dark:bg-[#353535]'
                 }`}
               >
-                <div style={{ width: '25%' }} className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] pl-3">
+                <div style={{ width: '6%' }} className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] pl-3">
                   {index + 1}
                 </div>
-                <div style={{ width: isChallenge ? '45%' : '35%' }} className="flex items-center gap-2 pl-2">
+                <div style={{ width: isChallenge ? '40%' : '28%' }} className="flex items-center gap-2 pl-2">
                   <Avatar name={entry.userName} avatarUrl={entry.userAvatarUrl} />
                   <span className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] truncate">
                     {entry.userName}
                   </span>
                 </div>
                 {isChallenge ? (
-                  <div style={{ width: '30%' }} className="text-sm pl-2">
-                    <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
-                      {Math.round(entry.averageScore ?? 0).toString()}
-                    </span>
-                  </div>
+                  <>
+                    <div style={{ width: '27%' }} className="text-sm pl-2">
+                      <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
+                        {Math.round(entry.averageScore ?? 0).toString()}
+                      </span>
+                    </div>
+                    <div style={{ width: '27%' }} className="text-sm pl-2">
+                      <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
+                        {formatSubmitTime(entry.createdAt)}
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <>
-                    <div style={{ width: '25%' }} className="text-sm pl-2">
-                      <span
-                        className={`font-medium ${
-                          isSuccessful ? 'text-[#2CBC5D]' : 'text-[#EF4843]'
-                        }`}
-                      >
-                        {status}
-                      </span>
+                    <div style={{ width: '16%' }} className="pl-2 flex items-center">
+                      {isSuccessful ? (
+                        <Check className="w-4 h-4 text-[#2CBC5D]" />
+                      ) : (
+                        <X className="w-4 h-4 text-[#EF4843]" />
+                      )}
                     </div>
                     <div style={{ width: '25%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {cycleCount !== null ? new Intl.NumberFormat().format(cycleCount) : '-'}
+                      </span>
+                    </div>
+                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                      <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
+                        {formatSubmitTime(entry.createdAt)}
                       </span>
                     </div>
                   </>
