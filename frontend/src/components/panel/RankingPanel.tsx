@@ -32,10 +32,10 @@ function formatSubmitTime(createdAt: string): string {
       const days = Math.floor(diffInSeconds / 86400)
       return `${days}d ago`
     } else {
-      // Format as MM/DD/YYYY for older dates
+      // Format as MM/DD/YY for older dates
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
-      const year = date.getFullYear()
+      const year = String(date.getFullYear()).slice(-2)
       return `${month}/${day}/${year}`
     }
   } catch {
