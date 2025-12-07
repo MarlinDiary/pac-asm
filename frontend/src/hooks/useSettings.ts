@@ -12,7 +12,7 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  architecture: 'MIPS_R6',
+  architecture: 'ARM',
   codeCompletion: true,
   fontSize: 14,
   aiDiagnostics: false,
@@ -33,7 +33,7 @@ export function useSettings() {
         const parsed: Settings = {
           ...DEFAULT_SETTINGS,
           ...raw,
-          architecture: raw.architecture === 'ARM' ? 'ARM' : 'MIPS_R6'
+          architecture: raw.architecture === 'MIPS_R6' ? 'MIPS_R6' : 'ARM'
         }
         const changed = JSON.stringify(parsed) !== JSON.stringify(settings)
         if (changed) setSettings(parsed)
