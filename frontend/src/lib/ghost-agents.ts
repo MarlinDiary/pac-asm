@@ -141,7 +141,7 @@ function aStarNextMove(map: GameMap, start: Position, target: Position): Positio
 /**
  * Algorithm 1: A* pathfinding - follows the shortest path to Pacman
  */
-export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position, previousPosition?: Position): Position {
+export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position, _previousPosition?: Position): Position {
   const validMoves = getValidMoves(map, ghostPosition);
 
   if (validMoves.length === 0) {

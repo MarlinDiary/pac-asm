@@ -213,9 +213,8 @@ export function updateMapWithMovementAndGhosts(
       // First ghost: A* direct pursuit
       nextGhostPositions.push(smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos));
     } else {
-      // Second ghost: Pincer attack - pass first ghost's position for flanking
-      const firstGhostPos = nextGhostPositions[0] || currentMap.ghostPositions[0];
-      nextGhostPositions.push(bfsGhostMove(currentMap, ghost, currentMap.playerPosition, firstGhostPos));
+      // Second ghost: 50% A* chase, 50% random
+      nextGhostPositions.push(bfsGhostMove(currentMap, ghost, currentMap.playerPosition));
     }
   }
 
