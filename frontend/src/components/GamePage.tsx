@@ -25,6 +25,7 @@ import { useEmulator } from '@/hooks/useEmulator'
 import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
+import { useJsPlayRunner } from '@/hooks/useJsPlayRunner'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight, CircleUserRound, LogOut, Lightbulb } from 'lucide-react'
 import { GameMap } from '@/data/maps'
@@ -53,6 +54,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [secretClickCount, setSecretClickCount] = useState(0)
+  const secretClickTimer = useRef<NodeJS.Timeout | null>(null)
 
   // Get level display name
   const getLevelDisplayName = (id: string): string => {
@@ -177,6 +180,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
 
   const gameState = useGameState(levelMap, initialCode)
   const panelLayout = usePanelLayout()
+  const jsPlayRunner = useJsPlayRunner()
   const executionControl = useExecutionControl({
     gameState,
     levelMap,
@@ -239,6 +243,54 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     }
   }, [setCodeOverride, setCurrentCode, defaultLevelCode, codeStorageKey])
 
+  // Handle JS random play for development testing
+  const handleJsRandomPlay = useCallback(async () => {
+    gameState.setLeftPanelTab(0)
+    gameState.setCurrentPlayWon(false)
+    gameState.setCurrentPlayGameOver(false)
+    const result = await jsPlayRunner.startRandomPlay(levelMap)
+    console.log('[JS Random Play] Result:', result)
+    if (result.success) {
+      gameState.setCurrentPlayWon(true)
+      gameState.setHasWon(true)
+    } else if (result.reason === 'game_over') {
+      gameState.setCurrentPlayGameOver(true)
+    }
+  }, [jsPlayRunner, levelMap, gameState])
+
+  // Secret: click level name 10 times to trigger random play
+  const handleLevelNameClick = useCallback(() => {
+    if (!isChallenge || executionControl.isBusy) return
+
+    if (secretClickTimer.current) {
+      clearTimeout(secretClickTimer.current)
+    }
+
+    const newCount = secretClickCount + 1
+    setSecretClickCount(newCount)
+
+    if (newCount >= 5) {
+      setSecretClickCount(0)
+      if (jsPlayRunner.isPlaying) {
+        jsPlayRunner.stopPlay()
+      } else {
+        handleJsRandomPlay()
+      }
+    } else {
+      // Reset counter after 2 seconds of no clicks
+      secretClickTimer.current = setTimeout(() => {
+        setSecretClickCount(0)
+      }, 2000)
+    }
+  }, [isChallenge, executionControl.isBusy, secretClickCount, jsPlayRunner, handleJsRandomPlay])
+
+  // Sync JS play runner map to game state
+  useEffect(() => {
+    if (jsPlayRunner.currentMap) {
+      gameState.setCurrentMap(jsPlayRunner.currentMap)
+    }
+  }, [jsPlayRunner.currentMap, gameState])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
 
@@ -274,7 +326,10 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               onClick={handlePreviousLevel}
               disabled={isPreviousDisabled}
             />
-            <div className="h-8 px-3 flex items-center">
+            <div
+              className="h-8 px-3 flex items-center select-none"
+              onClick={handleLevelNameClick}
+            >
               <span className="text-[14px] font-medium text-[#1A1A1A] dark:text-[#F5F5F5]">
                 {getLevelDisplayName(levelId)}
               </span>
@@ -389,7 +444,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                       <SubBar>
                         <div className="w-full flex items-center justify-center">
                           <span className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm">
-                            Score: <span className="font-mono">{challengeScore}</span>
+                            Score: <span className="font-mono">{jsPlayRunner.isPlaying ? jsPlayRunner.formattedScore : challengeScore}</span>
                           </span>
                         </div>
                       </SubBar>
