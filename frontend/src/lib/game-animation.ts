@@ -235,22 +235,25 @@ export function updateMapWithMovementAndGhosts(
   command: number
 ): GameMap {
   // First, let ghosts decide their next moves based on current state
-  const nextGhostPositions = currentMap.ghostPositions.map((ghost, index) => {
+  // Calculate first ghost's move first, then pass its position to second ghost for pincer attack
+  const nextGhostPositions: typeof currentMap.ghostPositions = [];
+
+  for (let index = 0; index < currentMap.ghostPositions.length; index++) {
+    const ghost = currentMap.ghostPositions[index];
     const previousPos = currentMap.ghostPreviousPositions?.[index];
-    
+
     // Check if this is Level 4 (single ghost in open space)
     if (currentMap.id === 'level4') {
-      return level4GhostMove(currentMap, ghost);
-    }
-    
-    if (index === 0) {
-      // First ghost: Smart patrol movement
-      return smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos);
+      nextGhostPositions.push(level4GhostMove(currentMap, ghost));
+    } else if (index === 0) {
+      // First ghost: A* direct pursuit
+      nextGhostPositions.push(smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos));
     } else {
-      // Second ghost: BFS optimal pursuit
-      return bfsGhostMove(currentMap, ghost, currentMap.playerPosition);
+      // Second ghost: Pincer attack - pass first ghost's position for flanking
+      const firstGhostPos = nextGhostPositions[0] || currentMap.ghostPositions[0];
+      nextGhostPositions.push(bfsGhostMove(currentMap, ghost, currentMap.playerPosition, firstGhostPos));
     }
-  });
+  }
 
   // Then move player and apply ghost movements simultaneously
   const playerPosition = currentMap.playerPosition;

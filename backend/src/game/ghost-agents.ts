@@ -1,5 +1,5 @@
 /**
- * Ghost Agents - Simplified AI algorithms for balanced ghost movement
+ * Ghost Agents - AI algorithms for ghost movement
  */
 
 import { GameMap } from './maps';
@@ -43,95 +43,140 @@ function getValidMoves(map: GameMap, position: Position): Position[] {
 }
 
 /**
- * Algorithm 1: Simple random movement with momentum
- * Much less intelligent - mostly random with slight preference for continuing straight
+ * A* pathfinding algorithm
+ * Returns the next position to move towards the target
  */
-export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position, previousPosition?: Position): Position {
-  const validMoves = getValidMoves(map, ghostPosition);
-  
-  if (validMoves.length === 0) {
-    return ghostPosition;
+function aStarNextMove(map: GameMap, start: Position, target: Position): Position | null {
+  const posKey = (p: Position) => `${p.row},${p.col}`;
+
+  // Heuristic: Manhattan distance (admissible for grid movement)
+  const heuristic = (a: Position, b: Position) =>
+    Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
+
+  // Already at target
+  if (start.row === target.row && start.col === target.col) {
+    return start;
   }
-  
-  // 70% chance to move randomly, 30% chance to use simple logic
-  if (Math.random() < 0.7) {
-    // Pure random movement
-    return validMoves[Math.floor(Math.random() * validMoves.length)];
-  }
-  
-  // Simple logic: slight preference for continuing straight, avoid backtracking
-  let currentDirection: {row: number, col: number} | null = null;
-  if (previousPosition) {
-    currentDirection = {
-      row: ghostPosition.row - previousPosition.row,
-      col: ghostPosition.col - previousPosition.col
-    };
-  }
-  
-  const moveScores = validMoves.map(move => {
-    let score = Math.random() * 100; // Heavy randomness
-    
-    // Slight preference for continuing straight
-    if (currentDirection) {
-      const moveDirection = {
-        row: move.row - ghostPosition.row,
-        col: move.col - ghostPosition.col
-      };
-      
-      if (moveDirection.row === currentDirection.row && moveDirection.col === currentDirection.col) {
-        score += 20; // Reduced from 50
+
+  // gScore: cost from start to this node
+  const gScore = new Map<string, number>();
+  // fScore: gScore + heuristic estimate to goal
+  const fScore = new Map<string, number>();
+  // cameFrom: to reconstruct path
+  const cameFrom = new Map<string, Position>();
+
+  const startKey = posKey(start);
+  gScore.set(startKey, 0);
+  fScore.set(startKey, heuristic(start, target));
+
+  // Open set with positions to explore
+  const openSet = new Set<string>([startKey]);
+  // Closed set to avoid re-expanding visited nodes
+  const closedSet = new Set<string>();
+  // Map key to position for retrieval
+  const keyToPos = new Map<string, Position>([[startKey, start]]);
+
+  while (openSet.size > 0) {
+    // Find node in openSet with lowest fScore
+    let currentKey: string | null = null;
+    let lowestF = Infinity;
+    for (const key of openSet) {
+      const f = fScore.get(key) ?? Infinity;
+      if (f < lowestF) {
+        lowestF = f;
+        currentKey = key;
       }
     }
-    
-    // Avoid going back to previous position
-    if (previousPosition && move.row === previousPosition.row && move.col === previousPosition.col) {
-      score -= 30; // Reduced from 100
+
+    if (currentKey === null) break;
+
+    const current = keyToPos.get(currentKey)!;
+
+    // Skip nodes already processed
+    if (closedSet.has(currentKey)) {
+      continue;
     }
-    
-    return { move, score };
-  });
-  
-  moveScores.sort((a, b) => b.score - a.score);
-  return moveScores[0].move;
+
+    // Reached target - reconstruct path and return first step
+    if (current.row === target.row && current.col === target.col) {
+      const path: Position[] = [];
+      let pathKey = currentKey;
+      while (cameFrom.has(pathKey)) {
+        path.unshift(keyToPos.get(pathKey)!);
+        const prevPos = cameFrom.get(pathKey)!;
+        pathKey = posKey(prevPos);
+      }
+      return path.length > 0 ? path[0] : null;
+    }
+
+    openSet.delete(currentKey);
+    closedSet.add(currentKey);
+
+    // Explore neighbors
+    const neighbors = getValidMoves(map, current);
+    for (const neighbor of neighbors) {
+      const neighborKey = posKey(neighbor);
+      if (closedSet.has(neighborKey)) continue;
+
+      const tentativeG = (gScore.get(currentKey) ?? Infinity) + 1;
+
+      if (tentativeG < (gScore.get(neighborKey) ?? Infinity)) {
+        // This path is better
+        cameFrom.set(neighborKey, current);
+        gScore.set(neighborKey, tentativeG);
+        fScore.set(neighborKey, tentativeG + heuristic(neighbor, target));
+        keyToPos.set(neighborKey, neighbor);
+
+        if (!openSet.has(neighborKey)) {
+          openSet.add(neighborKey);
+        }
+      }
+    }
+  }
+
+  return null; // No path found
 }
 
 /**
- * Algorithm 2: Moderate pursuit 
- * 70% chase behavior, 30% random movement
+ * Algorithm 1: A* pathfinding - follows the shortest path to Pacman
  */
-export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position): Position {
+export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position, previousPosition?: Position): Position {
   const validMoves = getValidMoves(map, ghostPosition);
-  
+
   if (validMoves.length === 0) {
     return ghostPosition;
   }
-  
-  // 30% chance to move completely randomly
-  if (Math.random() < 0.3) {
-    return validMoves[Math.floor(Math.random() * validMoves.length)];
+
+  // Use A* to find best move
+  const nextMove = aStarNextMove(map, ghostPosition, pacmanPosition);
+  if (nextMove) {
+    return nextMove;
   }
-  
-  // 70% chance to pursue pacman
-  const moveScores = validMoves.map(move => {
-    let score = Math.random() * 20; // Reduced base randomness
-    
-    // Simple distance calculation - prefer moves that get closer to pacman
-    const currentDistance = Math.abs(ghostPosition.row - pacmanPosition.row) + 
-                           Math.abs(ghostPosition.col - pacmanPosition.col);
-    const newDistance = Math.abs(move.row - pacmanPosition.row) + 
-                       Math.abs(move.col - pacmanPosition.col);
-    
-    if (newDistance < currentDistance) {
-      score += 60; // Stronger bonus for getting closer
-    } else if (newDistance > currentDistance) {
-      score -= 20; // Penalty for getting farther
+
+  // Fallback to random if no path found
+  return validMoves[Math.floor(Math.random() * validMoves.length)];
+}
+
+/**
+ * Algorithm 2: 50% A* chase, 50% random movement
+ */
+export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position): Position {
+  const validMoves = getValidMoves(map, ghostPosition);
+
+  if (validMoves.length === 0) {
+    return ghostPosition;
+  }
+
+  // 50% chance to use A*, 50% chance to move randomly
+  if (Math.random() < 0.5) {
+    const nextMove = aStarNextMove(map, ghostPosition, pacmanPosition);
+    if (nextMove) {
+      return nextMove;
     }
-    
-    return { move, score };
-  });
-  
-  moveScores.sort((a, b) => b.score - a.score);
-  return moveScores[0].move; // Take the best move
+  }
+
+  // Random movement
+  return validMoves[Math.floor(Math.random() * validMoves.length)];
 }
 
 // Store ghost history for Level 4
