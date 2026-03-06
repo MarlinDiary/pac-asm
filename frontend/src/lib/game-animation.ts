@@ -244,7 +244,7 @@ export function updateMapWithMovementAndGhosts(
 
     // Check if this is Level 4 (single ghost in open space)
     if (currentMap.id === 'level4') {
-      nextGhostPositions.push(level4GhostMove(currentMap, ghost));
+      nextGhostPositions.push(level4GhostMove(currentMap, ghost, previousPos));
     } else if (index === 0) {
       // First ghost: A* direct pursuit
       nextGhostPositions.push(smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos));
@@ -414,7 +414,7 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
     
     // Check if this is Level 4 (single ghost in open space)
     if (mapState.id === 'level4') {
-      return level4GhostMove(mapState, ghost);
+      return level4GhostMove(mapState, ghost, previousPos);
     }
     
     if (index === 0) {

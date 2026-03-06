@@ -180,23 +180,13 @@ export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPositi
   return validMoves[Math.floor(Math.random() * validMoves.length)];
 }
 
-// Store ghost history for Level 4
-const level4GhostHistory: Position[] = [];
-// Persist initial row for Level 4 ghost (set on first use, reset on level reset)
-let level4InitialRow: number | null = null;
-
 /**
  * Algorithm 3: Level 4 specific - row-based movement
- * Ghost moves only along its initial row (random left/right), never up/down.
+ * Ghost moves only along its current row. It pauses 25% of the time, but
+ * never on consecutive turns, to break deterministic parity exploits.
  */
-export function level4GhostMove(map: GameMap, ghostPosition: Position): Position {
-  // Level 4 rule: ghost moves only along its initial row (random left/right), never up/down.
-  // Record initial row at first call
-  if (level4InitialRow === null) {
-    level4InitialRow = ghostPosition.row;
-  }
-
-  const row = level4InitialRow;
+export function level4GhostMove(map: GameMap, ghostPosition: Position, previousPosition?: Position): Position {
+  const row = ghostPosition.row;
   const candidates: Position[] = [];
   const left = { row, col: ghostPosition.col - 1 };
   const right = { row, col: ghostPosition.col + 1 };
@@ -206,10 +196,15 @@ export function level4GhostMove(map: GameMap, ghostPosition: Position): Position
 
   if (candidates.length === 0) return ghostPosition;
 
-  const next = candidates[Math.floor(Math.random() * candidates.length)];
+  const previousWasPause = Boolean(
+    previousPosition &&
+    previousPosition.row === ghostPosition.row &&
+    previousPosition.col === ghostPosition.col
+  );
 
-  level4GhostHistory.push(next);
-  if (level4GhostHistory.length > 20) level4GhostHistory.shift();
+  if (!previousWasPause && Math.random() < 0.25) {
+    return ghostPosition;
+  }
 
-  return next;
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
