@@ -1,6 +1,9 @@
 'use client'
 
 import Image from 'next/image';
+import { MEMORY_CONFIG, USER_DATA_END } from '@/lib/memory-layout';
+
+const USER_SPACE_RANGE = `0x${MEMORY_CONFIG.USER_DATA_BASE.toString(16).toUpperCase()}-0x${USER_DATA_END.toString(16).toUpperCase()}`
 
 export default function GuidePanel() {
   return (
@@ -56,7 +59,7 @@ export default function GuidePanel() {
                   <td className="border-b border-[#f0f0f0] dark:border-[#3C3C3C] px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">Start of the map tiles in memory</td>
                 </tr>
                 <tr className="bg-white dark:bg-[#262626]">
-                  <td className="px-4 py-2.5 text-xs font-mono text-[#5a5a5a] dark:text-[#BDBEC2]">0x30400-0x31FFF</td>
+                  <td className="px-4 py-2.5 text-xs font-mono text-[#5a5a5a] dark:text-[#BDBEC2]">{USER_SPACE_RANGE}</td>
                   <td className="px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">User space</td>
                   <td className="px-4 py-2.5 text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">Free memory for your own use</td>
                 </tr>
@@ -170,7 +173,7 @@ export default function GuidePanel() {
         <section className="mb-5">
           <h2 className="text-base font-semibold mb-2.5 text-[#1f1f1f] dark:text-[#f5f5f5]">Tips</h2>
           <ul className="list-disc space-y-2.5 text-sm text-[#5a5a5a] dark:text-[#BDBEC2] pl-5">
-            <li className="leading-relaxed pl-2">Use <code className="font-mono text-sm bg-[#f7f7f8] dark:bg-[#353535] px-1.5 py-0.5 rounded">0x30400-0x31FFF</code> for temporary variables.</li>
+            <li className="leading-relaxed pl-2">Use <code className="font-mono text-sm bg-[#f7f7f8] dark:bg-[#353535] px-1.5 py-0.5 rounded">{USER_SPACE_RANGE}</code> for temporary variables.</li>
             <li className="leading-relaxed pl-2">Do not overwrite the game memory. It is undefined behavior.</li>
             <li className="leading-relaxed pl-2">Pac-Man moves one tile per command. Plan carefully to avoid ghosts.</li>
           </ul>

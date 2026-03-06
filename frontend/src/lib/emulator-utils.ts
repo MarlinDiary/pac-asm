@@ -4,6 +4,9 @@ import { RegisterInfo } from '@/workers/emulator/types'
 import { GameMap } from '@/data/maps'
 import { writeCompleteMapToMemory } from './map-memory'
 import { getGlobalSettings } from '@/hooks/useSettings'
+import { MEMORY_CONFIG } from '@/lib/memory-layout'
+
+export { MEMORY_CONFIG } from '@/lib/memory-layout'
 
 // Type for emulator objects (avoiding 'any')
 interface EmulatorInstance {
@@ -22,21 +25,6 @@ export interface EmulatorInitResult {
 }
 
 /**
- * Standard memory layout configuration
- */
-export const MEMORY_CONFIG = {
-  CODE_BASE: 0x10000,
-  CODE_SIZE: 4096,
-  STACK_BASE: 0x20000,
-  STACK_SIZE: 4096,
-  DATA_BASE: 0x30000,
-  DATA_SIZE: 8 * 1024,  // 8KB total data region
-  GAME_DATA_SIZE: 1 * 1024,
-  USER_DATA_BASE: 0x30400,
-  USER_DATA_SIZE: 7 * 1024
-} as const
-
-/**
  * Initialize emulator if not already initialized
  */
 export async function ensureEmulatorInitialized(emulator: EmulatorInstance): Promise<void> {
@@ -46,18 +34,10 @@ export async function ensureEmulatorInitialized(emulator: EmulatorInstance): Pro
 }
 
 /**
- * Reset emulator and initialize all memory regions to zero
+ * Reset emulator to a clean state backed by a fresh memory map.
  */
 export async function resetEmulatorWithMemory(emulator: EmulatorInstance): Promise<void> {
   await emulator.reset()
-  
-  // Initialize memory regions
-  const zeroCode = new Array(MEMORY_CONFIG.CODE_SIZE).fill(0)
-  const zeroStack = new Array(MEMORY_CONFIG.STACK_SIZE).fill(0)
-  const zeroData = new Array(MEMORY_CONFIG.DATA_SIZE).fill(0)
-  await emulator.writeMemory(MEMORY_CONFIG.CODE_BASE, zeroCode)
-  await emulator.writeMemory(MEMORY_CONFIG.STACK_BASE, zeroStack)
-  await emulator.writeMemory(MEMORY_CONFIG.DATA_BASE, zeroData)
 }
 
 /**
@@ -79,7 +59,7 @@ export async function assembleCode(sourceCode: string): Promise<number[]> {
 }
 
 /**
- * Reset emulator registers only (preserve memory data)
+ * Reset emulator and reload code onto a fresh memory map.
  */
 async function resetEmulatorRegistersOnly(emulator: EmulatorInstance): Promise<void> {
   await emulator.reset()
@@ -134,7 +114,7 @@ export async function initializeEmulatorWithCode(
 }
 
 /**
- * Quick reset and reload code for game cycles (preserves memory data)
+ * Reset and reload code for game cycles.
  */
 export async function resetAndReloadCode(
   emulator: EmulatorInstance,
@@ -145,7 +125,7 @@ export async function resetAndReloadCode(
 }
 
 /**
- * Full reset and reload code (clears all memory)
+ * Full reset and reload code.
  */
 export async function fullResetAndReloadCode(
   emulator: EmulatorInstance,
@@ -163,7 +143,7 @@ export async function getEmulatorMemoryState(emulator: EmulatorInstance) {
     emulator.getAllRegisters(),
     emulator.getMemory(MEMORY_CONFIG.CODE_BASE, MEMORY_CONFIG.CODE_SIZE),
     emulator.getMemory(MEMORY_CONFIG.STACK_BASE, MEMORY_CONFIG.STACK_SIZE),
-    emulator.getMemory(MEMORY_CONFIG.DATA_BASE, MEMORY_CONFIG.DATA_SIZE)
+    emulator.getMemory(MEMORY_CONFIG.DATA_BASE, MEMORY_CONFIG.DATA_PREVIEW_SIZE)
   ])
   
   if (registers && codeMemory && stackMemory && dataMemory) {

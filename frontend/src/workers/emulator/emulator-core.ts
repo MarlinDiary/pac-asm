@@ -14,6 +14,7 @@ import { UnicornLoader } from './unicorn-loader';
 import { LiteralPoolDetector } from './literal-pool';
 import { MemoryManager } from './memory-manager';
 import { ExecutionEngine } from './execution';
+import { MEMORY_CONFIG } from '@/lib/memory-layout';
 
 export class EmulatorWorker {
   private unicorn: UnicornInstance | null = null;
@@ -31,11 +32,11 @@ export class EmulatorWorker {
 
   constructor(private workerSelf: WorkerSelf) {
     this.config = {
-      codeAddress: 0x10000,
-      stackAddress: 0x20000,
-      stackSize: 4096,
-      dataAddress: 0x30000,
-      dataSize: 8 * 1024
+      codeAddress: MEMORY_CONFIG.CODE_BASE,
+      stackAddress: MEMORY_CONFIG.STACK_BASE,
+      stackSize: MEMORY_CONFIG.STACK_SIZE,
+      dataAddress: MEMORY_CONFIG.DATA_BASE,
+      dataSize: MEMORY_CONFIG.DATA_SIZE
     };
 
     this.unicornLoader = new UnicornLoader(workerSelf);
@@ -48,34 +49,53 @@ export class EmulatorWorker {
     await this.unicornLoader.loadUnicornScript();
   }
 
+  private closeCurrentUnicorn(): void {
+    if (!this.unicorn) {
+      return;
+    }
+
+    try {
+      this.unicorn.close();
+    } catch {
+      // Ignore close errors while rebuilding the runtime.
+    }
+
+    this.unicorn = null;
+  }
+
+  private createUnicornInstance(): UnicornInstance {
+    if (this.arch === 'MIPS_R6') {
+      const archConst = (this.uc.ARCH_MIPS ?? (this.uc as unknown as Record<string, number>).ARCH_MIPS);
+      const baseMode = ((this.uc.MODE_MIPS32 || 0) | (this.uc.MODE_BIG_ENDIAN || 0)) || (this.uc as unknown as Record<string, number>).MODE_MIPS32;
+      return new this.uc.Unicorn(archConst, baseMode);
+    }
+
+    return new this.uc.Unicorn(this.uc.ARCH_ARM, this.uc.MODE_ARM);
+  }
+
+  private rebuildRuntime(): void {
+    this.closeCurrentUnicorn();
+    this.unicorn = this.createUnicornInstance();
+
+    this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.arch);
+    this.executionEngine = new ExecutionEngine(
+      this.unicorn,
+      this.uc,
+      this.config,
+      this.literalPoolDetector,
+      this.memoryManager,
+      this.arch
+    );
+
+    this.memoryManager.initializeMemory();
+    this.memoryManager.initializeRegisters();
+  }
+
   private initialize(): void {
     try {
       const uc = this.unicornLoader.getUnicorn();
       this.uc = uc;
-      if (this.arch === 'MIPS_R6') {
-        const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
-        // Match GAS target mips-linux-gnu (big-endian)
-        const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
-        // The shipped unicorn_wasm_mips.wasm already targets MIPS R6, so avoid setting the mode flag again.
-        this.unicorn = new uc.Unicorn(archConst, baseMode);
-      } else {
-        this.unicorn = new uc.Unicorn(uc.ARCH_ARM, uc.MODE_ARM);
-      }
-      
-      // Initialize managers
-      this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.arch);
-      this.executionEngine = new ExecutionEngine(
-        this.unicorn,
-        this.uc,
-        this.config,
-        this.literalPoolDetector,
-        this.memoryManager,
-        this.arch
-      );
-      
-      // Setup memory and registers
-      this.memoryManager.initializeMemory();
-      this.memoryManager.initializeRegisters();
+      this.rebuildRuntime();
 
       this.isInitialized = true;
 
@@ -97,35 +117,9 @@ export class EmulatorWorker {
         throw new Error('Emulator not initialized');
       }
 
-      // For MIPS_R6, we need to recreate the Unicorn instance to clear JIT cache
       if (this.arch === 'MIPS_R6' && this.unicorn) {
-        // Close the old instance
-        try {
-          this.unicorn.close();
-        } catch {
-          // Ignore close errors
-        }
-
-        // Create a new instance
-        const uc = this.uc;
-        const archConst = (uc.ARCH_MIPS ?? (uc as unknown as Record<string, number>).ARCH_MIPS);
-        const baseMode = ((uc.MODE_MIPS32 || 0) | (uc.MODE_BIG_ENDIAN || 0)) || (uc as unknown as Record<string, number>).MODE_MIPS32;
-        this.unicorn = new uc.Unicorn(archConst, baseMode);
-
-        // Reinitialize managers with new instance
-        this.memoryManager = new MemoryManager(this.unicorn, this.uc, this.config, this.arch);
-        this.executionEngine = new ExecutionEngine(
-          this.unicorn,
-          this.uc,
-          this.config,
-          this.literalPoolDetector,
-          this.memoryManager,
-          this.arch
-        );
-
-        // Setup memory and registers
-        this.memoryManager.initializeMemory();
-        this.memoryManager.initializeRegisters();
+        // Rebuild the runtime to clear the translated instruction cache.
+        this.rebuildRuntime();
       }
 
       this.memoryManager.loadCode(machineCode);
@@ -332,7 +326,7 @@ export class EmulatorWorker {
         throw new Error('Emulator not initialized');
       }
 
-      this.memoryManager.resetRegisters();
+      this.rebuildRuntime();
 
       this.postMessage({
         type: 'success',

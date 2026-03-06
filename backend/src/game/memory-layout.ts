@@ -1,0 +1,33 @@
+const KIB = 1024
+const MIB = 1024 * KIB
+const PAGE_SIZE = 4 * KIB
+
+const alignToPage = (size: number): number => Math.ceil(size / PAGE_SIZE) * PAGE_SIZE
+
+const CODE_BASE = 0x10000
+const CODE_SIZE = 4 * KIB
+const STACK_BASE = 0x20000
+const STACK_SIZE = 4 * KIB
+const DATA_BASE = 0x30000
+const USER_DATA_BASE = 0x30400
+const USER_DATA_SIZE = 128 * MIB
+const GAME_DATA_SIZE = USER_DATA_BASE - DATA_BASE
+const DATA_SIZE = alignToPage(GAME_DATA_SIZE + USER_DATA_SIZE)
+const DATA_PREVIEW_SIZE = 8 * KIB
+const USER_DATA_END = USER_DATA_BASE + USER_DATA_SIZE - 1
+
+export const MEMORY_CONFIG = {
+  CODE_BASE,
+  CODE_SIZE,
+  STACK_BASE,
+  STACK_SIZE,
+  DATA_BASE,
+  DATA_SIZE,
+  DATA_PREVIEW_SIZE,
+  GAME_DATA_SIZE,
+  USER_DATA_BASE,
+  USER_DATA_SIZE,
+  USER_DATA_END,
+} as const
+
+export { USER_DATA_END }
