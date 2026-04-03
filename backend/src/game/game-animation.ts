@@ -1,5 +1,5 @@
 import { GameMap, PlayerDirection, GhostAnimationState } from './maps'
-import { smartPatrolGhostMove, level4GhostMove } from './ghost-agents'
+import { smartPatrolGhostMove, mixedPursuitGhostMove, level4GhostMove } from './ghost-agents'
 
 export interface PlayerAnimationState {
   direction: PlayerDirection
@@ -213,8 +213,8 @@ export function updateMapWithMovementAndGhosts(
       // First ghost: A* direct pursuit
       nextGhostPositions.push(smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos));
     } else {
-      // Second ghost: A* direct pursuit
-      nextGhostPositions.push(smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos));
+      // Second ghost: 80% A* pursuit, 20% legal non-A* diversion
+      nextGhostPositions.push(mixedPursuitGhostMove(currentMap, ghost, currentMap.playerPosition));
     }
   }
 
@@ -385,8 +385,8 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
       // First ghost: Smart patrol movement
       return smartPatrolGhostMove(mapState, ghost, pacmanPosition, previousPos);
     } else {
-      // Second ghost: A* direct pursuit
-      return smartPatrolGhostMove(mapState, ghost, pacmanPosition, previousPos);
+      // Second ghost: 80% A* pursuit, 20% legal non-A* diversion
+      return mixedPursuitGhostMove(mapState, ghost, pacmanPosition);
     }
   });
 
