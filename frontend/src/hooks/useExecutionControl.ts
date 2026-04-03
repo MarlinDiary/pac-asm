@@ -114,7 +114,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const errorCountRef = useRef(errors.length)
   const [rankingEntries, setRankingEntries] = useState<RankingEntry[]>([])
   const [isRankingLoading, setIsRankingLoading] = useState(true)
-  const rankingFetchedRef = useRef(false)
   const rankingAbortRef = useRef<AbortController | null>(null)
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isStepTemporarilyDisabled, setIsStepTemporarilyDisabled] = useState(false)
@@ -199,7 +198,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
   useEffect(() => {
     rankingAbortRef.current?.abort()
-    rankingFetchedRef.current = false
     setRankingEntries([])
     setIsRankingLoading(true)
   }, [levelId, architecture])
@@ -330,15 +328,10 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   )
 
   useEffect(() => {
-    if (rankingFetchedRef.current) {
-      return
-    }
-
-    rankingFetchedRef.current = true
     const controller = new AbortController()
     rankingAbortRef.current = controller
 
-    loadRanking(controller.signal)
+    void loadRanking(controller.signal)
 
     return () => {
       controller.abort()
@@ -700,7 +693,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
     const mappedEntry = createRankingEntry(levelId, submissionPayload, { optimistic: true })
 
-    rankingFetchedRef.current = true
     setRankingEntries((current) => {
       const filtered = current.filter((entry) => entry.userId !== mappedEntry.userId)
       return sortRankingEntries(levelId, [mappedEntry, ...filtered])
