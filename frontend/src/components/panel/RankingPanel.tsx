@@ -120,11 +120,12 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
     <div className="h-full flex flex-col">
       <SubBar>
         <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-3" style={{ width: '6%' }}></div>
-        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: isChallenge ? '32%' : '28%' }}>Name</div>
+        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: isChallenge ? '26%' : '28%' }}>Name</div>
         {isChallenge ? (
           <>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '35%' }}>Score</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '27%' }}>Time</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '22%' }}>Score</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '20%' }}>Steps</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '26%' }}>Time</div>
           </>
         ) : (
           <>
@@ -155,18 +156,22 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                   <div className="h-4 w-3 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
                 {/* Name skeleton */}
-                <div style={{ width: isChallenge ? '32%' : '28%' }} className="flex items-center gap-2 pl-2">
+                <div style={{ width: isChallenge ? '26%' : '28%' }} className="flex items-center gap-2 pl-2">
                   <div className="w-5 h-5 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded-full animate-pulse" />
                   <div className="h-4 w-24 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
                 {isChallenge ? (
                   <>
                     {/* Score skeleton */}
-                    <div style={{ width: '35%' }} className="pl-2">
+                    <div style={{ width: '22%' }} className="pl-2">
+                      <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    </div>
+                    {/* Steps skeleton */}
+                    <div style={{ width: '20%' }} className="pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Submit Time skeleton */}
-                    <div style={{ width: '27%' }} className="pl-2">
+                    <div style={{ width: '26%' }} className="pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                   </>
@@ -206,6 +211,9 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
         ) : (
           entries.map((entry, index) => {
             const isSuccessful = entry.status === 'Accepted'
+            const stepCount = typeof entry.steps === 'number' && Number.isFinite(entry.steps)
+              ? Math.max(0, Math.round(entry.steps))
+              : null
             const cycleCount = typeof entry.cycleCount === 'number' && Number.isFinite(entry.cycleCount)
               ? Math.max(0, Math.round(entry.cycleCount))
               : null
@@ -222,7 +230,7 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                 <div style={{ width: '6%' }} className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] pl-3">
                   {index + 1}
                 </div>
-                <div style={{ width: isChallenge ? '32%' : '28%' }} className="flex items-center gap-2 pl-2">
+                <div style={{ width: isChallenge ? '26%' : '28%' }} className="flex items-center gap-2 pl-2">
                   <Avatar name={entry.userName} avatarUrl={entry.userAvatarUrl} />
                   <span className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] truncate">
                     {entry.userName}
@@ -230,12 +238,17 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                 </div>
                 {isChallenge ? (
                   <>
-                    <div style={{ width: '35%' }} className="text-sm pl-2">
+                    <div style={{ width: '22%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {Math.round(entry.score ?? entry.averageScore ?? 0).toString()}
                       </span>
                     </div>
-                    <div style={{ width: '27%' }} className="text-sm pl-2">
+                    <div style={{ width: '20%' }} className="text-sm pl-2">
+                      <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
+                        {stepCount !== null ? new Intl.NumberFormat().format(stepCount) : '-'}
+                      </span>
+                    </div>
+                    <div style={{ width: '26%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {formatSubmitTime(entry.createdAt)}
                       </span>

@@ -9,6 +9,10 @@ export interface Position {
   col: number;
 }
 
+function manhattanDistance(a: Position, b: Position): number {
+  return Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
+}
+
 /**
  * Check if a position is valid for movement (not air/wall)
  */
@@ -154,30 +158,36 @@ export function smartPatrolGhostMove(map: GameMap, ghostPosition: Position, pacm
     return nextMove;
   }
 
-  // Fallback to random if no path found
-  return validMoves[Math.floor(Math.random() * validMoves.length)];
+  // Deterministic fallback using the fixed move ordering from getValidMoves.
+  return validMoves[0];
 }
 
 /**
- * Algorithm 2: 50% A* chase, 50% random movement
+ * Algorithm 2: deterministic local greedy chase.
+ * Only evaluates the immediate neighbors, so it behaves differently from the
+ * A* ghost without becoming more oppressive.
  */
-export function bfsGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position): Position {
+export function greedyGhostMove(map: GameMap, ghostPosition: Position, pacmanPosition: Position): Position {
   const validMoves = getValidMoves(map, ghostPosition);
 
   if (validMoves.length === 0) {
     return ghostPosition;
   }
 
-  // 50% chance to use A*, 50% chance to move randomly
-  if (Math.random() < 0.5) {
-    const nextMove = aStarNextMove(map, ghostPosition, pacmanPosition);
-    if (nextMove) {
-      return nextMove;
+  let bestMove = validMoves[0];
+  let bestDistance = manhattanDistance(bestMove, pacmanPosition);
+
+  for (let index = 1; index < validMoves.length; index++) {
+    const candidate = validMoves[index];
+    const candidateDistance = manhattanDistance(candidate, pacmanPosition);
+
+    if (candidateDistance < bestDistance) {
+      bestMove = candidate;
+      bestDistance = candidateDistance;
     }
   }
 
-  // Random movement
-  return validMoves[Math.floor(Math.random() * validMoves.length)];
+  return bestMove;
 }
 
 /**

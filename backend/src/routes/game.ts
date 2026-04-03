@@ -164,6 +164,7 @@ router.post('/submit', async (req: Request, res: Response) => {
       successRate: 'successRate' in metrics ? metrics.successRate : undefined,
       score,
       averageScore,
+      steps: 'steps' in metrics ? metrics.steps : undefined,
       cycleCount: 'cycleCount' in metrics ? metrics.cycleCount : undefined,
       summary
     }
@@ -215,7 +216,11 @@ export default router
 function extractMetrics(levelId: string, summary: GameValidationSummary) {
   if (levelId === 'challenge') {
     const score = Number(summary.metrics?.score ?? summary.metrics?.lowestScore ?? summary.metrics?.averageScore ?? 0)
-    return { score: Number.isFinite(score) ? score : 0 }
+    const steps = Number(summary.metrics?.steps ?? summary.metrics?.lowestScoreSteps ?? 0)
+    return {
+      score: Number.isFinite(score) ? score : 0,
+      steps: Number.isFinite(steps) ? Math.max(0, Math.round(steps)) : 0
+    }
   }
 
   const status = summary.pass ? 'Accepted' as const : 'Failed' as const
@@ -259,6 +264,12 @@ function toRankingEntry(doc: SubmissionDocument) {
   const score = typeof doc.score === 'number'
     ? doc.score
     : (typeof doc.averageScore === 'number' ? doc.averageScore : 0)
+  const summaryMetrics = (doc.summary?.metrics ?? {}) as Record<string, unknown>
+  const steps = typeof doc.steps === 'number'
+    ? doc.steps
+    : (typeof summaryMetrics.steps === 'number'
+        ? Math.max(0, Math.round(summaryMetrics.steps))
+        : undefined)
 
   return {
     id: doc.id,
@@ -271,6 +282,7 @@ function toRankingEntry(doc: SubmissionDocument) {
     successRate: doc.successRate ?? 0,
     score,
     averageScore: doc.averageScore ?? score,
+    steps,
     cycleCount: typeof doc.cycleCount === 'number' ? doc.cycleCount : undefined,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString()
@@ -279,7 +291,7 @@ function toRankingEntry(doc: SubmissionDocument) {
 
 function buildRankingSort(levelId: string): Record<string, 1 | -1> {
   if (levelId === 'challenge') {
-    return { score: -1, createdAt: 1 }
+    return { score: -1, steps: 1, createdAt: 1 }
   }
 
   return {

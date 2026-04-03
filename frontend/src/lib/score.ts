@@ -7,6 +7,13 @@ const VICTORY_BONUS = 200
 const GHOST_PENALTY = 200
 const SCORE_DIGITS = 4
 
+interface ScoreRule {
+  turnPenalty: number
+  dotReward: number
+  victoryBonus: number
+  ghostPenalty: number
+}
+
 export interface ScoreTracker {
   score: number
   victoryBonusAwarded: boolean
@@ -24,6 +31,24 @@ export const createScoreTracker = (): ScoreTracker => ({
   score: 0,
   victoryBonusAwarded: false
 })
+
+const getScoreRule = (map: GameMap): ScoreRule => {
+  if (map.id === 'challenge') {
+    return {
+      turnPenalty: 0,
+      dotReward: DOT_REWARD,
+      victoryBonus: VICTORY_BONUS,
+      ghostPenalty: 0
+    }
+  }
+
+  return {
+    turnPenalty: TURN_PENALTY,
+    dotReward: DOT_REWARD,
+    victoryBonus: VICTORY_BONUS,
+    ghostPenalty: GHOST_PENALTY
+  }
+}
 
 const countDots = (map: GameMap | null): number => {
   if (!map) return 0
@@ -43,24 +68,25 @@ export const computeScoreForMapTransition = (
   previousMap: GameMap,
   currentMap: GameMap
 ): ScoreUpdateResult => {
+  const scoreRule = getScoreRule(currentMap)
   const dotsBefore = countDots(previousMap)
   const dotsAfter = countDots(currentMap)
   const dotsEaten = Math.max(0, dotsBefore - dotsAfter)
 
-  let scoreDelta = -TURN_PENALTY
+  let scoreDelta = -scoreRule.turnPenalty
   if (dotsEaten > 0) {
-    scoreDelta += dotsEaten * DOT_REWARD
+    scoreDelta += dotsEaten * scoreRule.dotReward
   }
 
   const ghostCaught = Boolean(currentMap.gameOver && !previousMap.gameOver)
   if (ghostCaught) {
-    scoreDelta -= GHOST_PENALTY
+    scoreDelta -= scoreRule.ghostPenalty
   }
 
   const victoryAchieved = checkVictoryCondition(currentMap)
   let victoryBonusAwarded = tracker.victoryBonusAwarded
   if (victoryAchieved && !victoryBonusAwarded) {
-    scoreDelta += VICTORY_BONUS
+    scoreDelta += scoreRule.victoryBonus
     victoryBonusAwarded = true
   }
 

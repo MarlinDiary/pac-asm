@@ -1,5 +1,5 @@
 import { GameMap, PlayerDirection, GhostAnimationState } from './maps'
-import { smartPatrolGhostMove, bfsGhostMove, level4GhostMove } from './ghost-agents'
+import { smartPatrolGhostMove, level4GhostMove } from './ghost-agents'
 
 export interface PlayerAnimationState {
   direction: PlayerDirection
@@ -213,8 +213,8 @@ export function updateMapWithMovementAndGhosts(
       // First ghost: A* direct pursuit
       nextGhostPositions.push(smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos));
     } else {
-      // Second ghost: 50% A* chase, 50% random
-      nextGhostPositions.push(bfsGhostMove(currentMap, ghost, currentMap.playerPosition));
+      // Second ghost: A* direct pursuit
+      nextGhostPositions.push(smartPatrolGhostMove(currentMap, ghost, currentMap.playerPosition, previousPos));
     }
   }
 
@@ -385,8 +385,8 @@ export function updateGhostsOnly(mapState: GameMap): GameMap {
       // First ghost: Smart patrol movement
       return smartPatrolGhostMove(mapState, ghost, pacmanPosition, previousPos);
     } else {
-      // Second ghost: BFS optimal pursuit
-      return bfsGhostMove(mapState, ghost, pacmanPosition);
+      // Second ghost: A* direct pursuit
+      return smartPatrolGhostMove(mapState, ghost, pacmanPosition, previousPos);
     }
   });
 

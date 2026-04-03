@@ -31,6 +31,7 @@ interface RankingEntry {
   successRate?: number
   score?: number
   averageScore?: number
+  steps?: number
   cycleCount?: number
   createdAt: string
   updatedAt: string
@@ -49,6 +50,7 @@ type RankingResponse = {
     successRate?: number
     score?: number
     averageScore?: number
+    steps?: number
     cycleCount?: number
     createdAt: string
     updatedAt: string
@@ -884,6 +886,7 @@ function createRankingEntry(
     averageScore: typeof submission.averageScore === 'number'
       ? submission.averageScore
       : (typeof submission.score === 'number' ? submission.score : 0),
+    steps: typeof submission.steps === 'number' ? submission.steps : undefined,
     cycleCount: typeof submission.cycleCount === 'number' ? submission.cycleCount : undefined,
     createdAt: submission.createdAt,
     updatedAt: submission.updatedAt,
@@ -898,7 +901,10 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
     sorted.sort((a, b) => {
       const scoreDelta = (b.score ?? b.averageScore ?? 0) - (a.score ?? a.averageScore ?? 0)
       if (scoreDelta !== 0) return scoreDelta
-      // For same scores, earlier submission comes first
+      const aSteps = typeof a.steps === 'number' && Number.isFinite(a.steps) ? a.steps : Number.POSITIVE_INFINITY
+      const bSteps = typeof b.steps === 'number' && Number.isFinite(b.steps) ? b.steps : Number.POSITIVE_INFINITY
+      const stepsDelta = aSteps - bSteps
+      if (stepsDelta !== 0) return stepsDelta
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
     return sorted

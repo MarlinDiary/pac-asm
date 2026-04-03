@@ -29,6 +29,13 @@ const DOT_REWARD = 10
 const VICTORY_BONUS = 200
 const GHOST_PENALTY = 200
 
+interface ScoreRule {
+  turnPenalty: number
+  dotReward: number
+  victoryBonus: number
+  ghostPenalty: number
+}
+
 export interface ReplayMap {
   tiles: TileSymbol[][]
   playerPosition: GameMap['playerPosition']
@@ -89,7 +96,25 @@ const LEVEL_RULES: Record<string, LevelRule> = {
   level2: { attempts: 1, mode: 'single-pass' },
   level3: { attempts: 1, mode: 'single-pass' },
   level4: { attempts: 2000, mode: 'all-pass' },
-  challenge: { attempts: 1000, mode: 'lowest-score', threshold: 0 }
+  challenge: { attempts: 100, mode: 'lowest-score', threshold: 0 }
+}
+
+function getScoreRule(levelId: string): ScoreRule {
+  if (levelId === 'challenge') {
+    return {
+      turnPenalty: 0,
+      dotReward: DOT_REWARD,
+      victoryBonus: VICTORY_BONUS,
+      ghostPenalty: 0
+    }
+  }
+
+  return {
+    turnPenalty: TURN_PENALTY,
+    dotReward: DOT_REWARD,
+    victoryBonus: VICTORY_BONUS,
+    ghostPenalty: GHOST_PENALTY
+  }
 }
 
 function cloneGameMap(map: GameMap): GameMap {
@@ -265,6 +290,7 @@ async function runAttempt(
   let levelCompletionAwarded = false
   let failureReason: string | undefined
   let victoryAchieved = false
+  const scoreRule = getScoreRule(baseMap.id)
 
   while (movementCount < ctx.maxSteps) {
     let runResult: RunUntilMemWriteResult | undefined
@@ -388,19 +414,19 @@ async function runAttempt(
     const dotsAfterMove = countDots(currentMapState)
     const dotsEaten = Math.max(0, dotsBeforeMove - dotsAfterMove)
 
-    let scoreDelta = -TURN_PENALTY
+    let scoreDelta = -scoreRule.turnPenalty
     if (dotsEaten > 0) {
-      scoreDelta += dotsEaten * DOT_REWARD
+      scoreDelta += dotsEaten * scoreRule.dotReward
     }
 
     const ghostCaughtThisTurn = Boolean(currentMapState.gameOver && !previousMapState.gameOver)
     if (ghostCaughtThisTurn) {
-      scoreDelta -= GHOST_PENALTY
+      scoreDelta -= scoreRule.ghostPenalty
     }
 
     victoryAchieved = checkVictoryCondition(currentMapState)
     if (victoryAchieved && !levelCompletionAwarded) {
-      scoreDelta += VICTORY_BONUS
+      scoreDelta += scoreRule.victoryBonus
       levelCompletionAwarded = true
     }
 
@@ -616,9 +642,23 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
   const averageScore = attempts.length === 0
     ? 0
     : attempts.reduce((sum, attempt) => sum + attempt.score, 0) / attempts.length
-  const lowestScore = attempts.length === 0
-    ? 0
-    : attempts.reduce((min, attempt) => Math.min(min, attempt.score), attempts[0].score)
+  const lowestScoreAttempt = attempts.reduce<GameAttemptResult | null>((selected, attempt) => {
+    if (!selected) {
+      return attempt
+    }
+    if (attempt.score < selected.score) {
+      return attempt
+    }
+    if (attempt.score > selected.score) {
+      return selected
+    }
+    if (attempt.steps < selected.steps) {
+      return attempt
+    }
+    return selected
+  }, null)
+  const lowestScore = lowestScoreAttempt?.score ?? 0
+  const lowestScoreSteps = lowestScoreAttempt?.steps ?? 0
   const threshold = rule.threshold ?? 0
   return {
     pass: lowestScore >= threshold,
@@ -626,7 +666,9 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
     metrics: {
       attempts: attempts.length,
       score: lowestScore,
+      steps: lowestScoreSteps,
       lowestScore,
+      lowestScoreSteps,
       averageScore
     }
   }

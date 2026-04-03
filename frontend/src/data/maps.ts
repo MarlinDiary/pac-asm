@@ -79,12 +79,12 @@ const CHALLENGE_RAW_MAP = `
 %....%........%....%
 %.%%.%.%%%%%%.%.%%.%
 %.%..............%.%
-%.%.%%.%%  %%.%%.%.%
-%......%    %......%
+%.%.%%.%%..%%.%%.%.%
+%......%....%......%
 %.%.%%.%%%%%%.%%.%.%
 %.%..............%.%
 %.%%.%.%%%%%%.%.%%.%
-%....%... ....%....%
+%....%........%....%
 %%%%%%%%%%%%%%%%%%%%`;
 
 // Level 1: Basic movement - straight line to collect a dot
@@ -414,7 +414,7 @@ SW $t4, 0($t1)           # Write movement command to move Pac-Man
     tileSize: 20,
     tiles: parseMapFromString(CHALLENGE_RAW_MAP),
     playerPosition: { row: 9, col: 9, direction: 'right' },
-    ghostPositions: [{ row: 5, col: 8 }, { row: 5, col: 11 }],
+    ghostPositions: [{ row: 1, col: 1 }, { row: 9, col: 18 }],
     waterBackground: { tilesX: 72, tilesY: 71 },
     initialCode: {
       ARM: `MOV R0, #4
