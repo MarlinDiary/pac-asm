@@ -11,7 +11,6 @@ interface ValidateGameBody {
   sourceCode?: string
   levelId?: string
   architecture?: Architecture
-  attemptsOverride?: number | string
   maxSteps?: number | string
   includeRegisters?: boolean | string
 }
@@ -48,11 +47,6 @@ router.post('/validate', async (req: Request, res: Response) => {
     return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
   }
 
-  const attemptsOverride = parseOptionalNumber(body.attemptsOverride)
-  if (Number.isNaN(attemptsOverride)) {
-    return res.status(400).json({ error: 'attemptsOverride must be a number' })
-  }
-
   const maxSteps = parseOptionalNumber(body.maxSteps)
   if (Number.isNaN(maxSteps)) {
     return res.status(400).json({ error: 'maxSteps must be a number' })
@@ -65,7 +59,6 @@ router.post('/validate', async (req: Request, res: Response) => {
       sourceCode,
       levelId,
       architecture,
-      attemptsOverride: attemptsOverride ?? undefined,
       maxSteps: maxSteps ?? undefined,
       includeRegisters
     })

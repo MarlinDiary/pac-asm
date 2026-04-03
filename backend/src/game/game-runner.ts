@@ -61,7 +61,6 @@ export interface GameValidationOptions {
   sourceCode: string
   levelId: string
   architecture: Architecture
-  attemptsOverride?: number
   maxSteps?: number
   includeRegisters?: boolean
 }
@@ -636,7 +635,7 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
   }
 
   const rule = LEVEL_RULES[levelId] ?? { attempts: 1, mode: 'single-pass' }
-  const attemptsToRun = options.attemptsOverride ?? rule.attempts
+  const attemptsToRun = rule.attempts
   const maxSteps = options.maxSteps ?? 300
 
   const emulator = new NodeEmulator()
