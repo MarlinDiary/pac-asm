@@ -37,6 +37,7 @@ export class EmulatorWorker {
   constructor(private workerSelf: WorkerSelf, options: EmulatorWorkerOptions = {}) {
     this.config = {
       codeAddress: MEMORY_CONFIG.CODE_BASE,
+      codeSize: MEMORY_CONFIG.CODE_SIZE,
       stackAddress: MEMORY_CONFIG.STACK_BASE,
       stackSize: MEMORY_CONFIG.STACK_SIZE,
       dataAddress: MEMORY_CONFIG.DATA_BASE,

@@ -201,6 +201,7 @@ export interface WorkerSelf {
 
 export interface EmulatorConfig {
   codeAddress: number;
+  codeSize: number;
   stackAddress: number;
   stackSize: number;
   dataAddress: number;

@@ -5,7 +5,7 @@ const PAGE_SIZE = 4 * KIB
 const alignToPage = (size: number): number => Math.ceil(size / PAGE_SIZE) * PAGE_SIZE
 
 const CODE_BASE = 0x10000
-const CODE_SIZE = 4 * KIB
+const CODE_SIZE = 32 * KIB
 const STACK_BASE = 0x20000
 const STACK_SIZE = 4 * KIB
 const DATA_BASE = 0x30000

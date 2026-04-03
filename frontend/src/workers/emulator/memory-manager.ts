@@ -17,7 +17,7 @@ export class MemoryManager {
 
   initializeMemory(): void {
     // Map memory regions
-    this.unicorn.mem_map(this.config.codeAddress, 4096, this.uc.PROT_ALL);
+    this.unicorn.mem_map(this.config.codeAddress, this.config.codeSize, this.uc.PROT_ALL);
     this.unicorn.mem_map(this.config.stackAddress, this.config.stackSize, this.uc.PROT_READ | this.uc.PROT_WRITE);
     this.unicorn.mem_map(this.config.dataAddress, this.config.dataSize, this.uc.PROT_READ | this.uc.PROT_WRITE);
   }

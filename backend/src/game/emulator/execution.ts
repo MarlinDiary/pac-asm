@@ -170,14 +170,14 @@ export class ExecutionEngine {
     return candidateArray[0] ?? (unsigned & 0xff)
   }
 
-  // Note: we use a fixed 4KB code window starting at codeAddress
+  // Note: we use a fixed code window starting at codeAddress
 
   stepExecution(): void {
     const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
       : this.uc.ARM_REG_PC;
     const pc = this.unicorn.reg_read_i32(pcReg);
-    const endAddress = this.config.codeAddress + 4096;
+    const endAddress = this.config.codeAddress + this.config.codeSize;
     this.unicorn.emu_start(pc, endAddress, 0, 1);
   }
 
@@ -225,7 +225,7 @@ export class ExecutionEngine {
       }
 
       pcAfter = this.literalPoolDetector.findNextInstruction(pcBefore, this.unicorn)
-      if (pcAfter >= this.config.codeAddress + 4096) {
+      if (pcAfter >= this.config.codeAddress + this.config.codeSize) {
         return {
           success: true,
           message: 'Execution completed - no more instructions',
@@ -276,7 +276,7 @@ export class ExecutionEngine {
         )
       } catch {}
 
-      const endAddress = this.config.codeAddress + 4096
+      const endAddress = this.config.codeAddress + this.config.codeSize
       executedAddresses.push(pcBefore >>> 0)
 
       const isMipsR6 = this.arch === 'MIPS_R6'
@@ -379,7 +379,7 @@ export class ExecutionEngine {
       const pc = this.unicorn.reg_read_i32(pcReg);
       
       // Check if we've reached the end of code space
-      if (pc >= this.config.codeAddress + 4096) {
+      if (pc >= this.config.codeAddress + this.config.codeSize) {
         break;
       }
       
@@ -404,7 +404,7 @@ export class ExecutionEngine {
         } else {
           // Skip literal pool
           const nextPc = this.literalPoolDetector.findNextInstruction(pc, this.unicorn);
-          if (nextPc >= this.config.codeAddress + 4096) {
+          if (nextPc >= this.config.codeAddress + this.config.codeSize) {
             break;
           }
           
@@ -413,7 +413,7 @@ export class ExecutionEngine {
       }
     } else {
       // Execute one instruction normally
-        const endAddress = this.config.codeAddress + 4096;
+        const endAddress = this.config.codeAddress + this.config.codeSize;
         this.unicorn.emu_start(pc, endAddress, 0, 1);
         executedInstructions++;
         
@@ -439,7 +439,7 @@ export class ExecutionEngine {
     validValues: number[] = [1, 2, 3, 4],
     timeoutUs: number = EMULATOR_RUN_TIMEOUT_US
   ): { message: string; executedInstructions: number; stopReason: 'mem-write' | 'end-of-code' | 'timeout' | 'unknown'; memEvent?: { address: number; value: number } } {
-    const endAddress = this.config.codeAddress + 4096
+    const endAddress = this.config.codeAddress + this.config.codeSize
     const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
       : this.uc.ARM_REG_PC

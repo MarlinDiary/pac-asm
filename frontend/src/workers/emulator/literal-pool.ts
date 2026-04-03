@@ -18,7 +18,7 @@ export class LiteralPoolDetector {
     }
     
     // Check if it looks like an address in our memory ranges
-    if ((instruction >= this.config.codeAddress && instruction < this.config.codeAddress + 4096) ||
+    if ((instruction >= this.config.codeAddress && instruction < this.config.codeAddress + this.config.codeSize) ||
         (instruction >= this.config.stackAddress && instruction < this.config.stackAddress + this.config.stackSize) ||
         (instruction >= this.config.dataAddress && instruction < this.config.dataAddress + this.config.dataSize)) {
       return true;
@@ -56,6 +56,6 @@ export class LiteralPoolDetector {
       }
     }
     
-    return this.config.codeAddress + 4096; // Return end address to stop execution
+    return this.config.codeAddress + this.config.codeSize; // Return end address to stop execution
   }
 }
