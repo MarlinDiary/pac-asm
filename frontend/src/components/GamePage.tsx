@@ -53,7 +53,6 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const isAuthenticated = status === 'authenticated'
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [secretClickCount, setSecretClickCount] = useState(0)
   const secretClickTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -193,8 +192,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const { setCurrentCode, setRightPanelTab, setCodeOverride } = gameState
   const challengeScore = executionControl.formattedScore
   const submitController = useMemo<RankingSubmitController>(() => ({
-    isSubmitting,
-    setIsSubmitting,
+    isSubmitting: executionControl.isSubmitting,
+    setIsSubmitting: executionControl.setIsSubmitting,
     getSourceCode: () => {
       const raw = gameState.currentCode ?? ''
       const codeToSubmit = gameState.codeOverride ?? gameState.currentCode ?? ''
@@ -208,8 +207,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     setRankingLoading: executionControl.setRankingLoading,
     applySubmissionResult: executionControl.applySubmissionResult
   }), [
-    isSubmitting,
-    setIsSubmitting,
+    executionControl.isSubmitting,
+    executionControl.setIsSubmitting,
     gameState.currentCode,
     gameState.codeOverride,
     gameState.isCodeDisabled,

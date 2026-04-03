@@ -10,6 +10,7 @@ export interface SubmissionDocument extends Document {
   architecture: Architecture;
   status?: 'Accepted' | 'Failed';
   successRate?: number;
+  score?: number;
   averageScore?: number;
   cycleCount?: number;
   summary: GameValidationSummary;
@@ -45,6 +46,7 @@ const submissionSchema = new Schema<SubmissionDocument>(
       default: undefined
     },
     successRate: Number,
+    score: Number,
     averageScore: Number,
     cycleCount: Number,
     summary: {

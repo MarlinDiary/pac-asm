@@ -149,6 +149,11 @@ router.post('/submit', async (req: Request, res: Response) => {
 
     await SubmissionModel.deleteMany({ userId: user.id, levelId, architecture })
 
+    const score = 'score' in metrics ? metrics.score : undefined
+    const averageScore = 'averageScore' in metrics
+      ? metrics.averageScore
+      : (typeof score === 'number' ? score : undefined)
+
     const submissionPayload = {
       userId: user.id,
       userName: user.name,
@@ -157,7 +162,8 @@ router.post('/submit', async (req: Request, res: Response) => {
       architecture,
       status: metrics.status,
       successRate: 'successRate' in metrics ? metrics.successRate : undefined,
-      averageScore: 'averageScore' in metrics ? metrics.averageScore : undefined,
+      score,
+      averageScore,
       cycleCount: 'cycleCount' in metrics ? metrics.cycleCount : undefined,
       summary
     }
@@ -208,8 +214,8 @@ export default router
 
 function extractMetrics(levelId: string, summary: GameValidationSummary) {
   if (levelId === 'challenge') {
-    const averageScore = Number(summary.metrics?.averageScore ?? 0)
-    return { averageScore }
+    const score = Number(summary.metrics?.score ?? summary.metrics?.lowestScore ?? summary.metrics?.averageScore ?? 0)
+    return { score: Number.isFinite(score) ? score : 0 }
   }
 
   const status = summary.pass ? 'Accepted' as const : 'Failed' as const
@@ -250,6 +256,10 @@ function extractMetrics(levelId: string, summary: GameValidationSummary) {
 }
 
 function toRankingEntry(doc: SubmissionDocument) {
+  const score = typeof doc.score === 'number'
+    ? doc.score
+    : (typeof doc.averageScore === 'number' ? doc.averageScore : 0)
+
   return {
     id: doc.id,
     userId: doc.userId,
@@ -259,7 +269,8 @@ function toRankingEntry(doc: SubmissionDocument) {
     architecture: doc.architecture,
     status: doc.status,
     successRate: doc.successRate ?? 0,
-    averageScore: doc.averageScore ?? 0,
+    score,
+    averageScore: doc.averageScore ?? score,
     cycleCount: typeof doc.cycleCount === 'number' ? doc.cycleCount : undefined,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString()
@@ -268,7 +279,7 @@ function toRankingEntry(doc: SubmissionDocument) {
 
 function buildRankingSort(levelId: string): Record<string, 1 | -1> {
   if (levelId === 'challenge') {
-    return { averageScore: -1, createdAt: 1 }
+    return { score: -1, createdAt: 1 }
   }
 
   return {

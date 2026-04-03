@@ -123,7 +123,7 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
         <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: isChallenge ? '32%' : '28%' }}>Name</div>
         {isChallenge ? (
           <>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '35%' }}>Avg Score</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '35%' }}>Score</div>
             <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '27%' }}>Time</div>
           </>
         ) : (
@@ -232,7 +232,7 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                   <>
                     <div style={{ width: '35%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
-                        {Math.round(entry.averageScore ?? 0).toString()}
+                        {Math.round(entry.score ?? entry.averageScore ?? 0).toString()}
                       </span>
                     </div>
                     <div style={{ width: '27%' }} className="text-sm pl-2">

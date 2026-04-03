@@ -80,7 +80,7 @@ export interface GameValidationResult {
 
 interface LevelRule {
   attempts: number
-  mode: 'single-pass' | 'all-pass' | 'win-rate' | 'average-score'
+  mode: 'single-pass' | 'all-pass' | 'win-rate' | 'lowest-score'
   threshold?: number
 }
 
@@ -89,7 +89,7 @@ const LEVEL_RULES: Record<string, LevelRule> = {
   level2: { attempts: 1, mode: 'single-pass' },
   level3: { attempts: 1, mode: 'single-pass' },
   level4: { attempts: 2000, mode: 'all-pass' },
-  challenge: { attempts: 10, mode: 'average-score', threshold: 100 }
+  challenge: { attempts: 1000, mode: 'lowest-score', threshold: 0 }
 }
 
 function cloneGameMap(map: GameMap): GameMap {
@@ -616,12 +616,17 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
   const averageScore = attempts.length === 0
     ? 0
     : attempts.reduce((sum, attempt) => sum + attempt.score, 0) / attempts.length
+  const lowestScore = attempts.length === 0
+    ? 0
+    : attempts.reduce((min, attempt) => Math.min(min, attempt.score), attempts[0].score)
   const threshold = rule.threshold ?? 0
   return {
-    pass: averageScore >= threshold,
-    reason: averageScore >= threshold ? undefined : `Average score ${averageScore.toFixed(2)} below threshold ${threshold}`,
+    pass: lowestScore >= threshold,
+    reason: lowestScore >= threshold ? undefined : `Lowest score ${lowestScore.toFixed(2)} below threshold ${threshold}`,
     metrics: {
       attempts: attempts.length,
+      score: lowestScore,
+      lowestScore,
       averageScore
     }
   }

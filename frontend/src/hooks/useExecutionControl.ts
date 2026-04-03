@@ -29,6 +29,7 @@ interface RankingEntry {
   architecture: Architecture
   status?: 'Accepted' | 'Failed'
   successRate?: number
+  score?: number
   averageScore?: number
   cycleCount?: number
   createdAt: string
@@ -46,6 +47,7 @@ type RankingResponse = {
     architecture: Architecture
     status?: 'Accepted' | 'Failed'
     successRate?: number
+    score?: number
     averageScore?: number
     cycleCount?: number
     createdAt: string
@@ -67,6 +69,13 @@ const API_BASE_URL = (
   process.env.NEXT_PUBLIC_BACKEND_URL ??
   'http://localhost:4000'
 ).replace(/\/$/, '')
+
+const SUBMISSION_POLL_INTERVAL_MS = 3000
+const SUBMISSION_PENDING_TTL_MS = 10 * 60 * 1000
+
+interface PendingSubmissionRecord {
+  startedAt: string
+}
 
 const handleVictoryCheck = (
   map: GameMap,
@@ -110,12 +119,51 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   const stepLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stepLockCountRef = useRef(0)
   const [isDebuggerBarVisible, setIsDebuggerBarVisible] = useState(true)
+  const [isSubmitting, setIsSubmittingState] = useState(false)
+  const pendingSubmissionStartedAtRef = useRef<string | null>(null)
+  const isPageUnloadingRef = useRef(false)
   const userInfo = useMemo(() => {
     const id = session?.user?.email ?? session?.user?.name ?? ''
     const name = session?.user?.name ?? session?.user?.email ?? ''
     const avatarUrl = session?.user?.image ?? undefined
     return { id, name, avatarUrl }
   }, [session])
+  const pendingSubmissionStorageKey = useMemo(() => {
+    if (!userInfo.id) {
+      return null
+    }
+
+    return `pacasm-pending-submit-${encodeURIComponent(userInfo.id)}-${levelId}-${architecture}`
+  }, [architecture, levelId, userInfo.id])
+
+  const clearPendingSubmission = useCallback((options?: { preserveOnUnload?: boolean }) => {
+    if (options?.preserveOnUnload && isPageUnloadingRef.current) {
+      return
+    }
+
+    pendingSubmissionStartedAtRef.current = null
+    setIsSubmittingState(false)
+
+    if (typeof window !== 'undefined' && pendingSubmissionStorageKey) {
+      window.localStorage.removeItem(pendingSubmissionStorageKey)
+    }
+  }, [pendingSubmissionStorageKey])
+
+  const setIsSubmitting = useCallback((value: boolean) => {
+    if (!value) {
+      clearPendingSubmission({ preserveOnUnload: true })
+      return
+    }
+
+    const startedAt = new Date().toISOString()
+    pendingSubmissionStartedAtRef.current = startedAt
+    setIsSubmittingState(true)
+
+    if (typeof window !== 'undefined' && pendingSubmissionStorageKey) {
+      const record: PendingSubmissionRecord = { startedAt }
+      window.localStorage.setItem(pendingSubmissionStorageKey, JSON.stringify(record))
+    }
+  }, [clearPendingSubmission, pendingSubmissionStorageKey])
 
   useEffect(() => {
     return () => {
@@ -130,11 +178,89 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handlePageHide = () => {
+      isPageUnloadingRef.current = true
+    }
+
+    window.addEventListener('beforeunload', handlePageHide)
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      window.removeEventListener('beforeunload', handlePageHide)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [])
+
+  useEffect(() => {
     rankingAbortRef.current?.abort()
     rankingFetchedRef.current = false
     setRankingEntries([])
     setIsRankingLoading(true)
   }, [levelId, architecture])
+
+  useEffect(() => {
+    isPageUnloadingRef.current = false
+  }, [pendingSubmissionStorageKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !pendingSubmissionStorageKey) {
+      pendingSubmissionStartedAtRef.current = null
+      setIsSubmittingState(false)
+      return
+    }
+
+    const raw = window.localStorage.getItem(pendingSubmissionStorageKey)
+    if (!raw) {
+      pendingSubmissionStartedAtRef.current = null
+      setIsSubmittingState(false)
+      return
+    }
+
+    try {
+      const pending = JSON.parse(raw) as PendingSubmissionRecord
+      const startedAtMs = Date.parse(pending.startedAt)
+      if (!Number.isFinite(startedAtMs) || Date.now() - startedAtMs > SUBMISSION_PENDING_TTL_MS) {
+        window.localStorage.removeItem(pendingSubmissionStorageKey)
+        pendingSubmissionStartedAtRef.current = null
+        setIsSubmittingState(false)
+        return
+      }
+
+      pendingSubmissionStartedAtRef.current = pending.startedAt
+      setIsSubmittingState(true)
+    } catch {
+      window.localStorage.removeItem(pendingSubmissionStorageKey)
+      pendingSubmissionStartedAtRef.current = null
+      setIsSubmittingState(false)
+    }
+  }, [pendingSubmissionStorageKey])
+
+  const resolvePendingSubmissionFromEntries = useCallback((entries: RankingEntry[]) => {
+    const startedAt = pendingSubmissionStartedAtRef.current
+    if (!startedAt || !userInfo.id) {
+      return
+    }
+
+    const startedAtMs = Date.parse(startedAt)
+    if (!Number.isFinite(startedAtMs) || Date.now() - startedAtMs > SUBMISSION_PENDING_TTL_MS) {
+      clearPendingSubmission()
+      return
+    }
+
+    const currentUserEntry = entries.find((entry) => entry.userId === userInfo.id)
+    if (!currentUserEntry) {
+      return
+    }
+
+    const updatedAtMs = Date.parse(currentUserEntry.updatedAt)
+    if (Number.isFinite(updatedAtMs) && updatedAtMs >= startedAtMs - 1000) {
+      clearPendingSubmission()
+    }
+  }, [clearPendingSubmission, userInfo.id])
 
   const {
     currentCode,
@@ -185,6 +311,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
         const mapped = mapRankingResponse(levelId, body)
         setRankingEntries(mapped)
+        resolvePendingSubmissionFromEntries(mapped)
       } catch (error) {
         if (signal?.aborted) {
           return
@@ -197,7 +324,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
         }
       }
     },
-    [levelId, architecture]
+    [levelId, architecture, resolvePendingSubmissionFromEntries]
   )
 
   useEffect(() => {
@@ -215,6 +342,37 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       controller.abort()
     }
   }, [loadRanking])
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      return
+    }
+
+    let cancelled = false
+    let activeController: AbortController | null = null
+
+    const poll = async () => {
+      while (!cancelled && pendingSubmissionStartedAtRef.current) {
+        activeController = new AbortController()
+        await loadRanking(activeController.signal)
+
+        if (cancelled || !pendingSubmissionStartedAtRef.current) {
+          break
+        }
+
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, SUBMISSION_POLL_INTERVAL_MS)
+        })
+      }
+    }
+
+    void poll()
+
+    return () => {
+      cancelled = true
+      activeController?.abort()
+    }
+  }, [isSubmitting, loadRanking])
 
   const persistRunCode = useCallback(
     (runId: string | undefined, sourceCode: string) => {
@@ -682,6 +840,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     rankingEntries,
     filteredRankingEntries,
     isRankingLoading,
+    isSubmitting,
+    setIsSubmitting,
     applySubmissionResult,
     setRankingLoading,
     currentUserId: userInfo.id,
@@ -718,7 +878,12 @@ function createRankingEntry(
     architecture: submission.architecture,
     status: submission.status,
     successRate: typeof submission.successRate === 'number' ? submission.successRate : 0,
-    averageScore: typeof submission.averageScore === 'number' ? submission.averageScore : 0,
+    score: typeof submission.score === 'number'
+      ? submission.score
+      : (typeof submission.averageScore === 'number' ? submission.averageScore : 0),
+    averageScore: typeof submission.averageScore === 'number'
+      ? submission.averageScore
+      : (typeof submission.score === 'number' ? submission.score : 0),
     cycleCount: typeof submission.cycleCount === 'number' ? submission.cycleCount : undefined,
     createdAt: submission.createdAt,
     updatedAt: submission.updatedAt,
@@ -731,7 +896,7 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
 
   if (levelId === 'challenge') {
     sorted.sort((a, b) => {
-      const scoreDelta = (b.averageScore ?? 0) - (a.averageScore ?? 0)
+      const scoreDelta = (b.score ?? b.averageScore ?? 0) - (a.score ?? a.averageScore ?? 0)
       if (scoreDelta !== 0) return scoreDelta
       // For same scores, earlier submission comes first
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
