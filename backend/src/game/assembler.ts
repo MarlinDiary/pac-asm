@@ -24,6 +24,24 @@ const R_MIPS_PC16 = 10;
 const R_MIPS_PC21_S2 = 60;
 const R_MIPS_PC26_S2 = 61;
 
+type BinutilsExecutable =
+  | 'addr2line'
+  | 'ar'
+  | 'cxxfilt'
+  | 'elfedit'
+  | 'nm'
+  | 'objcopy'
+  | 'objdump'
+  | 'ranlib'
+  | 'readelf'
+  | 'size'
+  | 'strings'
+  | 'strip';
+
+type WasmToolRunner = CallableFunction;
+type BinutilsLoader = (executable: BinutilsExecutable) => Promise<WasmToolRunner>;
+type GasLoader = (target: string) => Promise<WasmToolRunner>;
+
 const signExtend16 = (value: number): number => ((value << 16) >> 16);
 
 // GAS treats missing trailing newline as part of the last instruction, so we
@@ -45,8 +63,10 @@ const formatAssemblerErrorOutput = (raw: string): string => {
 };
 
 async function validateObjectFileHasNoUndefinedSymbols(objectFile: Uint8Array) {
-  const binutilsLoader = await import('@binutils-wasm/binutils');
-  const nm = await binutilsLoader.default('nm');
+  const { default: loadBinutils } = await import('@binutils-wasm/binutils') as unknown as {
+    default: BinutilsLoader
+  };
+  const nm = await loadBinutils('nm');
 
   let stdout = '';
   let stderr = '';
@@ -555,8 +575,10 @@ export class GASAssembler {
     }
 
     // Load GAS in browser
-    const gasLoader = await import('@binutils-wasm/gas');
-    this.gasInstance = await gasLoader.default(this.target);
+    const { default: loadGas } = await import('@binutils-wasm/gas') as unknown as {
+      default: GasLoader
+    };
+    this.gasInstance = await loadGas(this.target);
 
     this.isInitialized = true;
   }
@@ -654,8 +676,10 @@ export class GASAssembler {
 
     try {
       // Use objdump --dwarf=decodedline on frontend
-      const binutilsLoader = await import('@binutils-wasm/binutils');
-      const objdump = await binutilsLoader.default("objdump");
+      const { default: loadBinutils } = await import('@binutils-wasm/binutils') as unknown as {
+        default: BinutilsLoader
+      };
+      const objdump = await loadBinutils('objdump');
       
       let decoded = '';
       await (objdump as CallableFunction)({
