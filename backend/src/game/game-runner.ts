@@ -40,6 +40,7 @@ export interface ReplayMap {
   tiles: TileSymbol[][]
   playerPosition: GameMap['playerPosition']
   ghostPositions: GameMap['ghostPositions']
+  gameOver?: boolean
 }
 
 export interface GameFrame {
@@ -64,12 +65,21 @@ export interface GameAttemptResult {
   errors: string[]
 }
 
+export interface GameReplay {
+  attempt: number
+  score: number
+  steps: number
+  failureReason?: string
+  frames: GameFrame[]
+}
+
 export interface GameValidationOptions {
   sourceCode: string
   levelId: string
   architecture: Architecture
   maxSteps?: number
   includeRegisters?: boolean
+  recordReplay?: boolean
 }
 
 export interface GameValidationSummary {
@@ -83,6 +93,7 @@ export interface GameValidationResult {
   architecture: Architecture
   attempts: GameAttemptResult[]
   summary: GameValidationSummary
+  replayAttempt?: GameReplay
 }
 
 interface LevelRule {
@@ -153,7 +164,8 @@ function toReplayMap(map: GameMap): ReplayMap {
   return {
     tiles: map.tiles.map(row => [...row]) as TileSymbol[][],
     playerPosition: map.playerPosition ? { ...map.playerPosition } : map.playerPosition,
-    ghostPositions: map.ghostPositions.map(pos => ({ ...pos }))
+    ghostPositions: map.ghostPositions.map(pos => ({ ...pos })),
+    gameOver: map.gameOver
   }
 }
 
@@ -184,6 +196,39 @@ function computeMedian(values: number[]): number {
     return (sorted[middle - 1] + sorted[middle]) / 2
   }
   return sorted[middle]
+}
+
+function shouldReplaceLowestScoreAttempt(
+  candidate: Pick<GameAttemptResult, 'score' | 'steps'>,
+  selected: Pick<GameAttemptResult, 'score' | 'steps'> | Pick<GameReplay, 'score' | 'steps'> | null | undefined
+): boolean {
+  if (!selected) {
+    return true
+  }
+  if (candidate.score < selected.score) {
+    return true
+  }
+  if (candidate.score > selected.score) {
+    return false
+  }
+  return candidate.steps < selected.steps
+}
+
+function toGameReplay(attempt: GameAttemptResult): GameReplay {
+  return {
+    attempt: attempt.attempt,
+    score: attempt.score,
+    steps: attempt.steps,
+    failureReason: attempt.failureReason,
+    frames: attempt.frames
+  }
+}
+
+function withoutFrames(attempt: GameAttemptResult): GameAttemptResult {
+  return {
+    ...attempt,
+    frames: []
+  }
 }
 
 function createInitialFrame(map: GameMap, registers?: RegisterInfo[]): GameFrame {
@@ -643,16 +688,7 @@ function summarize(levelId: string, attempts: GameAttemptResult[]): GameValidati
     ? 0
     : attempts.reduce((sum, attempt) => sum + attempt.score, 0) / attempts.length
   const lowestScoreAttempt = attempts.reduce<GameAttemptResult | null>((selected, attempt) => {
-    if (!selected) {
-      return attempt
-    }
-    if (attempt.score < selected.score) {
-      return attempt
-    }
-    if (attempt.score > selected.score) {
-      return selected
-    }
-    if (attempt.steps < selected.steps) {
+    if (shouldReplaceLowestScoreAttempt(attempt, selected)) {
       return attempt
     }
     return selected
@@ -684,6 +720,7 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
   const rule = LEVEL_RULES[levelId] ?? { attempts: 1, mode: 'single-pass' }
   const attemptsToRun = rule.attempts
   const maxSteps = options.maxSteps ?? 300
+  const shouldRecordReplay = Boolean(options.recordReplay) && rule.mode === 'lowest-score'
 
   const emulator = new NodeEmulator()
   const initialMap = cloneGameMap(map)
@@ -695,6 +732,7 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
   )
 
   const attempts: GameAttemptResult[] = []
+  let replayAttempt: GameReplay | undefined = undefined
   for (let attemptIndex = 0; attemptIndex < attemptsToRun; attemptIndex++) {
     if (rule.mode === 'all-pass' && attempts.some(attempt => !attempt.success)) {
       break
@@ -708,11 +746,14 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
           maxSteps,
           attemptIndex,
           includeRegisters: options.includeRegisters ?? false,
-          recordFrames: false
+          recordFrames: shouldRecordReplay
         },
         cloneGameMap(map)
       )
-      attempts.push(attemptResult)
+      if (shouldRecordReplay && shouldReplaceLowestScoreAttempt(attemptResult, replayAttempt)) {
+        replayAttempt = toGameReplay(attemptResult)
+      }
+      attempts.push(shouldRecordReplay ? withoutFrames(attemptResult) : attemptResult)
 
       if (rule.mode === 'all-pass' && !attemptResult.success) {
         break
@@ -750,6 +791,7 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
     levelId,
     architecture,
     attempts,
-    summary
+    summary,
+    replayAttempt
   }
 }

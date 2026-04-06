@@ -1,6 +1,6 @@
 import { Schema, model, models, Document } from 'mongoose';
 import { Architecture } from '../game/emulator/types';
-import { GameValidationSummary } from '../game/game-runner';
+import { GameReplay, GameValidationSummary } from '../game/game-runner';
 
 export interface SubmissionDocument extends Document {
   userId: string;
@@ -14,7 +14,9 @@ export interface SubmissionDocument extends Document {
   averageScore?: number;
   steps?: number;
   cycleCount?: number;
+  hasReplay?: boolean;
   summary: GameValidationSummary;
+  replay?: GameReplay;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,10 +53,18 @@ const submissionSchema = new Schema<SubmissionDocument>(
     averageScore: Number,
     steps: Number,
     cycleCount: Number,
+    hasReplay: {
+      type: Boolean,
+      default: false
+    },
     summary: {
       type: Schema.Types.Mixed,
       required: true
-    }
+    },
+    replay: {
+      type: Schema.Types.Mixed,
+      default: undefined
+    },
   },
   {
     timestamps: true

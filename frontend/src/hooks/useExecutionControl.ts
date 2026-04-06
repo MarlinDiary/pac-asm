@@ -33,6 +33,7 @@ interface RankingEntry {
   averageScore?: number
   steps?: number
   cycleCount?: number
+  hasReplay?: boolean
   createdAt: string
   updatedAt: string
   isOptimistic?: boolean
@@ -52,6 +53,7 @@ type RankingResponse = {
     averageScore?: number
     steps?: number
     cycleCount?: number
+    hasReplay?: boolean
     createdAt: string
     updatedAt: string
   }>
@@ -880,6 +882,7 @@ function createRankingEntry(
       : (typeof submission.score === 'number' ? submission.score : 0),
     steps: typeof submission.steps === 'number' ? submission.steps : undefined,
     cycleCount: typeof submission.cycleCount === 'number' ? submission.cycleCount : undefined,
+    hasReplay: submission.hasReplay === true,
     createdAt: submission.createdAt,
     updatedAt: submission.updatedAt,
     isOptimistic: options.optimistic ?? false

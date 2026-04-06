@@ -3,6 +3,7 @@ export type {
   GameValidationOptions,
   GameValidationResult,
   GameAttemptResult,
+  GameReplay,
   GameFrame,
   GameValidationSummary
 } from './game-runner'

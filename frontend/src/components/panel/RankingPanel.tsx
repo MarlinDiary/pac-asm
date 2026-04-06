@@ -78,9 +78,19 @@ interface RankingPanelProps {
   submitController?: RankingSubmitController
   isAuthenticated?: boolean
   onLogin?: () => void
+  onSelectReplay?: (entry: RankingEntry) => void
 }
 
-export default function RankingPanel({ entries, isLoading, levelId, architecture, submitController, isAuthenticated = false, onLogin }: RankingPanelProps) {
+export default function RankingPanel({
+  entries,
+  isLoading,
+  levelId,
+  architecture,
+  submitController,
+  isAuthenticated = false,
+  onLogin,
+  onSelectReplay
+}: RankingPanelProps) {
   const { theme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const { data: session } = useSession()
@@ -124,8 +134,9 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
         {isChallenge ? (
           <>
             <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '22%' }}>Score</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '20%' }}>Steps</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '26%' }}>Time</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '18%' }}>Steps</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '18%' }}>Time</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '10%' }}></div>
           </>
         ) : (
           <>
@@ -167,12 +178,16 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Steps skeleton */}
-                    <div style={{ width: '20%' }} className="pl-2">
+                    <div style={{ width: '18%' }} className="pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Submit Time skeleton */}
-                    <div style={{ width: '26%' }} className="pl-2">
+                    <div style={{ width: '18%' }} className="pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
+                    </div>
+                    {/* Play skeleton */}
+                    <div style={{ width: '10%' }} className="pl-2">
+                      <div className="h-3.5 w-3.5 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded-full animate-pulse" />
                     </div>
                   </>
                 ) : (
@@ -243,15 +258,39 @@ export default function RankingPanel({ entries, isLoading, levelId, architecture
                         {Math.round(entry.score ?? entry.averageScore ?? 0).toString()}
                       </span>
                     </div>
-                    <div style={{ width: '20%' }} className="text-sm pl-2">
+                    <div style={{ width: '18%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {stepCount !== null ? new Intl.NumberFormat().format(stepCount) : '-'}
                       </span>
                     </div>
-                    <div style={{ width: '26%' }} className="text-sm pl-2">
+                    <div style={{ width: '18%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {formatSubmitTime(entry.createdAt)}
                       </span>
+                    </div>
+                    <div style={{ width: '10%' }} className="flex items-center pl-2">
+                      {entry.hasReplay ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelectReplay?.(entry)}
+                          aria-label="Watch playback"
+                          className="flex items-center justify-center cursor-pointer text-[#737373] dark:text-[#A8A8A8] hover:text-[#1a1a1a] dark:hover:text-[#f5f5f5] transition-colors"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            focusable="false"
+                            role="img"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 512 512"
+                            className="w-3.5 h-3.5"
+                          >
+                            <path
+                              fill="currentColor"
+                              d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM188.3 147.1c7.6-4.2 16.8-4.1 24.3 .5l144 88c7.1 4.4 11.5 12.1 11.5 20.5s-4.4 16.1-11.5 20.5l-144 88c-7.4 4.5-16.7 4.7-24.3 .5s-12.3-12.2-12.3-20.9V168c0-8.7 4.7-16.7 12.3-20.9z"
+                            />
+                          </svg>
+                        </button>
+                      ) : null}
                     </div>
                   </>
                 ) : (

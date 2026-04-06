@@ -127,16 +127,19 @@ router.post('/submit', async (req: Request, res: Response) => {
   try {
     let summary: GameValidationSummary
     let metrics: ReturnType<typeof extractMetrics>
+    let replay: SubmissionDocument['replay'] | undefined
 
     try {
       const validation = await validateGame({
         sourceCode,
         levelId,
-        architecture
+        architecture,
+        recordReplay: levelId === 'challenge'
       })
 
       summary = validation.summary
       metrics = extractMetrics(levelId, summary)
+      replay = validation.replayAttempt
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       summary = {
@@ -166,7 +169,9 @@ router.post('/submit', async (req: Request, res: Response) => {
       averageScore,
       steps: 'steps' in metrics ? metrics.steps : undefined,
       cycleCount: 'cycleCount' in metrics ? metrics.cycleCount : undefined,
-      summary
+      hasReplay: Boolean(replay && Array.isArray(replay.frames) && replay.frames.length > 0),
+      summary,
+      replay
     }
 
     const submission = await SubmissionModel.create(submissionPayload)
@@ -174,6 +179,34 @@ router.post('/submit', async (req: Request, res: Response) => {
     return res.status(200).json({
       submission: toRankingEntry(submission),
       summary
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return res.status(500).json({ error: message })
+  }
+})
+
+router.get('/submissions/:submissionId/replay', async (req: Request, res: Response) => {
+  const { submissionId } = req.params
+
+  if (!submissionId || typeof submissionId !== 'string') {
+    return res.status(400).json({ error: 'submissionId is required' })
+  }
+
+  try {
+    const submission = await SubmissionModel.findById(submissionId).exec()
+    if (!submission) {
+      return res.status(404).json({ error: 'Submission not found' })
+    }
+
+    const replay = submission.replay
+    if (!replay || !Array.isArray(replay.frames) || replay.frames.length === 0) {
+      return res.status(404).json({ error: 'Replay not available for this submission' })
+    }
+
+    return res.status(200).json({
+      submission: toRankingEntry(submission),
+      replay
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -201,7 +234,11 @@ router.get('/ranking', async (req: Request, res: Response) => {
       query.architecture = architecture
     }
 
-    const submissions = await SubmissionModel.find(query).sort(sort).limit(200).exec()
+    const submissions = await SubmissionModel.find(query)
+      .select({ replay: 0 })
+      .sort(sort)
+      .limit(200)
+      .exec()
     const ranking = submissions.map(toRankingEntry)
 
     return res.status(200).json({ submissions: ranking })
@@ -284,6 +321,7 @@ function toRankingEntry(doc: SubmissionDocument) {
     averageScore: doc.averageScore ?? score,
     steps,
     cycleCount: typeof doc.cycleCount === 'number' ? doc.cycleCount : undefined,
+    hasReplay: doc.hasReplay ?? Boolean(doc.replay && Array.isArray(doc.replay.frames) && doc.replay.frames.length > 0),
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString()
   }

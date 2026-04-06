@@ -10,6 +10,7 @@ import DebuggerBar from '@/components/bar/DebuggerBar'
 import IconButton from '@/components/IconButton'
 import MapRenderer from '@/components/MapRenderer'
 import WaterRenderer from '@/components/WaterRenderer'
+import SubmissionReplayModal from '@/components/SubmissionReplayModal'
 import CodeEditor from '@/components/CodeEditor'
 import RegisterPanel from '@/components/panel/RegisterPanel'
 import MemoryPanel from '@/components/panel/MemoryPanel'
@@ -25,6 +26,7 @@ import { useEmulator } from '@/hooks/useEmulator'
 import { useGameState } from '@/hooks/useGameState'
 import { usePanelLayout } from '@/hooks/usePanelLayout'
 import { useExecutionControl } from '@/hooks/useExecutionControl'
+import type { RankingEntry } from '@/hooks/useExecutionControl'
 import { useJsPlayRunner } from '@/hooks/useJsPlayRunner'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight, CircleUserRound, LogOut, Lightbulb } from 'lucide-react'
@@ -186,6 +188,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     levelId: normalizedLevelId,
     architecture: settings.architecture
   })
+  const [selectedReplayEntry, setSelectedReplayEntry] = useState<RankingEntry | null>(null)
   const [isMemoryFilterOpen, setIsMemoryFilterOpen] = useState(false)
   const [selectedMemoryRegion, setSelectedMemoryRegion] = useState<MemoryRegion>('all')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -234,6 +237,10 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
     setCurrentCode(initialCode)
   }, [initialCode, setCurrentCode])
 
+  useEffect(() => {
+    setSelectedReplayEntry(null)
+  }, [normalizedLevelId, settings.architecture])
+
   const handleResetCode = useCallback(() => {
     setCodeOverride(null)
     setCurrentCode(defaultLevelCode)
@@ -259,7 +266,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
 
   // Secret: click level name 10 times to trigger random play
   const handleLevelNameClick = useCallback(() => {
-    if (!isChallenge || executionControl.isBusy) return
+    if (!isChallenge || executionControl.isBusy || selectedReplayEntry) return
 
     if (secretClickTimer.current) {
       clearTimeout(secretClickTimer.current)
@@ -281,7 +288,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         setSecretClickCount(0)
       }, 2000)
     }
-  }, [isChallenge, executionControl.isBusy, secretClickCount, jsPlayRunner, handleJsRandomPlay])
+  }, [isChallenge, executionControl.isBusy, selectedReplayEntry, secretClickCount, jsPlayRunner, handleJsRandomPlay])
 
   // Sync JS play runner map to game state
   useEffect(() => {
@@ -495,6 +502,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                     isLoading={executionControl.isRankingLoading}
                     submitController={submitController}
                     isAuthenticated={isAuthenticated}
+                    onSelectReplay={setSelectedReplayEntry}
                     onLogin={() => {
                       // Save current URL with ranking tab parameter
                       const callbackUrl = `${pathname}?tab=ranking`
@@ -609,6 +617,11 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
       isRunning={executionControl.isBusy}
       isDebugMode={gameState.isDebugMode}
       onResetCode={handleResetCode}
+    />
+    <SubmissionReplayModal
+      entry={selectedReplayEntry}
+      levelMap={levelMap}
+      onClose={() => setSelectedReplayEntry(null)}
     />
   </div>
   )
