@@ -265,7 +265,7 @@ export default function RankingPanel({
                     </div>
                     <div style={{ width: '18%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
-                        {formatSubmitTime(entry.updatedAt)}
+                        {formatSubmitTime(entry.createdAt)}
                       </span>
                     </div>
                     <div style={{ width: '10%' }} className="flex items-center pl-2">
@@ -309,7 +309,7 @@ export default function RankingPanel({
                     </div>
                     <div style={{ width: '25%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
-                        {formatSubmitTime(entry.updatedAt)}
+                        {formatSubmitTime(entry.createdAt)}
                       </span>
                     </div>
                   </>

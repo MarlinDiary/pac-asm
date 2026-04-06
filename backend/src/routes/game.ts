@@ -2,7 +2,6 @@ import { Request, Response, Router } from 'express'
 
 import { validateGame, GameValidationSummary } from '../game'
 import { Architecture } from '../game/emulator/types'
-import { publishRankingUpdate, subscribeToRankingUpdates, type RankingUpdateEvent } from '../lib/ranking-events'
 import SubmissionModel, { SubmissionDocument } from '../models/submission'
 import RunLogModel from '../models/run-log'
 
@@ -173,30 +172,7 @@ router.post('/submit', async (req: Request, res: Response) => {
       replay
     }
 
-    const submission = await SubmissionModel.findOneAndUpdate(
-      { userId: user.id, levelId, architecture },
-      buildSubmissionWriteOperation(submissionPayload),
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    ).exec()
-
-    if (!submission) {
-      throw new Error('Failed to persist submission')
-    }
-
-    await SubmissionModel.deleteMany({
-      userId: user.id,
-      levelId,
-      architecture,
-      _id: { $ne: submission._id }
-    }).exec()
-
-    publishRankingUpdate({
-      levelId,
-      architecture,
-      submissionId: submission.id,
-      userId: user.id,
-      updatedAt: submission.updatedAt.toISOString()
-    })
+    const submission = await SubmissionModel.create(submissionPayload)
 
     return res.status(200).json({
       submission: toRankingEntry(submission),
@@ -236,56 +212,6 @@ router.get('/submissions/:submissionId/replay', async (req: Request, res: Respon
   }
 })
 
-router.get('/ranking/stream', (req: Request, res: Response) => {
-  const { levelId, architecture } = req.query
-
-  if (typeof levelId !== 'string' || !ALLOWED_LEVEL_IDS.has(levelId)) {
-    return res.status(400).json({ error: 'levelId query parameter is required' })
-  }
-
-  if (typeof architecture !== 'undefined') {
-    if (typeof architecture !== 'string' || !isArchitecture(architecture)) {
-      return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
-    }
-  }
-
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache, no-transform')
-  res.setHeader('Connection', 'keep-alive')
-  res.setHeader('X-Accel-Buffering', 'no')
-  res.flushHeaders?.()
-
-  res.write('retry: 3000\n')
-  res.write('event: ready\n')
-  res.write('data: {"ok":true}\n\n')
-
-  const sendUpdate = (event: RankingUpdateEvent) => {
-    if (event.levelId !== levelId) {
-      return
-    }
-
-    if (typeof architecture === 'string' && event.architecture !== architecture) {
-      return
-    }
-
-    res.write('event: ranking-update\n')
-    res.write(`data: ${JSON.stringify(event)}\n\n`)
-  }
-
-  const unsubscribe = subscribeToRankingUpdates(sendUpdate)
-  const heartbeat = setInterval(() => {
-    res.write(`: keepalive ${Date.now()}\n\n`)
-  }, 25000)
-
-  const cleanup = () => {
-    clearInterval(heartbeat)
-    unsubscribe()
-  }
-
-  req.on('close', cleanup)
-  req.on('end', cleanup)
-})
-
 router.get('/ranking', async (req: Request, res: Response) => {
   const { levelId, architecture } = req.query
 
@@ -306,12 +232,22 @@ router.get('/ranking', async (req: Request, res: Response) => {
       query.architecture = architecture
     }
 
-    const submissions = await SubmissionModel.find(query)
-      .select({ replay: 0 })
-      .sort(sort)
-      .limit(200)
+    const submissions = await SubmissionModel.aggregate<RankingRecord>([
+      { $match: query },
+      { $sort: { userId: 1, createdAt: -1, _id: -1 } },
+      {
+        $group: {
+          _id: '$userId',
+          submission: { $first: '$$ROOT' }
+        }
+      },
+      { $replaceRoot: { newRoot: '$submission' } },
+      { $project: { replay: 0 } },
+      { $sort: sort },
+      { $limit: 200 }
+    ])
       .exec()
-    const ranking = submissions.map(toRankingEntry)
+    const ranking = submissions.map(toRankingEntryRecord)
 
     return res.status(200).json({ submissions: ranking })
   } catch (error) {
@@ -399,36 +335,75 @@ function toRankingEntry(doc: SubmissionDocument) {
   }
 }
 
+interface RankingRecord {
+  _id: unknown
+  userId: string
+  userName: string
+  userAvatarUrl?: string
+  levelId: string
+  architecture: Architecture
+  status?: 'Accepted' | 'Failed'
+  successRate?: number
+  score?: number
+  averageScore?: number
+  steps?: number
+  cycleCount?: number
+  hasReplay?: boolean
+  summary?: GameValidationSummary
+  replay?: SubmissionDocument['replay']
+  createdAt: Date | string
+  updatedAt: Date | string
+}
+
+function toRankingEntryRecord(doc: RankingRecord) {
+  const score = typeof doc.score === 'number'
+    ? doc.score
+    : (typeof doc.averageScore === 'number' ? doc.averageScore : 0)
+  const summaryMetrics = (doc.summary?.metrics ?? {}) as Record<string, unknown>
+  const steps = typeof doc.steps === 'number'
+    ? doc.steps
+    : (typeof summaryMetrics.steps === 'number'
+        ? Math.max(0, Math.round(summaryMetrics.steps))
+        : undefined)
+
+  return {
+    id: String(doc._id),
+    userId: doc.userId,
+    userName: doc.userName,
+    userAvatarUrl: doc.userAvatarUrl,
+    levelId: doc.levelId,
+    architecture: doc.architecture,
+    status: doc.status,
+    successRate: doc.successRate ?? 0,
+    score,
+    averageScore: doc.averageScore ?? score,
+    steps,
+    cycleCount: typeof doc.cycleCount === 'number' ? doc.cycleCount : undefined,
+    hasReplay: doc.hasReplay ?? Boolean(doc.replay && Array.isArray(doc.replay.frames) && doc.replay.frames.length > 0),
+    createdAt: toIsoString(doc.createdAt),
+    updatedAt: toIsoString(doc.updatedAt)
+  }
+}
+
 function buildRankingSort(levelId: string): Record<string, 1 | -1> {
   if (levelId === 'challenge') {
-    return { score: -1, steps: 1, updatedAt: 1 }
+    return { score: -1, steps: 1, createdAt: 1 }
   }
 
   return {
     status: 1,
     cycleCount: 1,
-    updatedAt: 1
+    createdAt: 1
   }
 }
 
-function buildSubmissionWriteOperation(payload: Record<string, unknown>) {
-  const $set: Record<string, unknown> = {}
-  const $unset: Record<string, 1> = {}
-
-  for (const [key, value] of Object.entries(payload)) {
-    if (typeof value === 'undefined') {
-      $unset[key] = 1
-      continue
-    }
-
-    $set[key] = value
+function toIsoString(value: Date | string): string {
+  if (value instanceof Date) {
+    return value.toISOString()
   }
 
-  if (Object.keys($unset).length === 0) {
-    return { $set }
-  }
-
-  return { $set, $unset }
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? new Date(0).toISOString() : parsed.toISOString()
 }
 
 function parseOptionalNumber(value: unknown): number | undefined | typeof Number.NaN {

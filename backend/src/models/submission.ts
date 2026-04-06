@@ -72,6 +72,7 @@ const submissionSchema = new Schema<SubmissionDocument>(
 );
 
 submissionSchema.index({ userId: 1, levelId: 1, architecture: 1 });
+submissionSchema.index({ levelId: 1, architecture: 1, userId: 1, createdAt: -1 });
 
 const SubmissionModel = models.Submission ?? model<SubmissionDocument>('Submission', submissionSchema);
 
