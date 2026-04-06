@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express'
 
 import { validateGame, GameValidationSummary } from '../game'
 import { Architecture } from '../game/emulator/types'
+import { publishRankingUpdate, subscribeToRankingUpdates, type RankingUpdateEvent } from '../lib/ranking-events'
 import SubmissionModel, { SubmissionDocument } from '../models/submission'
 import RunLogModel from '../models/run-log'
 
@@ -150,8 +151,6 @@ router.post('/submit', async (req: Request, res: Response) => {
       metrics = extractMetrics(levelId, summary)
     }
 
-    await SubmissionModel.deleteMany({ userId: user.id, levelId, architecture })
-
     const score = 'score' in metrics ? metrics.score : undefined
     const averageScore = 'averageScore' in metrics
       ? metrics.averageScore
@@ -174,7 +173,30 @@ router.post('/submit', async (req: Request, res: Response) => {
       replay
     }
 
-    const submission = await SubmissionModel.create(submissionPayload)
+    const submission = await SubmissionModel.findOneAndUpdate(
+      { userId: user.id, levelId, architecture },
+      buildSubmissionWriteOperation(submissionPayload),
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).exec()
+
+    if (!submission) {
+      throw new Error('Failed to persist submission')
+    }
+
+    await SubmissionModel.deleteMany({
+      userId: user.id,
+      levelId,
+      architecture,
+      _id: { $ne: submission._id }
+    }).exec()
+
+    publishRankingUpdate({
+      levelId,
+      architecture,
+      submissionId: submission.id,
+      userId: user.id,
+      updatedAt: submission.updatedAt.toISOString()
+    })
 
     return res.status(200).json({
       submission: toRankingEntry(submission),
@@ -212,6 +234,56 @@ router.get('/submissions/:submissionId/replay', async (req: Request, res: Respon
     const message = error instanceof Error ? error.message : String(error)
     return res.status(500).json({ error: message })
   }
+})
+
+router.get('/ranking/stream', (req: Request, res: Response) => {
+  const { levelId, architecture } = req.query
+
+  if (typeof levelId !== 'string' || !ALLOWED_LEVEL_IDS.has(levelId)) {
+    return res.status(400).json({ error: 'levelId query parameter is required' })
+  }
+
+  if (typeof architecture !== 'undefined') {
+    if (typeof architecture !== 'string' || !isArchitecture(architecture)) {
+      return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
+    }
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
+  res.flushHeaders?.()
+
+  res.write('retry: 3000\n')
+  res.write('event: ready\n')
+  res.write('data: {"ok":true}\n\n')
+
+  const sendUpdate = (event: RankingUpdateEvent) => {
+    if (event.levelId !== levelId) {
+      return
+    }
+
+    if (typeof architecture === 'string' && event.architecture !== architecture) {
+      return
+    }
+
+    res.write('event: ranking-update\n')
+    res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+
+  const unsubscribe = subscribeToRankingUpdates(sendUpdate)
+  const heartbeat = setInterval(() => {
+    res.write(`: keepalive ${Date.now()}\n\n`)
+  }, 25000)
+
+  const cleanup = () => {
+    clearInterval(heartbeat)
+    unsubscribe()
+  }
+
+  req.on('close', cleanup)
+  req.on('end', cleanup)
 })
 
 router.get('/ranking', async (req: Request, res: Response) => {
@@ -329,14 +401,34 @@ function toRankingEntry(doc: SubmissionDocument) {
 
 function buildRankingSort(levelId: string): Record<string, 1 | -1> {
   if (levelId === 'challenge') {
-    return { score: -1, steps: 1, createdAt: 1 }
+    return { score: -1, steps: 1, updatedAt: 1 }
   }
 
   return {
     status: 1,
     cycleCount: 1,
-    createdAt: 1
+    updatedAt: 1
   }
+}
+
+function buildSubmissionWriteOperation(payload: Record<string, unknown>) {
+  const $set: Record<string, unknown> = {}
+  const $unset: Record<string, 1> = {}
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (typeof value === 'undefined') {
+      $unset[key] = 1
+      continue
+    }
+
+    $set[key] = value
+  }
+
+  if (Object.keys($unset).length === 0) {
+    return { $set }
+  }
+
+  return { $set, $unset }
 }
 
 function parseOptionalNumber(value: unknown): number | undefined | typeof Number.NaN {

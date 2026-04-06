@@ -341,6 +341,31 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
   }, [loadRanking])
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.EventSource === 'undefined') {
+      return
+    }
+
+    const params = new URLSearchParams({
+      levelId,
+      architecture
+    })
+    const eventSource = new window.EventSource(
+      `${API_BASE_URL}/game/ranking/stream?${params.toString()}`
+    )
+
+    const handleRankingUpdate = (_event: MessageEvent) => {
+      void loadRanking()
+    }
+
+    eventSource.addEventListener('ranking-update', handleRankingUpdate as EventListener)
+
+    return () => {
+      eventSource.removeEventListener('ranking-update', handleRankingUpdate as EventListener)
+      eventSource.close()
+    }
+  }, [architecture, levelId, loadRanking])
+
+  useEffect(() => {
     if (!isSubmitting) {
       return
     }
@@ -900,12 +925,12 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
       const bSteps = typeof b.steps === 'number' && Number.isFinite(b.steps) ? b.steps : Number.POSITIVE_INFINITY
       const stepsDelta = aSteps - bSteps
       if (stepsDelta !== 0) return stepsDelta
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
     })
     return sorted
   }
 
-  // For standard levels (level1-4): Accepted first, then lower cycle counts, then earlier submissions
+  // For standard levels (level1-4): Accepted first, then lower cycle counts, then earlier latest submissions
   sorted.sort((a, b) => {
     const aAccepted = a.status === 'Accepted'
     const bAccepted = b.status === 'Accepted'
@@ -922,8 +947,8 @@ function sortRankingEntries(levelId: string, entries: RankingEntry[]): RankingEn
       return cycleDelta
     }
 
-    // If cycle count ties, earlier submission comes first
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    // If cycle count ties, earlier latest submission comes first
+    return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
   })
   return sorted
 }
