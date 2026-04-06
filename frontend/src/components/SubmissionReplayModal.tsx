@@ -386,7 +386,7 @@ export default function SubmissionReplayModal({
             onClick={handleRestart}
             disabled={!replay}
             aria-label="Restart replay"
-            className="h-7 w-7 rounded-md flex items-center justify-center text-[#737373] dark:text-[#A8A8A8] hover:bg-[#f0f0f0] dark:hover:bg-[#222222] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-7 w-7 flex items-center justify-center text-[#737373] dark:text-[#A8A8A8] hover:text-[#1a1a1a] dark:hover:text-[#f5f5f5] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
