@@ -64,7 +64,6 @@ export default function SubmissionReplayModal({
   // Keep last entry rendered during the exit animation so content doesn't vanish mid-transition.
   const [displayEntry, setDisplayEntry] = useState<RankingEntry | null>(entry)
   const [replay, setReplay] = useState<SubmissionReplayPayload | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -210,7 +209,6 @@ export default function SubmissionReplayModal({
     if (!entry) {
       abortRef.current?.abort()
       setReplay(null)
-      setIsLoading(false)
       setIsPlaying(false)
       setCurrentFrameIndex(0)
       setError(null)
@@ -222,7 +220,6 @@ export default function SubmissionReplayModal({
     const controller = new AbortController()
     abortRef.current = controller
     setReplay(null)
-    setIsLoading(true)
     setIsPlaying(false)
     setCurrentFrameIndex(0)
     setError(null)
@@ -260,11 +257,6 @@ export default function SubmissionReplayModal({
 
         const message = fetchError instanceof Error ? fetchError.message : String(fetchError)
         setError(message)
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setIsLoading(false)
-        }
       })
 
     return () => {
@@ -424,9 +416,7 @@ export default function SubmissionReplayModal({
                 fontSize="2rem"
                 onComplete={() => setShowObjectiveNotMet(false)}
               />
-              <div className={isLoading ? 'animate-pulse' : ''}>
-                <MapRenderer map={currentMap} shouldShakePlayer={shouldShakePlayer} />
-              </div>
+              <MapRenderer map={currentMap} shouldShakePlayer={shouldShakePlayer} />
             </>
           )}
         </div>
