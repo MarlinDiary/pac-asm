@@ -4,6 +4,7 @@ import { validateGame, GameValidationSummary } from '../game'
 import { Architecture } from '../game/emulator/types'
 import SubmissionModel, { SubmissionDocument } from '../models/submission'
 import RunLogModel from '../models/run-log'
+import { GitHubAuthError, requireVerifiedGitHubIdentity, syncVerifiedGitHubUser } from '../lib/github-auth'
 
 const router = Router()
 
@@ -109,7 +110,7 @@ router.post('/runs', async (req: Request, res: Response) => {
 
 router.post('/submit', async (req: Request, res: Response) => {
   const body = req.body as SubmitBody
-  const { sourceCode, levelId, architecture, user } = body
+  const { sourceCode, levelId, architecture } = body
 
   if (!sourceCode || typeof sourceCode !== 'string') {
     return res.status(400).json({ error: 'sourceCode is required' })
@@ -120,11 +121,11 @@ router.post('/submit', async (req: Request, res: Response) => {
   if (!isArchitecture(architecture)) {
     return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
   }
-  if (!user || typeof user.id !== 'string' || typeof user.name !== 'string') {
-    return res.status(400).json({ error: 'user information is required' })
-  }
 
   try {
+    const identity = await requireVerifiedGitHubIdentity(req)
+    const syncedUser = await syncVerifiedGitHubUser(identity)
+
     let summary: GameValidationSummary
     let metrics: ReturnType<typeof extractMetrics>
     let replay: SubmissionDocument['replay'] | undefined
@@ -156,9 +157,9 @@ router.post('/submit', async (req: Request, res: Response) => {
       : (typeof score === 'number' ? score : undefined)
 
     const submissionPayload = {
-      userId: user.id,
-      userName: user.name,
-      userAvatarUrl: user.avatarUrl,
+      userId: syncedUser.submissionUserId,
+      userName: syncedUser.submissionUserName,
+      userAvatarUrl: syncedUser.submissionAvatarUrl,
       levelId,
       architecture,
       status: metrics.status,
@@ -179,6 +180,10 @@ router.post('/submit', async (req: Request, res: Response) => {
       summary
     })
   } catch (error) {
+    if (error instanceof GitHubAuthError) {
+      return res.status(error.statusCode).json({ error: error.message })
+    }
+
     const message = error instanceof Error ? error.message : String(error)
     return res.status(500).json({ error: message })
   }

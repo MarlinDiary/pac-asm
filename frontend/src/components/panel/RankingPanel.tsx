@@ -63,9 +63,7 @@ interface SubmitRankingArgs {
   architecture: Architecture
   controller: RankingSubmitController
   user: {
-    id?: string
-    name?: string
-    avatarUrl?: string
+    accessToken?: string
   }
   addTaggedError?: (tag: string, error: string, code: string) => void
 }
@@ -97,10 +95,9 @@ export default function RankingPanel({
   const addTaggedError = useDiagnosticsStore((state) => state.addTaggedError)
 
   const userInfo = useMemo(() => {
-    const id = session?.user?.email ?? session?.user?.name ?? ''
-    const name = session?.user?.name ?? session?.user?.email ?? ''
-    const avatarUrl = session?.user?.image ?? undefined
-    return { id, name, avatarUrl }
+    return {
+      accessToken: session?.accessToken
+    }
   }, [session])
 
   const isSubmitting = submitController?.isSubmitting ?? false
@@ -364,7 +361,7 @@ async function submitRanking({ levelId, architecture, controller, user, addTagge
     return
   }
 
-  if (!user.id || !user.name) {
+  if (!user.accessToken) {
     addTaggedError?.('SUBMIT', 'You need to log in to submit', fallbackSource)
     return
   }
@@ -381,16 +378,14 @@ async function submitRanking({ levelId, architecture, controller, user, addTagge
   try {
     const response = await fetch(`${API_BASE_URL}/game/submit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user.accessToken}`
+      },
       body: JSON.stringify({
         sourceCode,
         levelId,
-        architecture,
-        user: {
-          id: user.id,
-          name: user.name,
-          avatarUrl: user.avatarUrl
-        }
+        architecture
       })
     })
 

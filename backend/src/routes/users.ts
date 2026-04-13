@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, Router } from 'express';
 
 import UserModel, { User } from '../models/user';
+import { GitHubAuthError, requireVerifiedGitHubIdentity, syncVerifiedGitHubUser } from '../lib/github-auth';
 
 const router = Router();
 
@@ -29,33 +30,10 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, githubId, name, avatarUrl } = req.body as Partial<User> & {
-      githubId?: string;
-    };
+    const identity = await requireVerifiedGitHubIdentity(req);
+    const { record } = await syncVerifiedGitHubUser(identity);
 
-    if (!email && !githubId) {
-      res.status(400).json({ message: 'email or githubId is required' });
-      return;
-    }
-
-    const filter = githubId ? { githubId } : { email };
-
-    const user = await UserModel.findOneAndUpdate(
-      filter,
-      {
-        email,
-        githubId,
-        name,
-        avatarUrl
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
-    ).exec();
-
-    const plain = user.toObject<User>({
+    const plain = record.toObject<User>({
       versionKey: false
     });
 
@@ -66,6 +44,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       ...rest
     });
   } catch (error) {
+    if (error instanceof GitHubAuthError) {
+      res.status(error.statusCode).json({ message: error.message });
+      return;
+    }
+
     next(error);
   }
 });

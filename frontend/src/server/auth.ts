@@ -42,18 +42,20 @@ const authConfig = {
         return;
       }
 
+      const accessToken = typeof account?.access_token === 'string' ? account.access_token : undefined;
+      if (!accessToken) {
+        console.warn("Missing GitHub access token; skipping backend user sync.");
+        return;
+      }
+
       try {
         await fetch(`${backendBaseUrl}/users`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({
-            email: user.email,
-            name: user.name,
-            avatarUrl: user.image,
-            githubId: account?.providerAccountId,
-          }),
+          body: JSON.stringify({}),
         });
       } catch (error) {
         console.error("Failed to sync user with backend", error);
