@@ -723,75 +723,79 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
   const shouldRecordReplay = Boolean(options.recordReplay) && rule.mode === 'lowest-score'
 
   const emulator = new NodeEmulator()
-  const initialMap = cloneGameMap(map)
-  const { machineCode } = await initializeEmulatorWithCode(
-    emulator,
-    sourceCode,
-    initialMap,
-    architecture
-  )
+  try {
+    const initialMap = cloneGameMap(map)
+    const { machineCode } = await initializeEmulatorWithCode(
+      emulator,
+      sourceCode,
+      initialMap,
+      architecture
+    )
 
-  const attempts: GameAttemptResult[] = []
-  let replayAttempt: GameReplay | undefined = undefined
-  for (let attemptIndex = 0; attemptIndex < attemptsToRun; attemptIndex++) {
-    if (rule.mode === 'all-pass' && attempts.some(attempt => !attempt.success)) {
-      break
-    }
-    try {
-      const attemptResult = await runAttempt(
-        {
-          emulator,
-          machineCode,
-          architecture,
-          maxSteps,
-          attemptIndex,
-          includeRegisters: options.includeRegisters ?? false,
-          recordFrames: shouldRecordReplay
-        },
-        cloneGameMap(map)
-      )
-      if (shouldRecordReplay && shouldReplaceLowestScoreAttempt(attemptResult, replayAttempt)) {
-        replayAttempt = toGameReplay(attemptResult)
-      }
-      attempts.push(shouldRecordReplay ? withoutFrames(attemptResult) : attemptResult)
-
-      if (rule.mode === 'all-pass' && !attemptResult.success) {
+    const attempts: GameAttemptResult[] = []
+    let replayAttempt: GameReplay | undefined = undefined
+    for (let attemptIndex = 0; attemptIndex < attemptsToRun; attemptIndex++) {
+      if (rule.mode === 'all-pass' && attempts.some(attempt => !attempt.success)) {
         break
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      attempts.push({
-        attempt: attemptIndex + 1,
-        success: false,
-        victory: false,
-        score: 0,
-        steps: 0,
-        cycleCount: 0,
-        frames: [],
-        failureReason: message,
-        errors: [message]
-      })
       try {
-        await resetEmulatorWithMemory(emulator)
-        await emulator.loadCode(machineCode)
-        await writeCompleteMapToMemory(emulator, cloneGameMap(map), architecture)
-      } catch {}
+        const attemptResult = await runAttempt(
+          {
+            emulator,
+            machineCode,
+            architecture,
+            maxSteps,
+            attemptIndex,
+            includeRegisters: options.includeRegisters ?? false,
+            recordFrames: shouldRecordReplay
+          },
+          cloneGameMap(map)
+        )
+        if (shouldRecordReplay && shouldReplaceLowestScoreAttempt(attemptResult, replayAttempt)) {
+          replayAttempt = toGameReplay(attemptResult)
+        }
+        attempts.push(shouldRecordReplay ? withoutFrames(attemptResult) : attemptResult)
 
-      if (rule.mode === 'all-pass') {
-        break
+        if (rule.mode === 'all-pass' && !attemptResult.success) {
+          break
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        attempts.push({
+          attempt: attemptIndex + 1,
+          success: false,
+          victory: false,
+          score: 0,
+          steps: 0,
+          cycleCount: 0,
+          frames: [],
+          failureReason: message,
+          errors: [message]
+        })
+        try {
+          await resetEmulatorWithMemory(emulator)
+          await emulator.loadCode(machineCode)
+          await writeCompleteMapToMemory(emulator, cloneGameMap(map), architecture)
+        } catch {}
+
+        if (rule.mode === 'all-pass') {
+          break
+        }
       }
     }
-  }
 
-  await emulator.close()
+    const summary = summarize(levelId, attempts)
 
-  const summary = summarize(levelId, attempts)
-
-  return {
-    levelId,
-    architecture,
-    attempts,
-    summary,
-    replayAttempt
+    return {
+      levelId,
+      architecture,
+      attempts,
+      summary,
+      replayAttempt
+    }
+  } finally {
+    try {
+      await emulator.close()
+    } catch {}
   }
 }

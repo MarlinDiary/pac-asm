@@ -5,6 +5,8 @@ import { Architecture } from '../game/emulator/types'
 import SubmissionModel, { SubmissionDocument } from '../models/submission'
 import RunLogModel from '../models/run-log'
 import { GitHubAuthError, requireVerifiedGitHubIdentity, syncVerifiedGitHubUser } from '../lib/github-auth'
+import { QueueOverloadedError } from '../lib/async-task-queue'
+import { heavyValidationQueue } from '../lib/game-validation-queue'
 
 const router = Router()
 
@@ -131,17 +133,25 @@ router.post('/submit', async (req: Request, res: Response) => {
     let replay: SubmissionDocument['replay'] | undefined
 
     try {
-      const validation = await validateGame({
-        sourceCode,
-        levelId,
-        architecture,
-        recordReplay: levelId === 'challenge'
-      })
+      const run = async () =>
+        validateGame({
+          sourceCode,
+          levelId,
+          architecture,
+          recordReplay: levelId === 'challenge'
+        })
+
+      const validation = (levelId === 'level4' || levelId === 'challenge')
+        ? await heavyValidationQueue.enqueue(run)
+        : await run()
 
       summary = validation.summary
       metrics = extractMetrics(levelId, summary)
       replay = validation.replayAttempt
     } catch (error) {
+      if (error instanceof QueueOverloadedError) {
+        throw error
+      }
       const message = error instanceof Error ? error.message : String(error)
       summary = {
         pass: false,
@@ -180,6 +190,10 @@ router.post('/submit', async (req: Request, res: Response) => {
       summary
     })
   } catch (error) {
+    if (error instanceof QueueOverloadedError) {
+      res.setHeader('Retry-After', String(error.retryAfterSeconds))
+      return res.status(error.statusCode).json({ error: error.message })
+    }
     if (error instanceof GitHubAuthError) {
       return res.status(error.statusCode).json({ error: error.message })
     }
