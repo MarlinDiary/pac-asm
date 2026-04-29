@@ -590,7 +590,7 @@ export class ExecutionEngine {
     }
 
     try {
-      this.unicorn.emu_start(pc, endAddress, timeoutUs, 0);
+      this.unicorn.emu_start(pc, endAddress, 0, 0);
     } catch {
       // Emulation stopped due to hook, worker shutdown, or other reason
     } finally {
