@@ -558,7 +558,7 @@ export class ExecutionEngine {
     }
 
     try {
-      this.unicorn.emu_start(pc, endAddress, 0, 0)
+      this.unicorn.emu_start(pc, endAddress, timeoutUs, 0)
     } catch {
       // Execution stopped due to hooks or timeout
     } finally {
