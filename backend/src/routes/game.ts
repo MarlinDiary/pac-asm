@@ -173,20 +173,20 @@ router.post('/submit', async (req: Request, res: Response) => {
     jobStore.set(jobId, { status: 'queued', createdAt: now })
 
     void (async () => {
-      jobStore.set(jobId, { status: 'processing', createdAt: now })
-
       let summary: GameValidationSummary
       let metrics: ReturnType<typeof extractMetrics>
       let replay: SubmissionDocument['replay'] | undefined
 
       try {
-        const run = async () =>
-          validateGame({
+        const run = async () => {
+          jobStore.set(jobId, { status: 'processing', createdAt: now })
+          return validateGame({
             sourceCode,
             levelId,
             architecture,
             recordReplay: levelId === 'challenge'
           })
+        }
 
         const validation = (levelId === 'level4' || levelId === 'challenge')
           ? await heavyValidationQueue.enqueue(run)
