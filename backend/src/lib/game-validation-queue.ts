@@ -1,7 +1,7 @@
 import { AsyncTaskQueue } from './async-task-queue'
 
 const concurrency = Number(process.env.GAME_VALIDATION_CONCURRENCY ?? '3')
-const maxPending = Number(process.env.GAME_VALIDATION_MAX_PENDING ?? '0')
+const maxPending = Number(process.env.GAME_VALIDATION_MAX_PENDING ?? '20')
 const retryAfterSeconds = Number(process.env.GAME_VALIDATION_RETRY_AFTER ?? '15')
 
 export const heavyValidationQueue = new AsyncTaskQueue({

@@ -402,7 +402,10 @@ async function submitRanking({ levelId, architecture, controller, user, addTagge
     controller.applySubmissionResult(submission)
     controller.setRankingLoading(false)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const raw = error instanceof Error ? error.message : String(error)
+    const message = raw === 'Failed to fetch'
+      ? 'Server unreachable — please retry in a moment'
+      : raw
     addTaggedError?.('SUBMIT', message, fallbackSource)
   } finally {
     controller.setIsSubmitting(false)
