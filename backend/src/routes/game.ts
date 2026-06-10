@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { Request, Response, Router } from 'express'
 
 import { validateGame, GameValidationSummary } from '../game'
@@ -5,16 +6,48 @@ import { Architecture } from '../game/emulator/types'
 import SubmissionModel, { SubmissionDocument } from '../models/submission'
 import RunLogModel from '../models/run-log'
 import { GitHubAuthError, requireVerifiedGitHubIdentity, syncVerifiedGitHubUser } from '../lib/github-auth'
-import { QueueOverloadedError } from '../lib/async-task-queue'
 import { heavyValidationQueue } from '../lib/game-validation-queue'
 
 const router = Router()
+
+type JobEntry =
+  | { status: 'queued'; createdAt: number }
+  | { status: 'processing'; createdAt: number }
+  | { status: 'done'; createdAt: number; submission: ReturnType<typeof toRankingEntry>; summary: GameValidationSummary }
+  | { status: 'failed'; createdAt: number; error: string }
+
+const jobStore = new Map<string, JobEntry>()
+
+setInterval(() => {
+  const cutoff = Date.now() - 2 * 3600_000
+  for (const [id, job] of jobStore) {
+    if (job.createdAt < cutoff) jobStore.delete(id)
+  }
+}, 3600_000).unref()
 
 router.get('/queue', (_req: Request, res: Response) => {
   return res.json({
     pending: heavyValidationQueue.pendingCount,
     running: heavyValidationQueue.runningCount
   })
+})
+
+router.get('/job/:jobId', (req: Request, res: Response) => {
+  const { jobId } = req.params
+  const job = jobStore.get(jobId)
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found or expired' })
+  }
+  if (job.status === 'queued') {
+    return res.json({ status: 'queued', pending: heavyValidationQueue.pendingCount })
+  }
+  if (job.status === 'processing') {
+    return res.json({ status: 'processing' })
+  }
+  if (job.status === 'done') {
+    return res.json({ status: 'done', submission: job.submission, summary: job.summary })
+  }
+  return res.json({ status: 'failed', error: job.error })
 })
 
 interface ValidateGameBody {
@@ -135,76 +168,79 @@ router.post('/submit', async (req: Request, res: Response) => {
     const identity = await requireVerifiedGitHubIdentity(req)
     const syncedUser = await syncVerifiedGitHubUser(identity)
 
-    let summary: GameValidationSummary
-    let metrics: ReturnType<typeof extractMetrics>
-    let replay: SubmissionDocument['replay'] | undefined
+    const jobId = randomUUID()
+    const now = Date.now()
+    jobStore.set(jobId, { status: 'queued', createdAt: now })
 
-    try {
-      const run = async () =>
-        validateGame({
-          sourceCode,
+    void (async () => {
+      jobStore.set(jobId, { status: 'processing', createdAt: now })
+
+      let summary: GameValidationSummary
+      let metrics: ReturnType<typeof extractMetrics>
+      let replay: SubmissionDocument['replay'] | undefined
+
+      try {
+        const run = async () =>
+          validateGame({
+            sourceCode,
+            levelId,
+            architecture,
+            recordReplay: levelId === 'challenge'
+          })
+
+        const validation = (levelId === 'level4' || levelId === 'challenge')
+          ? await heavyValidationQueue.enqueue(run)
+          : await run()
+
+        summary = validation.summary
+        metrics = extractMetrics(levelId, summary)
+        replay = validation.replayAttempt
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        jobStore.set(jobId, { status: 'failed', createdAt: now, error: message })
+        return
+      }
+
+      const score = 'score' in metrics ? metrics.score : undefined
+      const averageScore = 'averageScore' in metrics
+        ? metrics.averageScore
+        : (typeof score === 'number' ? score : undefined)
+
+      try {
+        const submission = await SubmissionModel.create({
+          userId: syncedUser.submissionUserId,
+          userName: syncedUser.submissionUserName,
+          userAvatarUrl: syncedUser.submissionAvatarUrl,
           levelId,
           architecture,
-          recordReplay: levelId === 'challenge'
+          status: metrics.status,
+          successRate: 'successRate' in metrics ? metrics.successRate : undefined,
+          score,
+          averageScore,
+          steps: 'steps' in metrics ? metrics.steps : undefined,
+          cycleCount: 'cycleCount' in metrics ? metrics.cycleCount : undefined,
+          hasReplay: Boolean(replay && Array.isArray(replay.frames) && replay.frames.length > 0),
+          summary,
+          replay
         })
-
-      const validation = (levelId === 'level4' || levelId === 'challenge')
-        ? await heavyValidationQueue.enqueue(run)
-        : await run()
-
-      summary = validation.summary
-      metrics = extractMetrics(levelId, summary)
-      replay = validation.replayAttempt
-    } catch (error) {
-      if (error instanceof QueueOverloadedError) {
-        throw error
+        jobStore.set(jobId, {
+          status: 'done',
+          createdAt: now,
+          submission: toRankingEntry(submission),
+          summary
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        jobStore.set(jobId, { status: 'failed', createdAt: now, error: message })
       }
-      const message = error instanceof Error ? error.message : String(error)
-      summary = {
-        pass: false,
-        reason: message,
-        metrics: {}
-      }
-      metrics = extractMetrics(levelId, summary)
-    }
+    })()
 
-    const score = 'score' in metrics ? metrics.score : undefined
-    const averageScore = 'averageScore' in metrics
-      ? metrics.averageScore
-      : (typeof score === 'number' ? score : undefined)
+    return res.status(202).json({ jobId })
 
-    const submissionPayload = {
-      userId: syncedUser.submissionUserId,
-      userName: syncedUser.submissionUserName,
-      userAvatarUrl: syncedUser.submissionAvatarUrl,
-      levelId,
-      architecture,
-      status: metrics.status,
-      successRate: 'successRate' in metrics ? metrics.successRate : undefined,
-      score,
-      averageScore,
-      steps: 'steps' in metrics ? metrics.steps : undefined,
-      cycleCount: 'cycleCount' in metrics ? metrics.cycleCount : undefined,
-      hasReplay: Boolean(replay && Array.isArray(replay.frames) && replay.frames.length > 0),
-      summary,
-      replay
-    }
-
-    const submission = await SubmissionModel.create(submissionPayload)
-
-    return res.status(200).json({
-      submission: toRankingEntry(submission),
-      summary
-    })
   } catch (error) {
-    if (error instanceof QueueOverloadedError) {
-      res.setHeader('Retry-After', String(error.retryAfterSeconds))
-      return res.status(error.statusCode).json({ error: error.message })
-    }
     if (error instanceof GitHubAuthError) {
       return res.status(error.statusCode).json({ error: error.message })
     }
-
     const message = error instanceof Error ? error.message : String(error)
     return res.status(500).json({ error: message })
   }

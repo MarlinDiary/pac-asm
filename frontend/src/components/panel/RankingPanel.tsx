@@ -2,13 +2,21 @@
 
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import SubBar from '@/components/bar/SubBar'
 import { LoaderCircle, Check, X, Clock } from 'lucide-react'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import type { RankingEntry, SubmissionResponse } from '@/hooks/useExecutionControl'
 import type { Architecture } from '@/hooks/useSettings'
+
+interface JobStatusResponse {
+  status: 'queued' | 'processing' | 'done' | 'failed'
+  pending?: number
+  submission?: SubmissionResponse['submission']
+  summary?: unknown
+  error?: string
+}
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000'
@@ -58,15 +66,6 @@ export interface RankingSubmitController {
   applySubmissionResult: (submission: SubmissionResponse['submission']) => void
 }
 
-interface SubmitRankingArgs {
-  levelId: string
-  architecture: Architecture
-  controller: RankingSubmitController
-  user: {
-    accessToken?: string
-  }
-  addTaggedError?: (tag: string, error: string, code: string) => void
-}
 
 interface RankingPanelProps {
   entries: RankingEntry[]
@@ -101,48 +100,78 @@ export default function RankingPanel({
   }, [session])
 
   const isSubmitting = submitController?.isSubmitting ?? false
+  const [jobId, setJobId] = useState<string | null>(null)
   const [queuePending, setQueuePending] = useState<number | null>(null)
+  const jobInfoRef = useRef<{ source: string; wasCodeDisabled: boolean } | null>(null)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (!isSubmitting) {
+    if (!jobId || !submitController) {
       setQueuePending(null)
       return
     }
 
     let cancelled = false
+
+    const finish = (action: () => void) => {
+      if (cancelled) return
+      action()
+      const info = jobInfoRef.current
+      submitController.setIsSubmitting(false)
+      if (info && !info.wasCodeDisabled) submitController.setIsCodeDisabled(false)
+      submitController.setRankingLoading(false)
+      jobInfoRef.current = null
+      setJobId(null)
+    }
+
     const poll = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/game/queue`)
-        if (res.ok && !cancelled) {
-          const { pending } = await res.json() as { pending: number }
-          setQueuePending(pending)
+        const res = await fetch(`${API_BASE_URL}/game/job/${jobId}`)
+        if (cancelled) return
+        if (res.status === 404) {
+          finish(() => addTaggedError?.('SUBMIT', 'Server restarted, please resubmit', jobInfoRef.current?.source ?? ''))
+          return
+        }
+        if (!res.ok) return
+        const data = await res.json() as JobStatusResponse
+        if (data.status === 'queued') {
+          setQueuePending(data.pending ?? null)
+        } else if (data.status === 'processing') {
+          setQueuePending(0)
+        } else if (data.status === 'done' && data.submission) {
+          finish(() => submitController.applySubmissionResult(data.submission!))
+        } else if (data.status === 'failed') {
+          finish(() => addTaggedError?.('SUBMIT', data.error ?? 'Submit failed', jobInfoRef.current?.source ?? ''))
         }
       } catch {}
     }
 
     void poll()
-    const id = setInterval(() => void poll(), 1500)
+    const id = setInterval(() => void poll(), 2000)
     return () => {
       cancelled = true
       clearInterval(id)
     }
-  }, [isSubmitting])
+  }, [jobId, submitController, addTaggedError])
 
   const handleSubmit = () => {
     if (!isAuthenticated || isSubmitting || !submitController) {
       return
     }
 
-    void submitRanking({
+    void startSubmit({
       levelId,
       architecture,
       controller: submitController,
       user: userInfo,
-      addTaggedError
+      addTaggedError,
+      onJobStarted: (id, source, wasCodeDisabled) => {
+        jobInfoRef.current = { source, wasCodeDisabled }
+        setJobId(id)
+      }
     })
   }
 
@@ -389,10 +418,17 @@ export default function RankingPanel({
   )
 }
 
-async function submitRanking({ levelId, architecture, controller, user, addTaggedError }: SubmitRankingArgs) {
-  if (controller.isSubmitting) {
-    return
-  }
+interface StartSubmitArgs {
+  levelId: string
+  architecture: Architecture
+  controller: RankingSubmitController
+  user: { accessToken?: string }
+  addTaggedError?: (tag: string, error: string, code: string) => void
+  onJobStarted: (jobId: string, source: string, wasCodeDisabled: boolean) => void
+}
+
+async function startSubmit({ levelId, architecture, controller, user, addTaggedError, onJobStarted }: StartSubmitArgs) {
+  if (controller.isSubmitting) return
 
   const { trimmed: sourceCode, raw } = controller.getSourceCode()
   const fallbackSource = raw ?? ''
@@ -408,10 +444,7 @@ async function submitRanking({ levelId, architecture, controller, user, addTagge
   }
 
   controller.setIsSubmitting(true)
-
-  // Remember the original state of code editor
   const wasCodeDisabled = controller.isCodeDisabled
-  // Only disable if not already disabled (e.g., not in debug/run mode)
   if (!wasCodeDisabled) {
     controller.setIsCodeDisabled(true)
   }
@@ -423,37 +456,29 @@ async function submitRanking({ levelId, architecture, controller, user, addTagge
         'Content-Type': 'application/json',
         Authorization: `Bearer ${user.accessToken}`
       },
-      body: JSON.stringify({
-        sourceCode,
-        levelId,
-        architecture
-      })
+      body: JSON.stringify({ sourceCode, levelId, architecture })
     })
 
-    const payload: SubmissionResponse | { error?: string } = await response.json().catch(() => ({}))
+    const payload = await response.json().catch(() => ({})) as { jobId?: string; error?: string }
 
     if (!response.ok) {
-      const message = typeof payload === 'object' && 'error' in payload && payload.error
-        ? payload.error
-        : 'Submit failed'
-      throw new Error(message)
+      throw new Error(payload.error ?? 'Submit failed')
     }
 
-    const { submission } = payload as SubmissionResponse
-    controller.applySubmissionResult(submission)
-    controller.setRankingLoading(false)
+    if (!payload.jobId) {
+      throw new Error('Invalid server response')
+    }
+
+    onJobStarted(payload.jobId, fallbackSource, wasCodeDisabled)
+
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error)
     const message = raw === 'Failed to fetch'
       ? 'Server unreachable — please retry in a moment'
       : raw
     addTaggedError?.('SUBMIT', message, fallbackSource)
-  } finally {
     controller.setIsSubmitting(false)
-    // Only restore if we disabled it (don't interfere with debug/run mode)
-    if (!wasCodeDisabled) {
-      controller.setIsCodeDisabled(false)
-    }
+    if (!wasCodeDisabled) controller.setIsCodeDisabled(false)
     controller.setRankingLoading(false)
   }
 }
