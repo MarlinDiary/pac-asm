@@ -39,7 +39,7 @@ router.get('/job/:jobId', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Job not found or expired' })
   }
   if (job.status === 'queued') {
-    return res.json({ status: 'queued', pending: heavyValidationQueue.pendingCount })
+    return res.json({ status: 'queued', pending: Math.max(0, heavyValidationQueue.pendingCount - 1) })
   }
   if (job.status === 'processing') {
     return res.json({ status: 'processing' })
