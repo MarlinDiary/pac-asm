@@ -376,14 +376,6 @@ export default function RankingPanel({
           <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
             You need to log in to submit
           </span>
-        ) : isSubmitting && queuePending !== null && queuePending > 0 ? (
-          <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
-            {queuePending} ahead of you
-          </span>
-        ) : isSubmitting ? (
-          <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
-            Evaluating your code
-          </span>
         ) : (
           <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
             Your code will be ranked
