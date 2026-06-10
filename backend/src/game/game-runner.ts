@@ -77,6 +77,7 @@ export interface GameValidationOptions {
   sourceCode: string
   levelId: string
   architecture: Architecture
+  attempts?: number
   maxSteps?: number
   includeRegisters?: boolean
   recordReplay?: boolean
@@ -718,7 +719,10 @@ export async function validateGame(options: GameValidationOptions): Promise<Game
   }
 
   const rule = LEVEL_RULES[levelId] ?? { attempts: 1, mode: 'single-pass' }
-  const attemptsToRun = rule.attempts
+  const requestedAttempts = options.attempts
+  const attemptsToRun = typeof requestedAttempts === 'number' && Number.isFinite(requestedAttempts)
+    ? Math.max(1, Math.floor(requestedAttempts))
+    : rule.attempts
   const maxSteps = options.maxSteps ?? 300
   const shouldRecordReplay = Boolean(options.recordReplay) && rule.mode === 'lowest-score'
 

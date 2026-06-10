@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node dist/bin/www.js",
     "dev": "nodemon --watch src --ext ts --exec ts-node ./src/bin/www.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "grade:challenge-arm": "node -r ts-node/register scripts/batch-grade.ts --level challenge --arch ARM --batches 20 --batch-size 100"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
