@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import SubBar from '@/components/bar/SubBar'
-import { LoaderCircle, Check, X } from 'lucide-react'
+import { LoaderCircle, Check, X, Clock } from 'lucide-react'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import type { RankingEntry, SubmissionResponse } from '@/hooks/useExecutionControl'
 import type { Architecture } from '@/hooks/useSettings'
@@ -101,10 +101,36 @@ export default function RankingPanel({
   }, [session])
 
   const isSubmitting = submitController?.isSubmitting ?? false
+  const [queuePending, setQueuePending] = useState<number | null>(null)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setQueuePending(null)
+      return
+    }
+
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/game/queue`)
+        if (res.ok && !cancelled) {
+          const { pending } = await res.json() as { pending: number }
+          setQueuePending(pending)
+        }
+      } catch {}
+    }
+
+    void poll()
+    const id = setInterval(() => void poll(), 1500)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [isSubmitting])
 
   const handleSubmit = () => {
     if (!isAuthenticated || isSubmitting || !submitController) {
@@ -321,6 +347,14 @@ export default function RankingPanel({
           <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
             You need to log in to submit
           </span>
+        ) : isSubmitting && queuePending !== null && queuePending > 0 ? (
+          <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
+            {queuePending} ahead of you
+          </span>
+        ) : isSubmitting ? (
+          <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
+            Evaluating your code
+          </span>
         ) : (
           <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
             Your code will be ranked
@@ -335,10 +369,17 @@ export default function RankingPanel({
           {!isAuthenticated ? (
             'Login'
           ) : isSubmitting ? (
-            <>
-              <LoaderCircle className="w-4 h-4 animate-spin" />
-              <span>Submit</span>
-            </>
+            queuePending !== null && queuePending > 0 ? (
+              <>
+                <Clock className="w-4 h-4" />
+                <span>{queuePending} ahead</span>
+              </>
+            ) : (
+              <>
+                <LoaderCircle className="w-4 h-4 animate-spin" />
+                <span>Thinking...</span>
+              </>
+            )
           ) : (
             'Submit'
           )}

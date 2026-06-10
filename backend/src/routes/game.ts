@@ -10,6 +10,13 @@ import { heavyValidationQueue } from '../lib/game-validation-queue'
 
 const router = Router()
 
+router.get('/queue', (_req: Request, res: Response) => {
+  return res.json({
+    pending: heavyValidationQueue.pendingCount,
+    running: heavyValidationQueue.runningCount
+  })
+})
+
 interface ValidateGameBody {
   sourceCode?: string
   levelId?: string
