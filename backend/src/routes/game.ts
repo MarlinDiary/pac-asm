@@ -7,21 +7,40 @@ import SubmissionModel, { SubmissionDocument } from '../models/submission'
 import RunLogModel from '../models/run-log'
 import { GitHubAuthError, requireVerifiedGitHubIdentity, syncVerifiedGitHubUser } from '../lib/github-auth'
 import { heavyValidationQueue } from '../lib/game-validation-queue'
+import { QueueOverloadedError } from '../lib/async-task-queue'
 
 const router = Router()
 
 type JobEntry =
-  | { status: 'queued'; createdAt: number }
+  | { status: 'queued'; createdAt: number; ticket: number | null }
   | { status: 'processing'; createdAt: number }
   | { status: 'done'; createdAt: number; submission: ReturnType<typeof toRankingEntry>; summary: GameValidationSummary }
   | { status: 'failed'; createdAt: number; error: string }
 
 const jobStore = new Map<string, JobEntry>()
 
+// FIFO tickets for heavy jobs: a queued job's position is its ticket minus the
+// number of heavy jobs that have already started, so it only ever decreases.
+let heavyTicketCounter = 0
+let heavyStartedCounter = 0
+
+// Tickets are assigned after async auth, so arrival order is captured
+// synchronously at request entry to know which of two same-user submits
+// the student actually sent last.
+let submitArrivalCounter = 0
+
+// userId:levelId:architecture -> the user's latest queued heavy job
+const activeQueuedJobByUser = new Map<string, { jobId: string; arrivalSeq: number }>()
+const cancelledJobs = new Set<string>()
+
 setInterval(() => {
   const cutoff = Date.now() - 2 * 3600_000
   for (const [id, job] of jobStore) {
-    if (job.createdAt < cutoff) jobStore.delete(id)
+    // Queued/processing jobs are kept alive no matter how old: during a
+    // deadline backlog a job may legitimately wait hours for its turn.
+    if ((job.status === 'done' || job.status === 'failed') && job.createdAt < cutoff) {
+      jobStore.delete(id)
+    }
   }
 }, 3600_000).unref()
 
@@ -39,7 +58,8 @@ router.get('/job/:jobId', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Job not found or expired' })
   }
   if (job.status === 'queued') {
-    return res.json({ status: 'queued', pending: Math.max(0, heavyValidationQueue.pendingCount - 1) })
+    const ahead = job.ticket === null ? 0 : Math.max(0, job.ticket - 1 - heavyStartedCounter)
+    return res.json({ status: 'queued', pending: ahead })
   }
   if (job.status === 'processing') {
     return res.json({ status: 'processing' })
@@ -164,13 +184,35 @@ router.post('/submit', async (req: Request, res: Response) => {
     return res.status(400).json({ error: "architecture must be 'ARM' or 'MIPS_R6'" })
   }
 
+  const arrivalSeq = ++submitArrivalCounter
+
   try {
     const identity = await requireVerifiedGitHubIdentity(req)
     const syncedUser = await syncVerifiedGitHubUser(identity)
 
     const jobId = randomUUID()
     const now = Date.now()
-    jobStore.set(jobId, { status: 'queued', createdAt: now })
+    const isHeavy = levelId === 'level4' || levelId === 'challenge'
+    const ticket = isHeavy ? ++heavyTicketCounter : null
+    jobStore.set(jobId, { status: 'queued', createdAt: now, ticket })
+
+    const userKey = `${syncedUser.submissionUserId}:${levelId}:${architecture}`
+    if (isHeavy) {
+      // A newer submission from the same user replaces their still-queued one,
+      // so one student cannot occupy multiple queue slots. Auth can finish out
+      // of order, so the arrival sequence decides which submit is the newest.
+      const previous = activeQueuedJobByUser.get(userKey)
+      if (previous && jobStore.get(previous.jobId)?.status === 'queued') {
+        if (previous.arrivalSeq < arrivalSeq) {
+          cancelledJobs.add(previous.jobId)
+          activeQueuedJobByUser.set(userKey, { jobId, arrivalSeq })
+        } else {
+          cancelledJobs.add(jobId)
+        }
+      } else {
+        activeQueuedJobByUser.set(userKey, { jobId, arrivalSeq })
+      }
+    }
 
     void (async () => {
       let summary: GameValidationSummary
@@ -179,6 +221,16 @@ router.post('/submit', async (req: Request, res: Response) => {
 
       try {
         const run = async () => {
+          if (isHeavy) {
+            heavyStartedCounter += 1
+            if (activeQueuedJobByUser.get(userKey)?.jobId === jobId) {
+              activeQueuedJobByUser.delete(userKey)
+            }
+            if (cancelledJobs.has(jobId)) {
+              cancelledJobs.delete(jobId)
+              throw new Error('Replaced by a newer submission')
+            }
+          }
           jobStore.set(jobId, { status: 'processing', createdAt: now })
           return validateGame({
             sourceCode,
@@ -188,8 +240,19 @@ router.post('/submit', async (req: Request, res: Response) => {
           })
         }
 
-        const validation = (levelId === 'level4' || levelId === 'challenge')
-          ? await heavyValidationQueue.enqueue(run)
+        const validation = isHeavy
+          ? await heavyValidationQueue.enqueue(run).catch((error: unknown) => {
+              if (error instanceof QueueOverloadedError) {
+                // The ticket will never start; keep position math and the
+                // per-user bookkeeping consistent.
+                heavyStartedCounter += 1
+                if (activeQueuedJobByUser.get(userKey)?.jobId === jobId) {
+                  activeQueuedJobByUser.delete(userKey)
+                }
+                cancelledJobs.delete(jobId)
+              }
+              throw error
+            })
           : await run()
 
         summary = validation.summary
@@ -197,7 +260,8 @@ router.post('/submit', async (req: Request, res: Response) => {
         replay = validation.replayAttempt
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        jobStore.set(jobId, { status: 'failed', createdAt: now, error: message })
+        // Terminal entries live 2h from completion, not from submission.
+        jobStore.set(jobId, { status: 'failed', createdAt: Date.now(), error: message })
         return
       }
 
@@ -225,13 +289,13 @@ router.post('/submit', async (req: Request, res: Response) => {
         })
         jobStore.set(jobId, {
           status: 'done',
-          createdAt: now,
+          createdAt: Date.now(),
           submission: toRankingEntry(submission),
           summary
         })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        jobStore.set(jobId, { status: 'failed', createdAt: now, error: message })
+        jobStore.set(jobId, { status: 'failed', createdAt: Date.now(), error: message })
       }
     })()
 

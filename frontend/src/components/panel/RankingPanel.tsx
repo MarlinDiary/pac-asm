@@ -22,6 +22,44 @@ const API_BASE_URL = (
   process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000'
 ).replace(/\/$/, '')
 
+// Server keeps job results for 2 hours; stored jobs older than that are stale.
+const JOB_STORAGE_TTL_MS = 2 * 3600_000
+
+interface StoredJob {
+  jobId: string
+  source: string
+  user: string
+  savedAt: number
+}
+
+function jobStorageKey(levelId: string, architecture: string): string {
+  return `pacasm:submit-job:${levelId}:${architecture}`
+}
+
+function readStoredJob(key: string): StoredJob | null {
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<StoredJob>
+    if (typeof parsed.jobId !== 'string' || typeof parsed.savedAt !== 'number') {
+      window.localStorage.removeItem(key)
+      return null
+    }
+    if (Date.now() - parsed.savedAt > JOB_STORAGE_TTL_MS) {
+      window.localStorage.removeItem(key)
+      return null
+    }
+    return {
+      jobId: parsed.jobId,
+      source: typeof parsed.source === 'string' ? parsed.source : '',
+      user: typeof parsed.user === 'string' ? parsed.user : '',
+      savedAt: parsed.savedAt
+    }
+  } catch {
+    return null
+  }
+}
+
 function formatSubmitTime(createdAt: string): string {
   try {
     const date = new Date(createdAt)
@@ -102,11 +140,36 @@ export default function RankingPanel({
   const isSubmitting = submitController?.isSubmitting ?? false
   const [jobId, setJobId] = useState<string | null>(null)
   const [queuePending, setQueuePending] = useState<number | null>(null)
-  const jobInfoRef = useRef<{ source: string; wasCodeDisabled: boolean } | null>(null)
+  const jobInfoRef = useRef<{ source: string; wasCodeDisabled: boolean; storageKey: string } | null>(null)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const storageKey = jobStorageKey(levelId, architecture)
+
+  const sessionUser = session?.user?.name ?? session?.user?.email ?? ''
+
+  // Resume polling for a submission that was in flight before a page refresh.
+  useEffect(() => {
+    if (!submitController || !isAuthenticated || jobId) return
+    if (submitController.isSubmitting) return
+    const stored = readStoredJob(storageKey)
+    if (!stored) return
+    if (stored.user !== sessionUser) {
+      // A different account is signed in on this machine; drop the record.
+      try {
+        window.localStorage.removeItem(storageKey)
+      } catch {}
+      return
+    }
+    // The pre-submit editor state did not survive the refresh, so always
+    // re-enable the editor when this job finishes.
+    jobInfoRef.current = { source: stored.source, wasCodeDisabled: false, storageKey }
+    submitController.setIsSubmitting(true)
+    submitController.setIsCodeDisabled(true)
+    setJobId(stored.jobId)
+  }, [submitController, isAuthenticated, jobId, storageKey, sessionUser])
 
   useEffect(() => {
     if (!jobId || !submitController) {
@@ -115,9 +178,14 @@ export default function RankingPanel({
     }
 
     let cancelled = false
+    let finished = false
 
     const finish = (action: () => void) => {
-      if (cancelled) return
+      if (cancelled || finished) return
+      finished = true
+      try {
+        window.localStorage.removeItem(jobInfoRef.current?.storageKey ?? storageKey)
+      } catch {}
       action()
       const info = jobInfoRef.current
       submitController.setIsSubmitting(false)
@@ -138,7 +206,11 @@ export default function RankingPanel({
         if (!res.ok) return
         const data = await res.json() as JobStatusResponse
         if (data.status === 'queued') {
-          setQueuePending(data.pending ?? null)
+          if (typeof data.pending === 'number') {
+            const ahead = data.pending
+            // Out-of-order poll responses must never make the number go up.
+            setQueuePending(prev => (prev === null ? ahead : Math.min(prev, ahead)))
+          }
         } else if (data.status === 'processing') {
           setQueuePending(0)
         } else if (data.status === 'done' && data.submission) {
@@ -155,7 +227,7 @@ export default function RankingPanel({
       cancelled = true
       clearInterval(id)
     }
-  }, [jobId, submitController, addTaggedError])
+  }, [jobId, submitController, addTaggedError, storageKey])
 
   const handleSubmit = () => {
     if (!isAuthenticated || isSubmitting || !submitController) {
@@ -169,7 +241,13 @@ export default function RankingPanel({
       user: userInfo,
       addTaggedError,
       onJobStarted: (id, source, wasCodeDisabled) => {
-        jobInfoRef.current = { source, wasCodeDisabled }
+        jobInfoRef.current = { source, wasCodeDisabled, storageKey }
+        try {
+          window.localStorage.setItem(
+            storageKey,
+            JSON.stringify({ jobId: id, source, user: sessionUser, savedAt: Date.now() } satisfies StoredJob)
+          )
+        } catch {}
         setJobId(id)
       }
     })
