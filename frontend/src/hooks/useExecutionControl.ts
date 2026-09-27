@@ -12,7 +12,6 @@ import type { AnimatedGameState } from '@/lib/game-animation'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import type { Architecture } from '@/hooks/useSettings'
 import { trackDebugClicked, trackRunClicked } from '@/components/providers/PostHogProvider'
-import { API_BASE_URL } from '@/lib/backend-url'
 
 interface UseExecutionControlProps {
   gameState: ReturnType<typeof useGameState>
@@ -68,6 +67,12 @@ interface SubmissionResponse {
     metrics?: Record<string, unknown>
   }
 }
+
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  'http://localhost:4000'
+).replace(/\/$/, '')
 
 const SUBMISSION_POLL_INTERVAL_MS = 3000
 const SUBMISSION_PENDING_TTL_MS = 10 * 60 * 1000
