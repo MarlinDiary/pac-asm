@@ -7,6 +7,7 @@ import DeathOverlay from '@/components/DeathOverlay'
 import MapRenderer from '@/components/MapRenderer'
 import type { GameMap } from '@/data/maps'
 import type { RankingEntry } from '@/hooks/useExecutionControl'
+import { API_BASE_URL } from '@/lib/backend-url'
 import {
   DEBUG_STEP_FRAME_DELAY_MS,
   checkVictoryCondition,
@@ -14,10 +15,6 @@ import {
   createGhostAnimation,
   createPlayerAnimation
 } from '@/lib/game-animation'
-
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000'
-).replace(/\/$/, '')
 
 interface ReplayFrame {
   step: number

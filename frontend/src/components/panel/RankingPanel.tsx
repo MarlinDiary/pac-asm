@@ -9,6 +9,7 @@ import { LoaderCircle, Check, X, Clock } from 'lucide-react'
 import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import type { RankingEntry, SubmissionResponse } from '@/hooks/useExecutionControl'
 import type { Architecture } from '@/hooks/useSettings'
+import { API_BASE_URL } from '@/lib/backend-url'
 
 interface JobStatusResponse {
   status: 'queued' | 'processing' | 'done' | 'failed'
@@ -17,10 +18,6 @@ interface JobStatusResponse {
   summary?: unknown
   error?: string
 }
-
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000'
-).replace(/\/$/, '')
 
 // Server keeps job results for 2 hours; stored jobs older than that are stale.
 const JOB_STORAGE_TTL_MS = 2 * 3600_000

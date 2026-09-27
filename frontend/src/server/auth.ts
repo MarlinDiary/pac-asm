@@ -5,8 +5,7 @@ import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { Account, User } from "@auth/core/types";
 import type { AdapterSession } from "next-auth/adapters";
-
-const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000').replace(/\/$/, '')
+import { API_BASE_URL } from "@/lib/backend-url";
 
 const authConfig = {
   providers: [
@@ -49,7 +48,7 @@ const authConfig = {
       }
 
       try {
-        await fetch(`${backendBaseUrl}/users`, {
+        await fetch(`${API_BASE_URL}/users`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
