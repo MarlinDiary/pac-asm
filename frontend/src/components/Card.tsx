@@ -56,7 +56,10 @@ export default function Card({ children, tabs = [], defaultSelectedTab = 0, sele
                 opacity: selectedTab === index ? 1 : 0,
                 // The active, full-size pane covers the inactive panes. Avoid
                 // toggling inherited pointer-events on thousands of cells.
-                zIndex: selectedTab === index ? 1 : 0
+                zIndex: selectedTab === index ? 1 : 0,
+                // Keep the mounted pane and its scroll/state, but do not lay
+                // out an invisible memory table on every panel resize.
+                contentVisibility: selectedTab === index ? 'visible' : 'hidden'
               }}
               aria-hidden={selectedTab === index ? undefined : true}
             >

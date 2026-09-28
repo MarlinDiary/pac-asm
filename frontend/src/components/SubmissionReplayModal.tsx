@@ -227,7 +227,6 @@ export default function SubmissionReplayModal({
 
     void fetch(`${API_BASE_URL}/game/submissions/${encodeURIComponent(entry.id)}/replay`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
       signal: controller.signal
     })
       .then(async (response) => {

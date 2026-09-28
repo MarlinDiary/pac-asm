@@ -109,7 +109,7 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
         className="w-full h-full overflow-y-auto [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        <Table className="border-none">
+        <Table className="border-none block" role="table">
           <MemoryRows rows={filteredRows} />
         </Table>
       </div>
@@ -138,15 +138,33 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
   )
 }
 
-// Keep every row mounted (including its scroll/selection behavior), but skip
-// reconciling 4,096 rows when only a tab, dialog or submission status changes.
+// Keep all bytes in one accessible table, including browser find/selection.
+// Block row groups let the browser skip offscreen layout without JS scroll
+// handlers or unmounting rows. Each row has the original 3rem height; the last
+// group's placeholder must reflect its actual size after filtering.
+const ROWS_PER_GROUP = 64
 const MemoryRows = memo(function MemoryRows({ rows }: { rows: MemoryRow[] }) {
   return (
-    <TableBody>
-      {rows.map((row, index) => (
-        <MemoryRowView key={row.address} {...row} striped={index % 2 !== 0} />
-      ))}
-    </TableBody>
+    <>
+      {Array.from({ length: Math.ceil(rows.length / ROWS_PER_GROUP) }, (_, groupIndex) => {
+        const start = groupIndex * ROWS_PER_GROUP
+        const group = rows.slice(start, start + ROWS_PER_GROUP)
+        return (
+          <TableBody
+            key={`${groupIndex}-${group.length}`}
+            role="rowgroup"
+            className="block"
+            // Exact row-count sizing avoids stale intrinsic-size caches after
+            // filtering or CSS page-zoom changes (including in Firefox).
+            style={{ contentVisibility: 'auto', height: `${group.length * 3}rem` }}
+          >
+            {group.map((row, index) => (
+              <MemoryRowView key={row.address} {...row} striped={(start + index) % 2 !== 0} />
+            ))}
+          </TableBody>
+        )
+      })}
+    </>
   )
 })
 
@@ -154,14 +172,14 @@ const MemoryRows = memo(function MemoryRows({ rows }: { rows: MemoryRow[] }) {
 // unchanged between steps. Compare scalar values instead of row identities.
 const MemoryRowView = memo(function MemoryRowView({ address, hex, ascii, striped }: MemoryRow & { striped: boolean }) {
   return (
-    <TableRow className={`h-12 border-none ${!striped ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
-      <TableCell className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
+    <TableRow role="row" className={`table w-full h-12 border-none ${!striped ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
+      <TableCell role="cell" className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
         {address}
       </TableCell>
-      <TableCell className="font-mono h-12 w-1/3 text-center border-none text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">
+      <TableCell role="cell" className="font-mono h-12 w-1/3 text-center border-none text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">
         {hex}
       </TableCell>
-      <TableCell className="font-mono h-12 w-1/3 text-right border-none text-xs pr-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
+      <TableCell role="cell" className="font-mono h-12 w-1/3 text-right border-none text-xs pr-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
         {ascii}
       </TableCell>
     </TableRow>

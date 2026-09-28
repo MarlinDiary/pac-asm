@@ -294,7 +294,6 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
           `${API_BASE_URL}/game/ranking?levelId=${encodeURIComponent(levelId)}&architecture=${encodeURIComponent(architecture)}`,
           {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
             signal
           }
         )
