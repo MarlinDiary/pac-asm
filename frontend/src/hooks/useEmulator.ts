@@ -27,6 +27,7 @@ export const useEmulator = () => {
   });
   
   const workerRef = useRef<Worker | null>(null);
+  const workerArchitectureRef = useRef<SettingsArchitecture | null>(null);
   const messageIdCounter = useRef(0);
   const pendingMessages = useRef<
     Map<
@@ -58,6 +59,7 @@ export const useEmulator = () => {
         workerRef.current.terminate();
         workerRef.current = null;
       }
+      workerArchitectureRef.current = null;
       if (pendingMessages.current.size > 0) {
         const builder = buildError ?? ((messageId: string) => new Error(
           formatSystemError('Emulator worker terminated before response', messageId)
@@ -185,6 +187,7 @@ export const useEmulator = () => {
 
     try {
       const arch = getGlobalSettings().settings.architecture;
+      workerArchitectureRef.current = arch;
       await sendMessage({ type: 'init', payload: { arch } });
       setState(prev => ({ ...prev, isInitialized: true, error: undefined }));
     } catch (error) {
@@ -215,7 +218,9 @@ export const useEmulator = () => {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { architecture?: SettingsArchitecture } | undefined;
-      if (!detail || !('architecture' in detail)) return;
+      // Every settings event includes architecture, even when only zoom or
+      // editor options changed. Preserve a live debugger unless its ISA changed.
+      if (!detail?.architecture || !workerRef.current || detail.architecture === workerArchitectureRef.current) return;
       // Tear down current worker to force re-init with new arch on next use
       terminateWorker();
       setState({ isInitialized: false, isRunning: false, currentPC: 0 });

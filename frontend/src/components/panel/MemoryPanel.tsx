@@ -11,62 +11,7 @@ import { useTheme } from 'next-themes'
 import { memo, useEffect, useMemo, useState } from 'react'
 import MemoryFilter, { MemoryRegion } from '@/components/MemoryFilter'
 
-interface MemoryRow {
-  address: string;
-  hex: string;
-  ascii: string;
-}
-
-const BYTES_PER_ROW = 4
-
-const generateMemoryRows = (
-  codeMemory?: number[], 
-  stackMemory?: number[], 
-  dataMemory?: number[]
-): MemoryRow[] => {
-  const rows: MemoryRow[] = []
-  const memoryRegions = [
-    { start: 0x10000, size: 0x1000, data: codeMemory },
-    { start: 0x20000, size: 0x1000, data: stackMemory },
-    { start: 0x30000, size: 0x2000, data: dataMemory }
-  ] as const
-
-  memoryRegions.forEach(region => {
-    const rowsPerRegion = Math.ceil(region.size / BYTES_PER_ROW)
-    for (let i = 0; i < rowsPerRegion; i++) {
-      const address = region.start + (i * BYTES_PER_ROW)
-      const addressHex = `0x${address.toString(16).toUpperCase().padStart(8, '0')}`
-
-      const bytes = new Array(BYTES_PER_ROW).fill(0)
-
-      if (region.data) {
-        const byteOffset = i * BYTES_PER_ROW
-        for (let j = 0; j < BYTES_PER_ROW; j++) {
-          const value = region.data[byteOffset + j]
-          if (value !== undefined) {
-            bytes[j] = value
-          }
-        }
-      }
-
-      const hexBytes = bytes
-        .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
-        .join(' ')
-
-      const asciiBytes = bytes
-        .map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.')
-        .join(' ')
-
-      rows.push({
-        address: addressHex,
-        hex: hexBytes,
-        ascii: asciiBytes
-      })
-    }
-  })
-
-  return rows
-}
+import { generateMemoryRows, type MemoryRow } from '@/lib/memory-rows'
 
 interface MemoryPanelProps {
   searchQuery?: string
