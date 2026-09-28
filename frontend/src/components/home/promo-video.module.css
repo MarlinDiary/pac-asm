@@ -1,65 +1,77 @@
-.film { min-width: 0; margin: 0; }
+/* A plain rounded frame on the level page's canvas, with the card radius but no app chrome.
+   The width leaves ~360px of viewport height for the logo, tagline and button,
+   so the whole homepage fits on one screen down to ~720px tall. */
+.film {
+  width: min(100%, 1120px, max(560px, (100svh - 360px) * 16 / 9));
+  min-width: 0;
+  margin: 0;
+}
+/* The film's paper tone is close to the canvas, so a hairline keeps its edge. */
 .frame {
   position: relative;
-  isolation: isolate;
   overflow: hidden;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: 14px;
-  outline: 1px solid #11121626;
+  border-radius: 11px;
+  outline: 1px solid rgb(0 0 0 / 0.06);
   outline-offset: -1px;
-  background: #f5f2e9;
+  background: #efeee9;
 }
-.video { display: block; width: 100%; height: 100%; object-fit: contain; }
+:global(.dark) .frame { outline-color: rgb(255 255 255 / 0.08); }
+
+.video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+/* The film mixes light and dark scenes, so dim it rather than invert it like the level tiles. */
+:global(.dark) .video { filter: brightness(0.85); }
+
 .controls {
   position: absolute;
-  inset: auto 18px 16px;
+  right: 12px;
+  bottom: 12px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 160ms ease;
+  transition: opacity 150ms;
 }
 .frame:hover .controls, .frame:focus-within .controls { opacity: 1; }
+:global(.dark) .controls { background: rgb(38 38 38 / 0.92); }
+
 .control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 1px solid #ffffff24;
-  border-radius: 999px;
-  background: #252a35ed;
-  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: #5a5a5a;
   cursor: pointer;
-  pointer-events: auto;
-  box-shadow: 0 2px 8px #11121612;
-  transition: background-color 150ms, transform 150ms;
+  transition: background-color 150ms, color 150ms;
 }
-.control svg { width: 21px; height: 21px; stroke-width: 2; }
-.control:hover { background: #141921; transform: translateY(-1px); }
-.control:active { transform: none; }
-.control:focus-visible { outline: 3px solid #ffda29; outline-offset: 4px; }
-.sound { width: auto; min-width: 136px; padding-inline: 18px; gap: 10px; font-family: inherit; font-size: 14px; font-weight: 500; }
-.error { margin-top: 12px; font-size: 13px; }
+.control svg { width: 16px; height: 16px; }
+.control .solid { width: 14px; height: 14px; }
+.control:hover { background: rgb(0 0 0 / 0.06); color: #1a1a1a; }
+:global(.dark) .control { color: #a8a8a8; }
+:global(.dark) .control:hover { background: rgb(255 255 255 / 0.08); color: #f5f5f5; }
+.control:focus-visible { outline: 2px solid #3579f6; outline-offset: -2px; }
+
+.error { margin-top: 12px; font-size: 14px; text-align: center; color: #5a5a5a; }
+:global(.dark) .error { color: #a0a0a0; }
+
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (hover: none), (pointer: coarse) {
   .controls { opacity: 1; }
 }
-@media (max-width: 1150px) {
-  .controls { inset: auto 12px 12px; }
-  .control { width: 44px; height: 44px; }
-  .sound { width: auto; min-width: 122px; padding-inline: 14px; font-size: 13px; gap: 8px; }
-}
-@media (max-width: 800px) {
-  .frame { border-radius: 12px; }
-  .controls { inset: auto 10px 10px; }
+@media (max-width: 640px) {
+  .controls { right: 8px; bottom: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .control, .controls { transition: none; }
-  .control:hover { transform: none; }
+  .controls, .control { transition: none; }
 }

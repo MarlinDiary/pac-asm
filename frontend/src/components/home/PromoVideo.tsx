@@ -76,22 +76,24 @@ export function PromoVideo() {
               type="button"
               className={styles.control}
               aria-label={playing ? "Pause film" : "Play film"}
+              title={playing ? "Pause" : "Play"}
               onClick={() => {
                 if (videoRef.current?.paused) playbackRef.current?.play();
                 else playbackRef.current?.pause();
               }}
             >
-              {playing ? <Pause aria-hidden="true" fill="currentColor" /> : <Play aria-hidden="true" fill="currentColor" />}
+              {playing
+                ? <Pause aria-hidden="true" fill="currentColor" className={styles.solid} />
+                : <Play aria-hidden="true" fill="currentColor" className={styles.solid} />}
             </button>
             <button
               type="button"
-              className={`${styles.control} ${styles.sound}`}
+              className={styles.control}
               aria-label={muted ? "Unmute film" : "Mute film"}
               title={muted ? "Turn sound on" : "Turn sound off"}
               onClick={() => playbackRef.current?.toggleSound()}
             >
               {muted ? <VolumeX aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
-              <span>{muted ? "Sound off" : "Sound on"}</span>
             </button>
           </div>
         )}
@@ -100,7 +102,7 @@ export function PromoVideo() {
         A 32-second animated introduction: write assembly instructions, move through a maze,
         step through the debugger, and learn by playing. Music and game sound effects accompany the film.
       </p>
-      {failed && <p className={styles.error} role="status">The film is unavailable right now. You can still start learning.</p>}
+      {failed && <p className={styles.error} role="status">The film is unavailable right now.</p>}
     </figure>
   );
 }

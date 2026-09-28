@@ -37,12 +37,14 @@ function fixture({ reduced = false, visible = true, results = [] } = {}) {
   return { state, video, control };
 }
 
-test('homepage uses the selected split composition and preserves the level 1 entry', () => {
+test('the logo leads the homepage, with the tagline beneath it and a single level 1 entry', () => {
   const source = fs.readFileSync(process.env.HOMEPAGE_SOURCE || path.join(__dirname, '../src/app/page.tsx'), 'utf8');
-  assert.match(source, /A little code\./);
+  assert.match(source, /<h1[^>]*className=\{styles\.brand\}/);
+  assert.match(source, /className=\{styles\.tagline\}>A little code\. A lot of play\.</);
   assert.match(source, /href="\/level\/1"/);
+  assert.equal(source.match(/<Link /g).length, 1);
   assert.match(source, /<PromoVideo/);
-  assert.doesNotMatch(source, /LetterGlitch|demo-dark\.png|useRouter/);
+  assert.doesNotMatch(source, /Learn MIPS and ARM|LetterGlitch|demo-dark\.png|useRouter|<header|<footer|eyebrow|MIPS \+ ARM/);
 });
 
 test('the homepage player preserves 16:9, inline playback and accessible native fallback', () => {
@@ -138,36 +140,42 @@ test('media failures report one error, while interrupted requests are quiet', as
   }
 });
 
-test('homepage refinements use system typography and an integrated logo without redundant labels', () => {
+test('homepage matches the level page canvas, inherits its font and follows the app theme class', () => {
   const page = fs.readFileSync(path.join(__dirname, '../src/app/page.tsx'), 'utf8');
   const css = fs.readFileSync(path.join(__dirname, '../src/app/home.module.css'), 'utf8');
   const video = fs.readFileSync(path.join(__dirname, '../src/components/home/PromoVideo.tsx'), 'utf8');
-  assert.match(css, /font-family:\s*-apple-system/);
-  assert.doesNotMatch(css, /--font-inter|--font-geist-mono|text-transform:\s*uppercase/);
+  assert.match(css, /\.home\s*\{[^}]*background:\s*#f0f0f0;/s);
+  assert.match(css, /:global\(\.dark\) \.home\s*\{\s*background:\s*#0f0f0f;/);
+  // next-themes lets people override the system scheme, so no media query or forced scheme.
+  assert.doesNotMatch(css, /font-family|color-scheme|prefers-color-scheme|text-transform:\s*uppercase/);
   assert.match(page, /<span[^>]*>PA<\/span>/);
   assert.match(page, /<span[^>]*>ASM<\/span>/);
-  assert.match(page, /<p>© PACASM<\/p>/);
-  assert.doesNotMatch(page, /Assembly, made playable|styles\.tagline/);
-  assert.doesNotMatch(css, /\.tagline/);
-  assert.match(css, /\.header\s*\{[^}]*grid-template-columns:\s*1fr auto;/s);
-  assert.match(page, /pacasm-mark\.png" alt="" width=\{40\} height=\{40\}/);
+  assert.match(page, /pacasm-mark\.png" alt="" width=\{80\} height=\{80\}/);
   assert.match(css, /\.brandIcon\s*\{[^}]*width:\s*1\.1em;[^}]*height:\s*1\.1em;/s);
-  assert.doesNotMatch(page, /Ellipsis|No setup|brandDots/);
+  assert.doesNotMatch(page, /Assembly, made playable|Ellipsis|No setup|brandDots/);
   assert.doesNotMatch(video, /<figcaption/);
 });
 
-test('video controls reveal on hover, keyboard focus and touch without a frame inset', () => {
+test('the film is a plain rounded frame, not an app panel, with controls on hover, focus and touch', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/components/home/PromoVideo.tsx'), 'utf8');
   const css = fs.readFileSync(path.join(__dirname, '../src/components/home/promo-video.module.css'), 'utf8');
-  assert.match(css, /border:\s*0/);
+  assert.match(css, /\.frame\s*\{[^}]*border-radius:\s*11px;/s);
+  assert.doesNotMatch(source, /styles\.(bar|tab)\b|Trailer/);
+  assert.match(source, /aria-label=\{muted \? "Unmute film" : "Mute film"\}/);
   assert.match(css, /\.frame:hover \.controls/);
   assert.match(css, /\.frame:focus-within \.controls/);
   assert.match(css, /\(hover: none\)/);
   assert.match(css, /opacity:\s*0/);
 });
 
-test('the main content uses balanced vertical centering rather than fixed top offsets', () => {
+test('dark mode dims the film instead of inverting it like the level tiles', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../src/components/home/promo-video.module.css'), 'utf8');
+  assert.match(css, /:global\(\.dark\) \.video\s*\{\s*filter:\s*brightness\(/);
+  assert.doesNotMatch(css, /invert\(/);
+});
+
+test('the main content is vertically centred rather than pushed down by fixed offsets', () => {
   const css = fs.readFileSync(path.join(__dirname, '../src/app/home.module.css'), 'utf8');
-  assert.match(css, /align-content:\s*center/);
-  assert.match(css, /\.introduction\s*\{\s*padding:\s*0/);
+  assert.match(css, /\.home\s*\{[^}]*justify-content:\s*center;/s);
   assert.doesNotMatch(css, /padding-top:\s*74px|padding-block:\s*64px 104px/);
 });
