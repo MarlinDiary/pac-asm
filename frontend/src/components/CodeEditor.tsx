@@ -18,6 +18,168 @@ interface CodeEditorProps {
   onBreakpointsChange?: (updater: number[] | ((prev: number[]) => number[])) => void
 }
 
+// This stylesheet is static. Recreating its innerHTML prop on every render
+// reinserts all CSS rules and invalidates page layout during Run/victory.
+const EDITOR_STYLES = (
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .monaco-editor .view-overlays .current-line {
+            background-color: #f6f8fa !important;
+            border: none !important;
+          }
+          .dark .monaco-editor .view-overlays .current-line {
+            background-color: #2f2f2f !important;
+          }
+          .monaco-editor .margin-view-overlays .current-line-margin {
+            background-color: #f6f8fa !important;
+            border: none !important;
+          }
+          .dark .monaco-editor .margin-view-overlays .current-line-margin {
+            background-color: #2f2f2f !important;
+          }
+          .monaco-editor .scroll-decoration {
+            display: none !important;
+          }
+          .monaco-editor:not(.focused) .view-overlays .current-line {
+            background-color: transparent !important;
+          }
+          .monaco-editor:not(.focused) .margin-view-overlays .current-line-margin {
+            background-color: transparent !important;
+          }
+          .monaco-editor .line-numbers {
+            color: #bdbebf !important;
+          }
+          .dark .monaco-editor .line-numbers {
+            color: #6e7681 !important;
+          }
+          .monaco-editor .current-line .line-numbers,
+          .monaco-editor .active-line-number {
+            color: #000000 !important;
+          }
+          .dark .monaco-editor .current-line .line-numbers,
+          .dark .monaco-editor .active-line-number {
+            color: #ffffff !important;
+          }
+          .monaco-editor .margin-view-overlays .current-line-margin,
+          .monaco-editor .margin-view-overlays .current-line-margin * {
+            color: #000000 !important;
+          }
+          .dark .monaco-editor .margin-view-overlays .current-line-margin,
+          .dark .monaco-editor .margin-view-overlays .current-line-margin * {
+            color: #ffffff !important;
+          }
+          .monaco-editor .cursors-layer .cursor {
+            background-color: #000000 !important;
+            border-left: 1px solid #000000 !important;
+            color: #000000 !important;
+            transition: all 0.1s ease-out !important;
+          }
+          .dark .monaco-editor .cursors-layer .cursor {
+            background-color: #FFFFFF !important;
+            border-left: 1px solid #FFFFFF !important;
+            color: #FFFFFF !important;
+            transition: all 0.1s ease-out !important;
+          }
+          .monaco-editor .cursors-layer > .cursor {
+            background-color: #000000 !important;
+            border-color: #000000 !important;
+            transition: all 0.1s ease-out !important;
+          }
+          .dark .monaco-editor .cursors-layer > .cursor {
+            background-color: #FFFFFF !important;
+            border-color: #FFFFFF !important;
+            transition: all 0.1s ease-out !important;
+          }
+          .monaco-editor .highlighted-line-full {
+            background-color: #f7f1da !important;
+          }
+          .dark .monaco-editor .highlighted-line-full {
+            background-color: #4a4a3a !important;
+          }
+          .monaco-editor .view-overlays .highlighted-line-full {
+            background-color: #f7f1da !important;
+            width: 100% !important;
+            left: 0 !important;
+            right: 0 !important;
+          }
+          .dark .monaco-editor .view-overlays .highlighted-line-full {
+            background-color: #4a4a3a !important;
+          }
+          .monaco-editor .highlighted-line-margin {
+            background-color: #f7f1da !important;
+          }
+          .dark .monaco-editor .highlighted-line-margin {
+            background-color: #4a4a3a !important;
+          }
+          .monaco-editor .highlighted-line-glyph {
+            background-color: #f7f1da !important;
+          }
+          .dark .monaco-editor .highlighted-line-glyph {
+            background-color: #4a4a3a !important;
+          }
+          .disabled-editor .monaco-editor * {
+            pointer-events: none !important;
+          }
+          .disabled-editor .monaco-scrollable-element {
+            pointer-events: auto !important;
+          }
+          .disabled-editor .scrollbar {
+            pointer-events: auto !important;
+          }
+          /* Breakpoint styles */
+          .monaco-editor .glyph-margin {
+            cursor: pointer !important;
+          }
+          /* Hover effect for glyph margin */
+          .monaco-editor .breakpoint-hover-glyph {
+            background: transparent;
+            cursor: pointer !important;
+          }
+          .monaco-editor .breakpoint-hover-glyph::before {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(212, 125, 120, 0.3);
+            pointer-events: none;
+          }
+          .dark .monaco-editor .breakpoint-hover-glyph::before {
+            background-color: rgba(212, 125, 120, 0.3);
+          }
+          /* Actual breakpoint styles */
+          .monaco-editor .breakpoint-glyph {
+            background: transparent;
+            cursor: pointer !important;
+          }
+          .monaco-editor .breakpoint-glyph::before {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #D47D78;
+            pointer-events: none;
+          }
+          .dark .monaco-editor .breakpoint-glyph::before {
+            background-color: #D47D78;
+          }
+          /* Ensure glyphs are clickable */
+          .monaco-editor .margin-view-overlays .glyph-margin-widgets {
+            pointer-events: auto !important;
+          }
+        `
+      }} />
+)
+
 export default function CodeEditor({
   value = '',
   onChange,
@@ -681,163 +843,7 @@ export default function CodeEditor({
       className={`h-full w-full ${className} ${disabled ? 'disabled-editor' : ''}`}
       style={{ opacity: editorReady ? 1 : 0 }}
     >
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          .monaco-editor .view-overlays .current-line {
-            background-color: #f6f8fa !important;
-            border: none !important;
-          }
-          .dark .monaco-editor .view-overlays .current-line {
-            background-color: #2f2f2f !important;
-          }
-          .monaco-editor .margin-view-overlays .current-line-margin {
-            background-color: #f6f8fa !important;
-            border: none !important;
-          }
-          .dark .monaco-editor .margin-view-overlays .current-line-margin {
-            background-color: #2f2f2f !important;
-          }
-          .monaco-editor .scroll-decoration {
-            display: none !important;
-          }
-          .monaco-editor:not(.focused) .view-overlays .current-line {
-            background-color: transparent !important;
-          }
-          .monaco-editor:not(.focused) .margin-view-overlays .current-line-margin {
-            background-color: transparent !important;
-          }
-          .monaco-editor .line-numbers {
-            color: #bdbebf !important;
-          }
-          .dark .monaco-editor .line-numbers {
-            color: #6e7681 !important;
-          }
-          .monaco-editor .current-line .line-numbers,
-          .monaco-editor .active-line-number {
-            color: #000000 !important;
-          }
-          .dark .monaco-editor .current-line .line-numbers,
-          .dark .monaco-editor .active-line-number {
-            color: #ffffff !important;
-          }
-          .monaco-editor .margin-view-overlays .current-line-margin,
-          .monaco-editor .margin-view-overlays .current-line-margin * {
-            color: #000000 !important;
-          }
-          .dark .monaco-editor .margin-view-overlays .current-line-margin,
-          .dark .monaco-editor .margin-view-overlays .current-line-margin * {
-            color: #ffffff !important;
-          }
-          .monaco-editor .cursors-layer .cursor {
-            background-color: #000000 !important;
-            border-left: 1px solid #000000 !important;
-            color: #000000 !important;
-            transition: all 0.1s ease-out !important;
-          }
-          .dark .monaco-editor .cursors-layer .cursor {
-            background-color: #FFFFFF !important;
-            border-left: 1px solid #FFFFFF !important;
-            color: #FFFFFF !important;
-            transition: all 0.1s ease-out !important;
-          }
-          .monaco-editor .cursors-layer > .cursor {
-            background-color: #000000 !important;
-            border-color: #000000 !important;
-            transition: all 0.1s ease-out !important;
-          }
-          .dark .monaco-editor .cursors-layer > .cursor {
-            background-color: #FFFFFF !important;
-            border-color: #FFFFFF !important;
-            transition: all 0.1s ease-out !important;
-          }
-          .monaco-editor .highlighted-line-full {
-            background-color: #f7f1da !important;
-          }
-          .dark .monaco-editor .highlighted-line-full {
-            background-color: #4a4a3a !important;
-          }
-          .monaco-editor .view-overlays .highlighted-line-full {
-            background-color: #f7f1da !important;
-            width: 100% !important;
-            left: 0 !important;
-            right: 0 !important;
-          }
-          .dark .monaco-editor .view-overlays .highlighted-line-full {
-            background-color: #4a4a3a !important;
-          }
-          .monaco-editor .highlighted-line-margin {
-            background-color: #f7f1da !important;
-          }
-          .dark .monaco-editor .highlighted-line-margin {
-            background-color: #4a4a3a !important;
-          }
-          .monaco-editor .highlighted-line-glyph {
-            background-color: #f7f1da !important;
-          }
-          .dark .monaco-editor .highlighted-line-glyph {
-            background-color: #4a4a3a !important;
-          }
-          .disabled-editor .monaco-editor * {
-            pointer-events: none !important;
-          }
-          .disabled-editor .monaco-scrollable-element {
-            pointer-events: auto !important;
-          }
-          .disabled-editor .scrollbar {
-            pointer-events: auto !important;
-          }
-          /* Breakpoint styles */
-          .monaco-editor .glyph-margin {
-            cursor: pointer !important;
-          }
-          /* Hover effect for glyph margin */
-          .monaco-editor .breakpoint-hover-glyph {
-            background: transparent;
-            cursor: pointer !important;
-          }
-          .monaco-editor .breakpoint-hover-glyph::before {
-            content: '';
-            display: block;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: rgba(212, 125, 120, 0.3);
-            pointer-events: none;
-          }
-          .dark .monaco-editor .breakpoint-hover-glyph::before {
-            background-color: rgba(212, 125, 120, 0.3);
-          }
-          /* Actual breakpoint styles */
-          .monaco-editor .breakpoint-glyph {
-            background: transparent;
-            cursor: pointer !important;
-          }
-          .monaco-editor .breakpoint-glyph::before {
-            content: '';
-            display: block;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: #D47D78;
-            pointer-events: none;
-          }
-          .dark .monaco-editor .breakpoint-glyph::before {
-            background-color: #D47D78;
-          }
-          /* Ensure glyphs are clickable */
-          .monaco-editor .margin-view-overlays .glyph-margin-widgets {
-            pointer-events: auto !important;
-          }
-        `
-      }} />
+      {EDITOR_STYLES}
       <Editor
         height={height}
         width={width}
