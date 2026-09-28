@@ -1,6 +1,7 @@
 'use client'
 
-import Image from 'next/image';
+import { getImageProps } from 'next/image';
+import { memo } from 'react';
 
 interface WaterRendererProps {
   tilesX: number;
@@ -11,49 +12,41 @@ interface WaterRendererProps {
 
 const DEFAULT_TILE_SIZE = 64;
 
-export default function WaterRenderer({ 
-  tilesX, 
-  tilesY, 
+function WaterRenderer({
+  tilesX,
+  tilesY,
   tileSize = DEFAULT_TILE_SIZE,
   className = ""
 }: WaterRendererProps) {
-  const tiles = [];
-  
-  for (let row = 0; row < tilesY; row++) {
-    for (let col = 0; col < tilesX; col++) {
-      tiles.push(
-        <div
-          key={`water-${row}-${col}`}
-          className="absolute"
-          style={{
-            left: col * tileSize,
-            top: row * tileSize,
-            width: tileSize,
-            height: tileSize
-          }}
-        >
-          <Image
-            src="/res/water.png"
-            alt="Water tile"
-            width={tileSize}
-            height={tileSize}
-            className="object-cover opacity-[0.13] dark:opacity-[0.008]"
-            priority
-          />
-        </div>
-      );
-    }
-  }
+  // Use the same optimized images and density choices as next/image. One
+  // repeating paint replaces thousands of identical image/layout nodes.
+  const { props: { src, srcSet } } = getImageProps({
+    src: '/res/water.png',
+    alt: 'Water tile',
+    width: tileSize,
+    height: tileSize,
+  });
+  const imageSet = srcSet?.split(', ').map(candidate => {
+    const separator = candidate.lastIndexOf(' ');
+    return `url("${candidate.slice(0, separator)}") ${candidate.slice(separator + 1)}`;
+  }).join(', ');
 
   return (
-    <div 
+    <div
       className={`relative ${className}`}
-      style={{
-        width: tilesX * tileSize,
-        height: tilesY * tileSize
-      }}
+      style={{ width: tilesX * tileSize, height: tilesY * tileSize }}
     >
-      {tiles}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 opacity-[0.13] dark:opacity-[0.008]"
+        style={{
+          backgroundImage: imageSet ? `image-set(${imageSet})` : `url("${src}")`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: `${tileSize}px ${tileSize}px`,
+        }}
+      />
     </div>
   );
 }
+
+export default memo(WaterRenderer);

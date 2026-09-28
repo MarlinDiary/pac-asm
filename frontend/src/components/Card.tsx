@@ -54,7 +54,9 @@ export default function Card({ children, tabs = [], defaultSelectedTab = 0, sele
               className="absolute inset-0 overflow-y-auto [&::-webkit-scrollbar]:hidden"
               style={{
                 opacity: selectedTab === index ? 1 : 0,
-                pointerEvents: selectedTab === index ? 'auto' : 'none'
+                // The active, full-size pane covers the inactive panes. Avoid
+                // toggling inherited pointer-events on thousands of cells.
+                zIndex: selectedTab === index ? 1 : 0
               }}
               aria-hidden={selectedTab === index ? undefined : true}
             >

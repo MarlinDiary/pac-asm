@@ -752,6 +752,7 @@ export interface AssemblyResult {
 export class ARMAssembler {
   private gasAssembler: GASAssembler;
   private isInitialized = false;
+  private lastAssembly: string | null = null;
   private options: Required<AssemblerOptions>;
 
   constructor(options: AssemblerOptions = {}) {
@@ -786,8 +787,11 @@ export class ARMAssembler {
       throw new Error('Assembler not initialized. Call initialize() first');
     }
 
+    // A failed attempt must not leave an older object eligible for reuse.
+    this.lastAssembly = null;
     try {
       const result = await this.gasAssembler.assemble(assembly);
+      this.lastAssembly = assembly;
       
       // Use extracted machine code if available, otherwise fallback to object file
       const machineCode = result.machineCode || result.objectFile;
@@ -816,8 +820,11 @@ export class ARMAssembler {
     }
 
     try {
-      // We need to assemble first to get the line mappings
-      await this.gasAssembler.assemble(assembly);
+      // Reuse the exact object that produced the machine code. A different
+      // source (or a failed previous attempt) still requires assembly.
+      if (this.lastAssembly !== assembly) {
+        await this.assemble(assembly);
+      }
       const mappingInfo = await this.gasAssembler.getLineMappingInfo(assembly);
       return mappingInfo;
     } catch (error) {
@@ -828,5 +835,6 @@ export class ARMAssembler {
   destroy(): void {
     this.gasAssembler.destroy();
     this.isInitialized = false;
+    this.lastAssembly = null;
   }
 }

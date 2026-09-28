@@ -5,6 +5,7 @@ import { GameMap } from '@/data/maps'
 import { writeCompleteMapToMemory } from './map-memory'
 import { getGlobalSettings } from '@/hooks/useSettings'
 import { MEMORY_CONFIG } from '@/lib/memory-layout'
+import { compileProgram } from '@/lib/compiler-client'
 
 export { MEMORY_CONFIG } from '@/lib/memory-layout'
 
@@ -85,22 +86,22 @@ export async function initializeEmulatorWithCode(
     throw new Error('Operation aborted')
   }
   
-  // Assemble code
-  const machineCode = await assembleCode(sourceCode)
-  
-  // Load code into emulator
-  await emulator.loadCode(machineCode)
-  
-  // Write complete map data to memory
-  await writeCompleteMapToMemory(emulator, initialMap)
-  
-  // Create code highlighter
+  // Assemble once: execution and highlighting share the same object/DWARF.
   const arch = getGlobalSettings().settings.architecture
   const isMipsR6 = arch === 'MIPS_R6'
   const target: GASTarget = isMipsR6 ? 'mips-linux-gnu' : 'armv7-linux-gnueabihf'
   const variant: GASVariant = arch === 'MIPS_R6' ? 'mips-r6' : 'default'
   const codeHighlighter = createHighlighter({ target, variant })
-  await codeHighlighter.initialize(sourceCode)
+  const { machineCode, mappings } = await compileProgram(sourceCode, { target, variant }, abortController?.signal)
+  codeHighlighter.loadManualMappings(sourceCode, mappings)
+
+  if (abortController?.signal.aborted) {
+    throw new Error('Operation aborted')
+  }
+
+  // Load code and map only after compilation has completed successfully.
+  await emulator.loadCode(machineCode)
+  await writeCompleteMapToMemory(emulator, initialMap)
   
   // Final abort check
   if (abortController?.signal.aborted) {

@@ -38,18 +38,19 @@ export class CodeHighlighter {
   }
 
   /**
-   * Initialize the highlighter by processing source code with GAS and DWARF
+   * Initialize GAS/DWARF mappings and return the very same assembled code.
    */
-  async initialize(sourceCode: string): Promise<void> {
+  async initialize(sourceCode: string): Promise<number[]> {
     const assembler = new ARMAssembler({ baseAddress: this.baseAddress, target: this.target, variant: this.variant });
     
     try {
       await assembler.initialize();
-      await assembler.assemble(sourceCode);
+      const result = await assembler.assemble(sourceCode);
       const lineMappingInfo = await assembler.getLineMappingInfo(sourceCode);
 
       // Create address mapping from DWARF line mapping info
       this.createAddressMappingFromDWARF(sourceCode, lineMappingInfo);
+      return Array.from(result.mc);
 
     } catch (error) {
       console.error('[CodeHighlighter] Failed to initialize:', error);

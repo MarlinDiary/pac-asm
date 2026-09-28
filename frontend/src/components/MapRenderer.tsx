@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image';
+import { memo } from 'react';
 import { GameMap, TILE_MAPPING, TileSymbol, PlayerDirection, getGhosts } from '@/data/maps';
 
 interface MapRendererProps {
@@ -42,7 +43,7 @@ const getPlayerTransform = (direction: PlayerDirection): string => {
   }
 };
 
-export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps) {
+function MapRenderer({ map, shouldShakePlayer }: MapRendererProps) {
   const tileSize = map.tileSize || DEFAULT_TILE_SIZE;
   
   // Get player and ghost positions from map data
@@ -225,3 +226,5 @@ export default function MapRenderer({ map, shouldShakePlayer }: MapRendererProps
     </div>
   );
 }
+
+export default memo(MapRenderer);

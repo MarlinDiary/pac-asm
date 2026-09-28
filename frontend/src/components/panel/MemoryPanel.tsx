@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table"
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import MemoryFilter, { MemoryRegion } from '@/components/MemoryFilter'
 
 interface MemoryRow {
@@ -86,7 +86,10 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
   const [selectedRegion, setSelectedRegion] = useState<MemoryRegion>(propSelectedRegion || 'all')
   const [hideZeros, setHideZeros] = useState(false)
   
-  const memoryRows = generateMemoryRows(codeMemory, stackMemory, dataMemory)
+  const memoryRows = useMemo(
+    () => generateMemoryRows(codeMemory, stackMemory, dataMemory),
+    [codeMemory, stackMemory, dataMemory]
+  )
   
   useEffect(() => {
     setMounted(true)
@@ -94,7 +97,7 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
   
   const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light'
   
-  const filteredRows = memoryRows.filter(row => {
+  const filteredRows = useMemo(() => memoryRows.filter(row => {
     // Region filter
     const address = parseInt(row.address, 16)
     let matchesRegion = true
@@ -127,7 +130,7 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
     const isAllZeros = hideZeros && row.hex === '00 00 00 00'
     
     return matchesRegion && matchesSearch && !isAllZeros
-  })
+  }), [memoryRows, selectedRegion, searchQuery, hideZeros])
   
   // Build content depending on whether there are rows
   const renderContent = () => {
@@ -162,21 +165,7 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <Table className="border-none">
-          <TableBody>
-            {filteredRows.map((row, index) => (
-              <TableRow key={row.address} className={`h-12 border-none ${index % 2 === 0 ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
-                <TableCell className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
-                  {row.address}
-                </TableCell>
-                <TableCell className="font-mono h-12 w-1/3 text-center border-none text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">
-                  {row.hex}
-                </TableCell>
-                <TableCell className="font-mono h-12 w-1/3 text-right border-none text-xs pr-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
-                  {row.ascii}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
+          <MemoryRows rows={filteredRows} />
         </Table>
       </div>
     )
@@ -203,3 +192,33 @@ export default function MemoryPanel({ searchQuery = '', codeMemory, stackMemory,
     </div>
   )
 }
+
+// Keep every row mounted (including its scroll/selection behavior), but skip
+// reconciling 4,096 rows when only a tab, dialog or submission status changes.
+const MemoryRows = memo(function MemoryRows({ rows }: { rows: MemoryRow[] }) {
+  return (
+    <TableBody>
+      {rows.map((row, index) => (
+        <MemoryRowView key={row.address} {...row} striped={index % 2 !== 0} />
+      ))}
+    </TableBody>
+  )
+})
+
+// Emulator snapshots are new arrays, but almost all displayed bytes are
+// unchanged between steps. Compare scalar values instead of row identities.
+const MemoryRowView = memo(function MemoryRowView({ address, hex, ascii, striped }: MemoryRow & { striped: boolean }) {
+  return (
+    <TableRow className={`h-12 border-none ${!striped ? 'bg-white hover:bg-white dark:bg-[#262626] dark:hover:bg-[#262626]' : 'bg-[#f7f7f8] hover:bg-[#f7f7f8] dark:bg-[#353535] dark:hover:bg-[#353535]'}`}>
+      <TableCell className="h-12 w-1/3 text-left border-none font-mono text-xs pl-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
+        {address}
+      </TableCell>
+      <TableCell className="font-mono h-12 w-1/3 text-center border-none text-xs text-[#5a5a5a] dark:text-[#BDBEC2]">
+        {hex}
+      </TableCell>
+      <TableCell className="font-mono h-12 w-1/3 text-right border-none text-xs pr-5 text-[#5a5a5a] dark:text-[#BDBEC2]">
+        {ascii}
+      </TableCell>
+    </TableRow>
+  )
+})
