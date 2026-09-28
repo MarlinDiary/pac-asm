@@ -37,14 +37,18 @@ function fixture({ reduced = false, visible = true, results = [] } = {}) {
   return { state, video, control };
 }
 
-test('the logo leads the homepage, with the tagline beneath it and a single level 1 entry', () => {
+test('the logo leads the homepage, with a single level 1 entry and no tagline', () => {
   const source = fs.readFileSync(process.env.HOMEPAGE_SOURCE || path.join(__dirname, '../src/app/page.tsx'), 'utf8');
-  assert.match(source, /<h1[^>]*className=\{styles\.brand\}/);
-  assert.match(source, /className=\{styles\.tagline\}>A little code\. A lot of play\.</);
+  assert.match(source, /<h1[^>]*className=\{styles\.logo\}/);
+  // Removed on request, from the page and the tab title alike.
+  assert.doesNotMatch(source, /A little code|A lot of play|styles\.tagline/);
   assert.match(source, /href="\/level\/1"/);
   assert.equal(source.match(/<Link /g).length, 1);
   assert.match(source, /<PromoVideo/);
-  assert.doesNotMatch(source, /Learn MIPS and ARM|LetterGlitch|demo-dark\.png|useRouter|<header|<footer|eyebrow|MIPS \+ ARM/);
+  // The description sentence stays in <meta> for search and share cards, not on the page.
+  const markup = source.slice(source.indexOf('return ('));
+  assert.doesNotMatch(markup, /Learn MIPS and ARM|<header|<footer|eyebrow|MIPS \+ ARM/);
+  assert.doesNotMatch(source, /LetterGlitch|demo-dark\.png|useRouter/);
 });
 
 test('the homepage player preserves 16:9, inline playback and accessible native fallback', () => {
@@ -140,20 +144,63 @@ test('media failures report one error, while interrupted requests are quiet', as
   }
 });
 
-test('homepage matches the level page canvas, inherits its font and follows the app theme class', () => {
+test('homepage shares the level page canvas, font and theme class; the logo is the film\'s display face', () => {
   const page = fs.readFileSync(path.join(__dirname, '../src/app/page.tsx'), 'utf8');
   const css = fs.readFileSync(path.join(__dirname, '../src/app/home.module.css'), 'utf8');
+  const wordmark = fs.readFileSync(path.join(__dirname, '../src/components/home/wordmark.ts'), 'utf8');
   const video = fs.readFileSync(path.join(__dirname, '../src/components/home/PromoVideo.tsx'), 'utf8');
   assert.match(css, /\.home\s*\{[^}]*background:\s*#f0f0f0;/s);
   assert.match(css, /:global\(\.dark\) \.home\s*\{\s*background:\s*#0f0f0f;/);
   // next-themes lets people override the system scheme, so no media query or forced scheme.
-  assert.doesNotMatch(css, /font-family|color-scheme|prefers-color-scheme|text-transform:\s*uppercase/);
-  assert.match(page, /<span[^>]*>PA<\/span>/);
-  assert.match(page, /<span[^>]*>ASM<\/span>/);
-  assert.match(page, /pacasm-mark\.png" alt="" width=\{80\} height=\{80\}/);
-  assert.match(css, /\.brandIcon\s*\{[^}]*width:\s*1\.1em;[^}]*height:\s*1\.1em;/s);
-  assert.doesNotMatch(page, /Assembly, made playable|Ellipsis|No setup|brandDots/);
+  assert.doesNotMatch(css, /-apple-system|--font-inter|color-scheme|prefers-color-scheme|text-transform:\s*uppercase/);
+  assert.doesNotMatch(css, /font-family/);
+  // The logo is outlines, not live text, so it cannot fall back to the platform's system font.
+  assert.match(page, /viewBox=\{PA\.viewBox\}/);
+  assert.match(page, /viewBox=\{ASM\.viewBox\}/);
+  assert.match(wordmark, /Anybody Black/);
+  assert.match(wordmark, /d: "M/);
+  assert.match(css, /\.mark\s*\{[^}]*url\(\/video\/pacasm-mark\.webp\) 0 0 \/ 100% 100%/s);
+  assert.ok(fs.existsSync(path.join(__dirname, '../public/video/pacasm-mark.webp')));
+  assert.doesNotMatch(page, /Assembly, made playable|Ellipsis|No setup|brandDots|<text/);
   assert.doesNotMatch(video, /<figcaption/);
+});
+
+test('the poster is the frame the film opens on, and the page preloads it', () => {
+  const film = fs.readFileSync(path.join(__dirname, '../src/components/home/film.ts'), 'utf8');
+  const page = fs.readFileSync(path.join(__dirname, '../src/app/page.tsx'), 'utf8');
+  const video = fs.readFileSync(path.join(__dirname, '../src/components/home/PromoVideo.tsx'), 'utf8');
+  assert.match(film, /POSTER = "\/video\/pacasm-poster\.webp"/);
+  assert.match(film, /START = 4\.48;/);
+  assert.match(video, /poster=\{POSTER\}/);
+  assert.equal(video.match(/\.mp4#t=\$\{START\}/g).length, 2);
+  // A rendered <link> is hoisted into <head> by React; ReactDOM.preload() from a server component
+  // only reached the RSC payload, too late to help.
+  assert.match(page, /<link rel="preload" as="image" href=\{POSTER\} fetchPriority="high" \/>/);
+  assert.ok(fs.existsSync(path.join(__dirname, '../public/video/pacasm-poster.webp')));
+});
+
+test('Pac-Man in the logo stays still, even when Start is hovered', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../src/app/home.module.css'), 'utf8');
+  assert.doesNotMatch(css, /@keyframes|animation|:has\(/);
+});
+
+test('spacing runs on a 32 / 72 rhythm and the logo scales with the film', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../src/app/home.module.css'), 'utf8');
+  const film = fs.readFileSync(path.join(__dirname, '../src/components/home/promo-video.module.css'), 'utf8');
+  assert.match(css, /\.home\s*\{[^}]*gap: 72px;/s);
+  assert.match(css, /\.start\s*\{[^}]*margin-top: 32px;/s);
+  assert.match(css, /--cap: clamp\([^)]*var\(--film\)/);
+  assert.match(film, /\.film\s*\{[^}]*width: var\(--film/s);
+});
+
+test('share previews and text selection are designed too', () => {
+  const page = fs.readFileSync(path.join(__dirname, '../src/app/page.tsx'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '../src/app/home.module.css'), 'utf8');
+  assert.match(page, /export const metadata: Metadata/);
+  assert.match(page, /twitter: \{ card: "summary_large_image"/);
+  assert.ok(fs.existsSync(path.join(__dirname, '../src/app/opengraph-image.jpg')));
+  assert.ok(fs.existsSync(path.join(__dirname, '../src/app/opengraph-image.alt.txt')));
+  assert.match(css, /\.home ::selection \{ background: #f9ba04;/);
 });
 
 test('the film is a plain rounded frame, not an app panel, with controls on hover, focus and touch', () => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { POSTER, START } from "./film";
 import { createPromoPlayback } from "./promo-playback";
 import styles from "./promo-video.module.css";
 
@@ -59,7 +60,7 @@ export function PromoVideo() {
           className={styles.video}
           aria-label="Write the Moves: the PacAsm film"
           aria-describedby="film-description"
-          poster="/video/pacasm-poster.jpg"
+          poster={POSTER}
           width={1920}
           height={1080}
           preload="metadata"
@@ -67,8 +68,9 @@ export function PromoVideo() {
           loop
           playsInline
         >
-          <source src="/video/pacasm-home-1080p.mp4" type="video/mp4" media="(min-width: 1200px)" />
-          <source src="/video/pacasm-home-720p.mp4" type="video/mp4" />
+          {/* #t= opens on the poster frame; the loop still restarts from 0. */}
+          <source src={`/video/pacasm-home-1080p.mp4#t=${START}`} type="video/mp4" media="(min-width: 1200px)" />
+          <source src={`/video/pacasm-home-720p.mp4#t=${START}`} type="video/mp4" />
         </video>
         {enhanced && !failed && (
           <div className={styles.controls}>

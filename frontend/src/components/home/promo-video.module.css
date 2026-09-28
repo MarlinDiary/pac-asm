@@ -1,8 +1,7 @@
 /* A plain rounded frame on the level page's canvas, with the card radius but no app chrome.
-   The width leaves ~360px of viewport height for the logo, tagline and button,
-   so the whole homepage fits on one screen down to ~720px tall. */
+   The homepage sets --film (home.module.css) so the logo can scale with it. */
 .film {
-  width: min(100%, 1120px, max(560px, (100svh - 360px) * 16 / 9));
+  width: var(--film, 100%);
   min-width: 0;
   margin: 0;
 }

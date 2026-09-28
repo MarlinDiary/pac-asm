@@ -1,17 +1,25 @@
-/* Shares the level page's palette and type (GamePage at its default 110% zoom)
-   without its app chrome: #f0f0f0 canvas, 15.5px interface text, 11px radius. */
+/* Shares the level page's palette and type (GamePage at its default 110% zoom) without its app
+   chrome, and the promo film's art direction: "Swiss" layout, hand-drawn characters.
+   Spacing runs on a 4px grid (32 / 72); the logo scales with the film so the two keep their
+   proportion from a laptop to a large monitor. */
 .home {
+  --pad: 40px;
+  /* Film width: leaves ~360px of viewport height for the padding, logo, button and gap. */
+  --film: min(100vw - 2 * var(--pad), 1120px, max(560px, (100svh - 360px) * 16 / 9));
+  /* Cap height of the wordmark. */
+  --cap: clamp(28px, var(--film) * 0.048, 54px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 40px;
+  gap: 72px;
   min-height: 100svh;
-  padding: 44px 20px;
+  padding: var(--pad);
   background: #f0f0f0;
   color: #1a1a1a;
 }
 :global(.dark) .home { background: #0f0f0f; color: #f5f5f5; }
+.home ::selection { background: #f9ba04; color: #141210; }
 
 .intro {
   display: flex;
@@ -20,48 +28,39 @@
   text-align: center;
 }
 
-.brand {
-  display: inline-flex;
-  align-items: center;
-  font-size: 60px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1;
-}
-/* The mark's open mouth faces "ASM", so it needs less room on that side. */
-.brandIcon {
-  width: 1.1em;
-  height: 1.1em;
-  margin-inline: -0.07em -0.13em;
-  object-fit: contain;
-  transform: translateY(0.02em);
-}
+.logo { display: flex; align-items: center; }
+/* The viewBox is 1371 units tall for a 1351-unit cap height (overshoot of the S). */
+.logo svg { height: calc(var(--cap) * 1371 / 1351); width: auto; fill: currentColor; }
 
-.tagline {
-  margin-top: 14px;
-  font-size: 17px;
-  line-height: 1.5;
-  color: #5a5a5a;
+/* Pac-Man is the C: the game's sprite (player-00), in a 951×748 box of its 1024px drawing.
+   Spaced like a letter; the open mouth faces "ASM", so that side sits tighter. */
+.mark {
+  --h: calc(var(--cap) * 1.16);
+  width: calc(var(--h) * 951 / 748);
+  height: var(--h);
+  margin-inline: calc(var(--cap) * -0.14) calc(var(--cap) * -0.26);
+  background: url(/video/pacasm-mark.webp) 0 0 / 100% 100% no-repeat;
 }
-:global(.dark) .tagline { color: #a0a0a0; }
 
 .start {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
-  margin-top: 28px;
-  padding-inline: 16px;
+  height: 40px;
+  margin-top: 32px;
+  padding-inline: 18px;
   border-radius: 8px;
   background: #1a1a1a;
   color: #fff;
   font-size: 15.5px;
   font-weight: 500;
   text-decoration: none;
-  transition: background-color 150ms;
+  transition: background-color 150ms, transform 100ms;
 }
-.start svg { width: 16px; height: 16px; }
+.start svg { width: 16px; height: 16px; transition: transform 150ms; }
 .start:hover { background: #333; }
+.start:hover svg { transform: translateX(2px); }
+.start:active { transform: scale(0.98); }
 :global(.dark) .start { background: #f5f5f5; color: #1a1a1a; }
 :global(.dark) .start:hover { background: #fff; }
 .start:focus-visible { outline: 2px solid #3579f6; outline-offset: 2px; }
@@ -69,12 +68,11 @@
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (max-width: 640px) {
-  .home { gap: 32px; padding-block: 32px; }
-  .brand { font-size: 48px; }
-  .tagline { font-size: 16px; margin-top: 12px; }
-  .start { margin-top: 24px; }
+  .home { --pad: 24px; --cap: min(34px, (100vw - 48px) / 9); gap: 48px; }
+  .start { margin-top: 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .start { transition: none; }
+  .start, .start svg { transition: none; }
+  .start:hover svg, .start:active { transform: none; }
 }

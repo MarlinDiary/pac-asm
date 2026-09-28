@@ -1,0 +1,1 @@
+The PacAsm logo above a frame from its film: an ARM program highlights STR R0, [R1] while Pac-Man takes one step.
