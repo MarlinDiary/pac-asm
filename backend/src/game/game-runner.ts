@@ -289,7 +289,12 @@ async function prepareEmulatorForAttempt(
   if (ctx.attemptIndex === 0) {
     return
   }
-  await resetEmulatorWithMemory(ctx.emulator)
+  // MIPS loadCode already rebuilds the entire runtime (including memory and
+  // registers). Resetting immediately before it would rebuild twice per attempt.
+  // ARM loadCode does not reset state, so keep its explicit reset.
+  if (ctx.architecture !== 'MIPS_R6') {
+    await resetEmulatorWithMemory(ctx.emulator)
+  }
   await ctx.emulator.loadCode(ctx.machineCode)
   const success = await writeCompleteMapToMemory(ctx.emulator, map, ctx.architecture)
   if (!success) {
