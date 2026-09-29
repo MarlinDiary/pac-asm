@@ -2,6 +2,7 @@
 // Uses GNU Assembler DWARF line mappings for accurate highlighting
 
 import { ARMAssembler, GASTarget, GASVariant } from './assembler';
+import { resolveMipsDelaySlotRows, expandMipsInstructionRows } from './mips-source-map';
 
 interface AddressMapping {
   address: number;
@@ -25,7 +26,7 @@ export interface HighlightInfo {
 }
 
 export class CodeHighlighter {
-  private addressMap: Map<number, AddressMapping> = new Map();
+  private addressMap: Map<number, AddressMapping[]> = new Map();
   private baseAddress: number;
   private lastHighlightInfo: HighlightInfo | null = null;
   private target: GASTarget;
@@ -41,6 +42,7 @@ export class CodeHighlighter {
    * Initialize GAS/DWARF mappings and return the very same assembled code.
    */
   async initialize(sourceCode: string): Promise<number[]> {
+    this.clear();
     const assembler = new ARMAssembler({ baseAddress: this.baseAddress, target: this.target, variant: this.variant });
     
     try {
@@ -49,7 +51,10 @@ export class CodeHighlighter {
       const lineMappingInfo = await assembler.getLineMappingInfo(sourceCode);
 
       // Create address mapping from DWARF line mapping info
-      this.createAddressMappingFromDWARF(sourceCode, lineMappingInfo);
+      const mappings = this.target === 'mips-linux-gnu' && this.variant === 'mips-r6'
+        ? expandMipsInstructionRows(sourceCode, resolveMipsDelaySlotRows(sourceCode, lineMappingInfo, result.mc, this.baseAddress, await assembler.getMacroSlotCandidates()), result.mc, this.baseAddress)
+        : lineMappingInfo;
+      this.createAddressMappingFromDWARF(sourceCode, mappings);
       return Array.from(result.mc);
 
     } catch (error) {
@@ -77,7 +82,7 @@ export class CodeHighlighter {
         sourceContent: sourceContent.trim()
       };
       
-      this.addressMap.set(debugLine.address, mapping);
+      this.addMapping(mapping);
     });
   }
 
@@ -105,8 +110,14 @@ export class CodeHighlighter {
         sourceContent: sourceLine.trim()
       };
 
-      this.addressMap.set(entry.address, mapping);
+      this.addMapping(mapping);
     });
+  }
+
+  private addMapping(mapping: AddressMapping): void {
+    const rows = this.addressMap.get(mapping.address) ?? [];
+    if (!rows.some(row => row.lineNumber === mapping.lineNumber)) rows.push(mapping);
+    this.addressMap.set(mapping.address, rows);
   }
 
   /**
@@ -127,12 +138,11 @@ export class CodeHighlighter {
   getHighlightForAddresses(addresses: number[]): HighlightInfo | null {
     const uniqueAddresses = Array.from(new Set(addresses));
     const resolved = uniqueAddresses
-      .map((addr) => this.addressMap.get(addr))
-      .filter((mapping): mapping is AddressMapping => Boolean(mapping));
+      .flatMap((addr) => this.addressMap.get(addr) ?? []);
 
     if (resolved.length > 0) {
       const info: HighlightInfo = {
-        lineNumbers: resolved.map((m) => m.lineNumber),
+        lineNumbers: Array.from(new Set(resolved.map((m) => m.lineNumber))),
         addresses: resolved.map((m) => m.address),
         instructions: resolved.map((m) => m.instruction),
         isActive: true
@@ -141,7 +151,7 @@ export class CodeHighlighter {
       return info;
     }
 
-    return this.lastHighlightInfo;
+    return this.target === 'mips-linux-gnu' ? null : this.lastHighlightInfo;
   }
 
   getHighlightLine(pcAddress: number): HighlightInfo | null {
@@ -153,9 +163,9 @@ export class CodeHighlighter {
    */
   getAddressesForLine(lineNumber: number): number[] {
     const matches: number[] = [];
-    this.addressMap.forEach((mapping) => {
-      if (mapping.lineNumber === lineNumber) {
-        matches.push(mapping.address);
+    this.addressMap.forEach((rows, address) => {
+      if (rows.some(mapping => mapping.lineNumber === lineNumber)) {
+        matches.push(address);
       }
     });
     return matches.sort((a, b) => a - b);
@@ -177,7 +187,7 @@ export class CodeHighlighter {
    * Get all address mappings
    */
   getAllMappings(): AddressMapping[] {
-    return Array.from(this.addressMap.values()).sort((a, b) => a.address - b.address);
+    return Array.from(this.addressMap.values()).flat().sort((a, b) => a.address - b.address);
   }
 
   /**

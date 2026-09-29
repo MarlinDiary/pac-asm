@@ -5,7 +5,7 @@ Build first, then run the real-WASM isolation and failure tests:
 ```sh
 cd backend
 npm run build
-node --test tests/judge-isolation.test.cjs
+node --test tests/judge-isolation.test.cjs tests/runtime-errors.test.cjs
 ```
 
 These checks use local workers only. They do not contact Railway, GitHub or MongoDB,

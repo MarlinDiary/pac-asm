@@ -7,6 +7,7 @@ export class MemoryManager {
   private uc: UnicornGlobal;
   private config: EmulatorConfig;
   private arch: Architecture;
+  private loadedCode: readonly number[] = [];
 
   constructor(unicorn: UnicornInstance, uc: UnicornGlobal, config: EmulatorConfig, arch: Architecture) {
     this.unicorn = unicorn;
@@ -53,8 +54,13 @@ export class MemoryManager {
     }
   }
 
+  getLoadedCode(): readonly number[] {
+    return this.loadedCode;
+  }
+
   loadCode(machineCode: number[]): void {
     this.unicorn.mem_write(this.config.codeAddress, machineCode);
+    this.loadedCode = machineCode.slice();
     const pcReg = (this.arch === 'MIPS_R6')
       ? (this.uc.MIPS_REG_PC ?? (this.uc as unknown as Record<string, number>).MIPS_REG_PC)!
       : this.uc.ARM_REG_PC;
@@ -131,7 +137,7 @@ export class MemoryManager {
     return {
       register,
       value,
-      hex: `0x${value.toString(16).padStart(8, '0')}`
+      hex: `0x${(value >>> 0).toString(16).padStart(8, '0')}`
     };
   }
 
@@ -156,7 +162,7 @@ export class MemoryManager {
       return regs.map(reg => ({
         register: reg.name,
         value: this.unicorn.reg_read_i32(reg.id),
-        hex: `0x${this.unicorn.reg_read_i32(reg.id).toString(16).padStart(8, '0')}`
+        hex: `0x${(this.unicorn.reg_read_i32(reg.id) >>> 0).toString(16).padStart(8, '0')}`
       }));
     }
 
@@ -175,7 +181,7 @@ export class MemoryManager {
     return registers.map(reg => ({
       register: reg.name,
       value: this.unicorn.reg_read_i32(reg.id),
-      hex: `0x${this.unicorn.reg_read_i32(reg.id).toString(16).padStart(8, '0')}`
+      hex: `0x${(this.unicorn.reg_read_i32(reg.id) >>> 0).toString(16).padStart(8, '0')}`
     }));
   }
 
@@ -191,6 +197,12 @@ export class MemoryManager {
 
   writeMemory(address: number, data: number[]): void {
     this.unicorn.mem_write(address, data);
+    const end = Math.min(address + data.length, this.config.codeAddress + this.config.codeSize);
+    if (address < this.config.codeAddress + this.config.codeSize && end > this.config.codeAddress) {
+      // Explicit code edits invalidate ExecutionEngine's slot analysis too.
+      this.loadedCode = Array.from(this.unicorn.mem_read(this.config.codeAddress,
+        Math.max(this.loadedCode.length, end - this.config.codeAddress)));
+    }
   }
 
   resetRegisters(): void {

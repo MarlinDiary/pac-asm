@@ -37,6 +37,7 @@ export interface StepAnimationFrames {
 export interface PlaybackState {
   mapState: GameMap
   highlightedLine: number | undefined
+  highlightedLines?: number[]
   highlightedLineSecondary?: number | undefined
   registers: RegisterInfo[]
   codeMemory: number[]
@@ -225,6 +226,7 @@ export const useDebugger = () => {
 
       history.push({
         mapState: { ...currentMapState },
+        highlightedLines: highlightInfo?.lineNumbers ?? [],
         highlightedLine: highlightInfo?.lineNumbers?.[0],
         highlightedLineSecondary: highlightInfo?.lineNumbers?.[1],
         ...memoryState,
@@ -330,6 +332,7 @@ export const useDebugger = () => {
 
       const newState: PlaybackState = {
         mapState: finalMapState,
+        highlightedLines: !isCodeExecutionComplete(stepResult) ? highlight?.lineNumbers ?? [] : [],
         highlightedLine: currentHighlight,
         highlightedLineSecondary: currentHighlightSecondary,
         ...memoryState,
@@ -524,12 +527,18 @@ export const useDebugger = () => {
         } | null = null
 
         while (true) {
-          const result = await emulator.runUntilMemWrite(
-            MEMORY_CONFIG.DATA_BASE,
-            [1, 2, 3, 4],
-            EMULATOR_RUN_TIMEOUT_US,
-            breakpointAddresses
-          )
+          let result: Awaited<ReturnType<typeof emulator.runUntilMemWrite>> = null
+          try {
+            result = await emulator.runUntilMemWrite(
+              MEMORY_CONFIG.DATA_BASE,
+              [1, 2, 3, 4],
+              EMULATOR_RUN_TIMEOUT_US,
+              breakpointAddresses
+            )
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error)
+            emitBreakpointError(formatRuntimeError('Breakpoint run failed', normalizeWorkerErrorMessage(detail) ?? detail))
+          }
 
           if (!result) {
             const workerError = normalizeWorkerErrorMessage(emulator.state.error) ?? emulator.state.error
@@ -642,6 +651,7 @@ export const useDebugger = () => {
 
         const finalState: PlaybackState = {
           mapState: finalMapSnapshot,
+          highlightedLines: stopReason === 'breakpoint' ? highlightInfo?.lineNumbers ?? [] : [],
           highlightedLine,
           highlightedLineSecondary,
           ...memoryState,

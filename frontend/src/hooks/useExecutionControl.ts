@@ -276,6 +276,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setCurrentPlayGameOver,
     setCurrentPlayObjectiveNotMet,
     setHighlightedLine,
+    setHighlightedLines,
     setHighlightedLineSecondary,
     breakpoints,
     setCurrentMap,
@@ -410,6 +411,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
     await teleportPlayer(randomizedMap, currentPlayerPos)
     setHighlightedLine(undefined)
+    setHighlightedLines(undefined)
     setHighlightedLineSecondary(undefined)
     setCurrentPlayWon(false) // Reset current play victory status
     setCurrentPlayGameOver(false) // Reset game over status
@@ -450,7 +452,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     if ('objectiveNotMet' in result && result.objectiveNotMet) {
       setCurrentPlayObjectiveNotMet(true)
     }
-  }, [architecture, currentCode, errors.length, gameState.currentMap, levelId, levelMap, persistRunCode, playState, setCodeOverride, setCurrentPlayGameOver, setCurrentPlayObjectiveNotMet, setCurrentPlayWon, setHighlightedLine, setHighlightedLineSecondary, setIsCodeDisabled, setIsPlayMode, setLeftPanelTab, setPlayStatus, setShouldShakePlayer, teleportPlayer])
+  }, [architecture, currentCode, errors.length, gameState.currentMap, levelId, levelMap, persistRunCode, playState, setCodeOverride, setCurrentPlayGameOver, setCurrentPlayObjectiveNotMet, setCurrentPlayWon, setHighlightedLine, setHighlightedLines, setHighlightedLineSecondary, setIsCodeDisabled, setIsPlayMode, setLeftPanelTab, setPlayStatus, setShouldShakePlayer, teleportPlayer])
 
   const handleDebugClick = useCallback(async () => {
     trackDebugClicked({
@@ -467,6 +469,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     const currentPlayerPos = getPlayerPosition(gameState.currentMap)
     await teleportPlayer(randomizedMap, currentPlayerPos)
     setHighlightedLine(undefined)
+    setHighlightedLineSecondary(undefined)
+    setHighlightedLines(undefined)
     // Don't clear hasWon - keep Next button permanently after first victory
     
     setIsDebugMode(true)
@@ -478,14 +482,16 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       setCurrentMap(result.initialState.mapState)
       setHighlightedLine(result.initialState.highlightedLine)
       setHighlightedLineSecondary(result.initialState.highlightedLineSecondary)
+      setHighlightedLines(result.initialState.highlightedLines)
     } else {
       // Handle error silently - just reset UI state
       setIsDebugMode(false)
       setIsCodeDisabled(false)
       setCodeOverride(null)
+      setHighlightedLines(undefined)
       setHighlightedLineSecondary(undefined)
     }
-  }, [architecture, currentCode, debugState, gameState.currentMap, levelId, levelMap, setCodeOverride, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary, setIsCodeDisabled, setIsDebugMode, setLeftPanelTab, teleportPlayer])
+  }, [architecture, currentCode, debugState, gameState.currentMap, levelId, levelMap, setCodeOverride, setCurrentMap, setHighlightedLine, setHighlightedLines, setHighlightedLineSecondary, setIsCodeDisabled, setIsDebugMode, setLeftPanelTab, teleportPlayer])
 
   const lockSteps = useCallback(() => {
     if (stepLockTimeoutRef.current) {
@@ -541,7 +547,8 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setCurrentMap(stateWithAnimation.mapState)
     setHighlightedLine(state.highlightedLine)
     setHighlightedLineSecondary(state.highlightedLineSecondary)
-  }, [setCurrentMap, setHighlightedLine, setHighlightedLineSecondary])
+    setHighlightedLines(state.highlightedLines)
+  }, [setCurrentMap, setHighlightedLine, setHighlightedLines, setHighlightedLineSecondary])
 
   const handleStepDown = useCallback(() => {
     const activeBreakpoints = Array.from(new Set(breakpoints)).filter((line) => line > 0)
@@ -566,6 +573,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
 
     void runWithStepLock(async () => {
       setHighlightedLine(undefined)
+      setHighlightedLines(undefined)
       setHighlightedLineSecondary(undefined)
 
       let finalState: PlaybackState | null = null
@@ -617,6 +625,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     runWithStepLock,
     setCurrentMap,
     setHighlightedLine,
+    setHighlightedLines,
     setHighlightedLineSecondary
   ])
 
@@ -644,6 +653,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setIsDebugMode(false)
     setIsDebuggerBarVisible(true)
     setHighlightedLine(undefined)
+    setHighlightedLines(undefined)
     setHighlightedLineSecondary(undefined)
     setCodeOverride(null)
     setPlayStatus(undefined)
@@ -667,6 +677,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setIsDebugMode,
     setIsDebuggerBarVisible,
     setHighlightedLine,
+    setHighlightedLines,
     setHighlightedLineSecondary,
     setCodeOverride,
     setPlayStatus,
@@ -684,8 +695,9 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       await teleportPlayer(firstState.mapState, currentPlayerPos)
       setHighlightedLine(firstState.highlightedLine)
       setHighlightedLineSecondary(firstState.highlightedLineSecondary)
+      setHighlightedLines(firstState.highlightedLines)
     }
-  }, [debugState, teleportPlayer, currentMap, setHighlightedLine, setHighlightedLineSecondary])
+  }, [debugState, teleportPlayer, currentMap, setHighlightedLine, setHighlightedLines, setHighlightedLineSecondary])
 
   const applySubmissionResult = useCallback((submissionPayload: SubmissionResponse['submission']) => {
     if (!submissionPayload) {
@@ -771,6 +783,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     if (playState.currentMap) {
       setCurrentMap(playState.currentMap)
       setHighlightedLine(playState.highlightedLine)
+      setHighlightedLines(undefined)
       setHighlightedLineSecondary(undefined)
       
       // Check victory condition during play mode using game logic
@@ -778,7 +791,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
         handleVictoryCheck(playState.currentMap, setHasWon, setCurrentPlayWon, isPlayMode)
       }
     }
-  }, [playState.currentMap, playState.highlightedLine, isPlayMode, setCurrentMap, setHighlightedLine, setHighlightedLineSecondary, setHasWon, setCurrentPlayWon])
+  }, [playState.currentMap, playState.highlightedLine, isPlayMode, setCurrentMap, setHighlightedLine, setHighlightedLines, setHighlightedLineSecondary, setHasWon, setCurrentPlayWon])
 
   // Listen for play completion
   useEffect(() => {
@@ -799,6 +812,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
         setIsPlayMode(false)
         setIsCodeDisabled(false)
         setHighlightedLine(undefined)
+        setHighlightedLines(undefined)
         setHighlightedLineSecondary(undefined)
         setPlayStatus(undefined) // Always reset play status
         // Keep Pacman at final position regardless of win/loss
@@ -807,7 +821,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
         // It will be reset when starting a new game
       }, 300) // Small delay to show final state briefly
     }
-  }, [playState.isPlaying, isPlayMode, setIsPlayMode, setIsCodeDisabled, setHighlightedLine, setHighlightedLineSecondary, setPlayStatus, setShouldShakePlayer, gameState.currentPlayWon, errors.length])
+  }, [playState.isPlaying, isPlayMode, setIsPlayMode, setIsCodeDisabled, setHighlightedLine, setHighlightedLines, setHighlightedLineSecondary, setPlayStatus, setShouldShakePlayer, gameState.currentPlayWon, errors.length])
 
   // Auto-stop debug mode when error occurs
   useEffect(() => {

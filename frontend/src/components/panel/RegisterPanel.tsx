@@ -88,7 +88,7 @@ export default function RegisterPanel({ registers: registerData, previousRegiste
         <TableBody>
           {registers.map((register, index) => {
             const value = getRegisterValue(register)
-            const hexValue = value.toString(16).toUpperCase().padStart(8, '0')
+            const hexValue = (value >>> 0).toString(16).toUpperCase().padStart(8, '0')
             const hasChanged = isRegisterChanged(register)
             
             return (

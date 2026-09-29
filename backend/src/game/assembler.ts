@@ -16,6 +16,8 @@ const SHT_RELA = 4;
 const SHT_REL = 9;
 const SHN_UNDEF = 0;
 const SHN_ABS = 0xfff1;
+const R_MIPS_NONE = 0;
+const R_MIPS_32 = 2;
 const R_MIPS_26 = 4;
 const R_MIPS_HI16 = 5;
 const R_MIPS_LO16 = 6;
@@ -320,6 +322,7 @@ function applyMipsRelocations(
       const rInfo = elfView.getUint32(entryOffset + 4, isLittleEndian) >>> 0;
       const rType = rInfo & 0xff;
       const symIndex = rInfo >>> 8;
+      if (rType === R_MIPS_NONE) continue;
 
       let addend = 0;
       if (relSection.type === SHT_RELA) {
@@ -334,6 +337,16 @@ function applyMipsRelocations(
       const symbolAddress = computeSymbolAddress(symbol);
 
       switch (rType) {
+        case R_MIPS_32: {
+          if (rOffset + 4 > machineCode.length) {
+            throw new Error('R_MIPS_32 relocation lies outside .text');
+          }
+          // REL carries the addend in the word; RELA carries it in the record.
+          const wordAddend = relSection.type === SHT_RELA
+            ? addend : textView.getUint32(rOffset, isLittleEndian);
+          ensurePatchedView().setUint32(rOffset, (symbolAddress + wordAddend) >>> 0, isLittleEndian);
+          break;
+        }
         case R_MIPS_26: {
           if (rOffset + 4 > machineCode.length) {
             continue;
@@ -409,11 +422,13 @@ function applyMipsRelocations(
           const view = ensurePatchedView();
           const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
           const mask = 0xffff;
-          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+          // The signed REL field already includes GAS's PC+4 bias.
+          // ELF relocation is S + A - P; subtracting P+4 again loses offsets.
+          const relocationAddend = relSection.type === SHT_RELA ? addend : signExtend16(currentInstr & mask) * 4;
 
-          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const relocationPlace = (baseAddress + rOffset) >>> 0;
           const targetAddress = (symbolAddress + relocationAddend) >>> 0;
-          const delta = (targetAddress - branchBase) | 0;
+          const delta = (targetAddress - relocationPlace) | 0;
           if ((delta & 0x3) !== 0) {
             throw new Error(`PC16 relocation misaligned for symbol '${symbol.name}'`);
           }
@@ -435,11 +450,13 @@ function applyMipsRelocations(
           const view = ensurePatchedView();
           const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
           const mask = 0x001fffff;
-          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+          // The signed REL field already includes GAS's PC+4 bias.
+          // ELF relocation is S + A - P; subtracting P+4 again loses offsets.
+          const relocationAddend = relSection.type === SHT_RELA ? addend : ((currentInstr << 11) >> 11) * 4;
 
-          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const relocationPlace = (baseAddress + rOffset) >>> 0;
           const targetAddress = (symbolAddress + relocationAddend) >>> 0;
-          const delta = (targetAddress - branchBase) | 0;
+          const delta = (targetAddress - relocationPlace) | 0;
           if ((delta & 0x3) !== 0) {
             throw new Error(`PC21_S2 relocation misaligned for symbol '${symbol.name}'`);
           }
@@ -463,11 +480,13 @@ function applyMipsRelocations(
           const view = ensurePatchedView();
           const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
           const mask = 0x03ffffff;
-          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+          // The signed REL field already includes GAS's PC+4 bias.
+          // ELF relocation is S + A - P; subtracting P+4 again loses offsets.
+          const relocationAddend = relSection.type === SHT_RELA ? addend : ((currentInstr << 6) >> 6) * 4;
 
-          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const relocationPlace = (baseAddress + rOffset) >>> 0;
           const targetAddress = (symbolAddress + relocationAddend) >>> 0;
-          const delta = (targetAddress - branchBase) | 0;
+          const delta = (targetAddress - relocationPlace) | 0;
           if ((delta & 0x3) !== 0) {
             throw new Error(`PC26_S2 relocation misaligned for symbol '${symbol.name}'`);
           }
@@ -484,7 +503,7 @@ function applyMipsRelocations(
           break;
         }
         default:
-          break;
+          throw new Error(`Unsupported relocation type ${rType} for symbol '${symbol.name}'`);
       }
     }
   }
@@ -569,6 +588,7 @@ export class GASAssembler {
     try {
       let objectFile: Uint8Array | null = null;
       let errorOutput = '';
+      this.lastObjectFile = null;
       const processed = ensureTrailingBlankLine(assembly);
       this.preprocessedLineOffset = 0;
 
@@ -616,17 +636,20 @@ export class GASAssembler {
 
       await validateObjectFileHasNoUndefinedSymbols(objectFile);
 
-      // Extract machine code from ELF .text section
-      let machineCode: Uint8Array;
+      // Empty source may have no .text, but a link failure is never empty code.
+      let elfResult: ELFParseResult | undefined;
       try {
-        const elfResult = extractMachineCode(objectFile);
-        machineCode = elfResult.machineCode;
-        if (this.target === 'mips-linux-gnu' && machineCode.length > 0) {
+        elfResult = extractMachineCode(objectFile);
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== '.text section not found in ELF') throw error;
+      }
+      let machineCode = elfResult?.machineCode ?? new Uint8Array(0);
+      if (this.target === 'mips-linux-gnu' && elfResult && machineCode.length > 0) {
+        try {
           machineCode = applyMipsRelocations(objectFile, elfResult.textSectionOffset, machineCode, this.baseAddress);
+        } catch (error) {
+          throw new Error(`LINK_ERROR: ${error instanceof Error ? error.message : String(error)}`);
         }
-      } catch {
-        // If .text section is not found (e.g., empty input), return empty machine code
-        machineCode = new Uint8Array(0);
       }
 
       // Store object file for DWARF parsing

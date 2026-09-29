@@ -13,6 +13,7 @@ interface CodeEditorProps {
   disabled?: boolean
   className?: string
   highlightedLine?: number
+  highlightedLines?: number[]
   highlightedLineSecondary?: number
   breakpoints?: number[]
   onBreakpointsChange?: (updater: number[] | ((prev: number[]) => number[])) => void
@@ -189,6 +190,7 @@ export default function CodeEditor({
   className = '',
   highlightedLine,
   highlightedLineSecondary,
+  highlightedLines,
   breakpoints = [],
   onBreakpointsChange
 }: CodeEditorProps) {
@@ -748,61 +750,28 @@ export default function CodeEditor({
     monaco.languages.setMonarchTokensProvider('assembly', provider as import('monaco-editor').languages.IMonarchLanguage)
   }, [isMipsLike, settings.architecture, mounted])
 
-  // Effect to handle line highlighting
+  // One decoration per executed source row. A range between two rows would
+  // incorrectly highlight intervening comments or unexecuted instructions.
   useEffect(() => {
-    if (!editorRef.current) {
-      return
-    }
-
-    if (highlightedLine === undefined && highlightedLineSecondary === undefined) {
-      return
-    }
-
     const editor = editorRef.current
-
-    const startLine = highlightedLine !== undefined
-      ? highlightedLine
-      : (highlightedLineSecondary ?? highlightedLine) ?? 1
-    const endLine = highlightedLineSecondary !== undefined
-      ? highlightedLineSecondary
-      : highlightedLine ?? highlightedLineSecondary ?? startLine
-    const [minLine, maxLine] = startLine <= endLine ? [startLine, endLine] : [endLine, startLine]
-
-    // Add new decoration for highlighted line
-    // Import monaco dynamically to avoid SSR issues
-    import('monaco-editor').then((monaco) => {
-      // Clear previous decorations and add new one
-      decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [
-        {
-          range: new monaco.Range(minLine, 1, maxLine, Number.MAX_SAFE_INTEGER),
-          options: {
-            isWholeLine: true,
-            className: 'highlighted-line-full',
-            marginClassName: 'highlighted-line-margin',
-            linesDecorationsClassName: 'highlighted-line-glyph'
-          }
-        }
-      ])
-    })
-
-    // Scroll to highlighted line
-    editor.revealLineInCenter(minLine)
-  }, [highlightedLine, highlightedLineSecondary])
-
-  // Effect to clear decorations when highlightedLine becomes undefined
-  useEffect(() => {
-    if (!editorRef.current) {
-      return
-    }
-
-    if (highlightedLine !== undefined || highlightedLineSecondary !== undefined) {
-      return
-    }
-
-    const editor = editorRef.current
-    // Clear all decorations
-    decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [])
-  }, [highlightedLine, highlightedLineSecondary])
+    const monaco = monacoRef.current
+    if (!editor || !monaco) return
+    const lineCount = editor.getModel()?.getLineCount() ?? 0
+    const lines = Array.from(new Set(
+      (highlightedLines ?? [highlightedLine, highlightedLineSecondary])
+        .filter((line): line is number => typeof line === 'number' && Number.isInteger(line) && line > 0 && line <= lineCount)
+    ))
+    decorationsRef.current = editor.deltaDecorations(decorationsRef.current, lines.map(line => ({
+      range: new monaco.Range(line, 1, line, Number.MAX_SAFE_INTEGER),
+      options: {
+        isWholeLine: true,
+        className: 'highlighted-line-full',
+        marginClassName: 'highlighted-line-margin',
+        linesDecorationsClassName: 'highlighted-line-glyph'
+      }
+    })))
+    if (lines.length) editor.revealLineInCenter(Math.min(...lines))
+  }, [highlightedLine, highlightedLineSecondary, highlightedLines, editorReady])
 
   // Effect to handle breakpoint decorations
   useEffect(() => {

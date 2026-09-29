@@ -21,6 +21,7 @@ export interface GameState {
   codeOverride: string | null
   currentMap: GameMap
   highlightedLine: number | undefined
+  highlightedLines: number[] | undefined
   highlightedLineSecondary: number | undefined
   breakpoints: number[]
   
@@ -51,6 +52,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
   const [codeOverride, setCodeOverride] = useState<string | null>(null)
   const [currentMap, setCurrentMap] = useState(initialMap)
   const [highlightedLine, setHighlightedLine] = useState<number | undefined>(undefined)
+  const [highlightedLines, setHighlightedLines] = useState<number[] | undefined>(undefined)
   const [highlightedLineSecondary, setHighlightedLineSecondary] = useState<number | undefined>(undefined)
   const [breakpoints, setBreakpoints] = useState<number[]>([])
   
@@ -193,6 +195,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setCurrentPlayWon(false)
     setCurrentPlayObjectiveNotMet(false)
     setHighlightedLine(undefined)
+    setHighlightedLines(undefined)
     setHighlightedLineSecondary(undefined)
     
     const currentPlayerPos = getPlayerPosition(currentMap)
@@ -214,6 +217,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     codeOverride,
     currentMap,
     highlightedLine,
+    highlightedLines,
     highlightedLineSecondary,
     breakpoints,
     leftPanelTab,
@@ -236,6 +240,7 @@ export const useGameState = (initialMap: GameMap, initialCode: string = '') => {
     setCodeOverride,
     setCurrentMap,
     setHighlightedLine,
+    setHighlightedLines,
     setHighlightedLineSecondary,
     setBreakpoints,
     setLeftPanelTab,

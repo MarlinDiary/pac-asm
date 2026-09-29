@@ -1,0 +1,100 @@
+{
+  "format": 1,
+  "description": "MIPS32 R6: restore pre-hook branch bookkeeping after successful, non-stopped memory helpers. No TCG operations added.",
+  "functionImports": 25,
+  "beforeSHA256": "06a848ef41f87e05b1c1fd15f9a9f989ac7c665f909774ad83bf4deadd38e2e8",
+  "afterSHA256": "5a06f3c29d11f308e84ca7aeaa0d2c221c9b574ea9e767c13cd9149ce42d45b9",
+  "beforeLength": 796844,
+  "afterLength": 797096,
+  "functions": [
+    {
+      "functionIndex": 82,
+      "beforeSHA256": "cfd6251acda522cefac3e189c2243909a6f7db946b27b4fb7ed71a3b9bef9dbe",
+      "afterSHA256": "43d7ac43b81167ace403db987d6efb9c3fd94a203110a9c71dc809e0ce0e7d00",
+      "edits": [
+        {
+          "offset": 0,
+          "before": "02",
+          "after": "03"
+        },
+        {
+          "offset": 5,
+          "before": "",
+          "after": "047f20002220280294574180f09f04712121"
+        },
+        {
+          "offset": 908,
+          "before": "",
+          "after": "410121222020280280012123"
+        },
+        {
+          "offset": 1067,
+          "before": "",
+          "after": "410121222020280280012123"
+        },
+        {
+          "offset": 1852,
+          "before": "",
+          "after": "410121222020280280012123"
+        },
+        {
+          "offset": 2126,
+          "before": "",
+          "after": "410121222020280280012123"
+        },
+        {
+          "offset": 2434,
+          "before": "",
+          "after": "410121222020280280012123"
+        },
+        {
+          "offset": 3356,
+          "before": "",
+          "after": "410121222020280280012123"
+        },
+        {
+          "offset": 3463,
+          "before": "",
+          "after": "22044020092802b0064520092d0091064571202028028001202346710440202020202802945741ff8fe07b71202172360294570b0b20"
+        }
+      ]
+    },
+    {
+      "functionIndex": 118,
+      "beforeSHA256": "e1f4d0aa6813b18ed40df5f7a790ca9ee5bc5c493924056366f7a521d334d156",
+      "afterSHA256": "11e4cde195acd6167cd7c45f83020904b8a7933fc3cb973af6d6c0ea0517eeb0",
+      "edits": [
+        {
+          "offset": 0,
+          "before": "02",
+          "after": "03"
+        },
+        {
+          "offset": 5,
+          "before": "",
+          "after": "047f2000221b280294574180f09f0471211c"
+        },
+        {
+          "offset": 866,
+          "before": "",
+          "after": "4101211d201b28028001211e"
+        },
+        {
+          "offset": 1035,
+          "before": "",
+          "after": "4101211d201b28028001211e"
+        },
+        {
+          "offset": 1875,
+          "before": "",
+          "after": "4101211d201b28028001211e"
+        },
+        {
+          "offset": 3200,
+          "before": "",
+          "after": "1d044020082802b0064520082d0091064571201b28028001201e46710440201b201b2802945741ff8fe07b71201c72360294570b0b20"
+        }
+      ]
+    }
+  ]
+}

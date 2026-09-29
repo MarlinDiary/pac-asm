@@ -379,7 +379,8 @@ export const useEmulator = () => {
           isRunning: false,
           error: formatRuntimeError('runUntilMemWrite failed', normalizedDetail)
         }));
-        return null;
+        // Let callers report the CPU fault itself rather than a missing result.
+        throw error;
       }
     },
     [sendMessage]

@@ -1,3 +1,5 @@
+import { collectMipsMacroSlotCandidates, needsMipsSchedulingListing, type MipsMacroSlotCandidate } from './mips-macro-listing';
+
 // ARM Assembly wrapper using GNU Assembler (GAS) via binutils-wasm
 // Combines ELF parsing, GAS assembler, and high-level interface in one file
 
@@ -16,6 +18,8 @@ const SHT_RELA = 4;
 const SHT_REL = 9;
 const SHN_UNDEF = 0;
 const SHN_ABS = 0xfff1;
+const R_MIPS_NONE = 0;
+const R_MIPS_32 = 2;
 const R_MIPS_26 = 4;
 const R_MIPS_HI16 = 5;
 const R_MIPS_LO16 = 6;
@@ -320,6 +324,7 @@ function applyMipsRelocations(
       const rInfo = elfView.getUint32(entryOffset + 4, isLittleEndian) >>> 0;
       const rType = rInfo & 0xff;
       const symIndex = rInfo >>> 8;
+      if (rType === R_MIPS_NONE) continue;
 
       let addend = 0;
       if (relSection.type === SHT_RELA) {
@@ -334,6 +339,16 @@ function applyMipsRelocations(
       const symbolAddress = computeSymbolAddress(symbol);
 
       switch (rType) {
+        case R_MIPS_32: {
+          if (rOffset + 4 > machineCode.length) {
+            throw new Error('R_MIPS_32 relocation lies outside .text');
+          }
+          // REL carries the addend in the word; RELA carries it in the record.
+          const wordAddend = relSection.type === SHT_RELA
+            ? addend : textView.getUint32(rOffset, isLittleEndian);
+          ensurePatchedView().setUint32(rOffset, (symbolAddress + wordAddend) >>> 0, isLittleEndian);
+          break;
+        }
         case R_MIPS_26: {
           if (rOffset + 4 > machineCode.length) {
             continue;
@@ -409,11 +424,13 @@ function applyMipsRelocations(
           const view = ensurePatchedView();
           const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
           const mask = 0xffff;
-          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+          // The signed REL field already includes GAS's PC+4 bias.
+          // ELF relocation is S + A - P; subtracting P+4 again loses offsets.
+          const relocationAddend = relSection.type === SHT_RELA ? addend : signExtend16(currentInstr & mask) * 4;
 
-          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const relocationPlace = (baseAddress + rOffset) >>> 0;
           const targetAddress = (symbolAddress + relocationAddend) >>> 0;
-          const delta = (targetAddress - branchBase) | 0;
+          const delta = (targetAddress - relocationPlace) | 0;
           if ((delta & 0x3) !== 0) {
             throw new Error(`PC16 relocation misaligned for symbol '${symbol.name}'`);
           }
@@ -435,11 +452,13 @@ function applyMipsRelocations(
           const view = ensurePatchedView();
           const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
           const mask = 0x001fffff;
-          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+          // The signed REL field already includes GAS's PC+4 bias.
+          // ELF relocation is S + A - P; subtracting P+4 again loses offsets.
+          const relocationAddend = relSection.type === SHT_RELA ? addend : ((currentInstr << 11) >> 11) * 4;
 
-          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const relocationPlace = (baseAddress + rOffset) >>> 0;
           const targetAddress = (symbolAddress + relocationAddend) >>> 0;
-          const delta = (targetAddress - branchBase) | 0;
+          const delta = (targetAddress - relocationPlace) | 0;
           if ((delta & 0x3) !== 0) {
             throw new Error(`PC21_S2 relocation misaligned for symbol '${symbol.name}'`);
           }
@@ -463,11 +482,13 @@ function applyMipsRelocations(
           const view = ensurePatchedView();
           const currentInstr = view.getUint32(rOffset, isLittleEndian) >>> 0;
           const mask = 0x03ffffff;
-          const relocationAddend = relSection.type === SHT_RELA ? addend : 0;
+          // The signed REL field already includes GAS's PC+4 bias.
+          // ELF relocation is S + A - P; subtracting P+4 again loses offsets.
+          const relocationAddend = relSection.type === SHT_RELA ? addend : ((currentInstr << 6) >> 6) * 4;
 
-          const branchBase = (baseAddress + rOffset + 4) >>> 0;
+          const relocationPlace = (baseAddress + rOffset) >>> 0;
           const targetAddress = (symbolAddress + relocationAddend) >>> 0;
-          const delta = (targetAddress - branchBase) | 0;
+          const delta = (targetAddress - relocationPlace) | 0;
           if ((delta & 0x3) !== 0) {
             throw new Error(`PC26_S2 relocation misaligned for symbol '${symbol.name}'`);
           }
@@ -484,7 +505,7 @@ function applyMipsRelocations(
           break;
         }
         default:
-          break;
+          throw new Error(`Unsupported relocation type ${rType} for symbol '${symbol.name}'`);
       }
     }
   }
@@ -526,6 +547,7 @@ export interface GASAssemblyResult {
 }
 
 export interface DebugLineInfo {
+  endAddress?: number;
   address: number;
   lineNumber: number;
   fileName: string;
@@ -540,6 +562,8 @@ export class GASAssembler {
   private isInitialized = false;
   private gasInstance: unknown = null;
   private lastObjectFile: Uint8Array | null = null;
+  private macroListingInput: { source: string; args: string[]; text: Uint8Array; code: Uint8Array } | null = null;
+  private macroSlotPromise: Promise<MipsMacroSlotCandidate[]> | null = null;
   // If we preprocess input for target-specific adjustments, record line offset
   private preprocessedLineOffset: number = 0;
 
@@ -569,6 +593,11 @@ export class GASAssembler {
     try {
       let objectFile: Uint8Array | null = null;
       let errorOutput = '';
+      this.lastObjectFile = null;
+      this.macroListingInput = null;
+      this.macroSlotPromise = null;
+      const needsMacroListing = this.target === 'mips-linux-gnu' && this.variant === 'mips-r6' &&
+        needsMipsSchedulingListing(assembly);
       const processed = ensureTrailingBlankLine(assembly);
       this.preprocessedLineOffset = 0;
 
@@ -590,7 +619,7 @@ export class GASAssembler {
       }
 
       await (this.gasInstance as CallableFunction)({
-        arguments: args,
+        arguments: [...args],
         preRun: [(module: unknown) => {
           (module as { FS: { writeFile: (name: string, content: string) => void } }).FS.writeFile('in.s', processed);
         }],
@@ -616,21 +645,27 @@ export class GASAssembler {
 
       await validateObjectFileHasNoUndefinedSymbols(objectFile);
 
-      // Extract machine code from ELF .text section
-      let machineCode: Uint8Array;
+      // Empty source may have no .text, but a link failure is never empty code.
+      let elfResult: ELFParseResult | undefined;
       try {
-        const elfResult = extractMachineCode(objectFile);
-        machineCode = elfResult.machineCode;
-        if (this.target === 'mips-linux-gnu' && machineCode.length > 0) {
+        elfResult = extractMachineCode(objectFile);
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== '.text section not found in ELF') throw error;
+      }
+      let machineCode = elfResult?.machineCode ?? new Uint8Array(0);
+      if (this.target === 'mips-linux-gnu' && elfResult && machineCode.length > 0) {
+        try {
           machineCode = applyMipsRelocations(objectFile, elfResult.textSectionOffset, machineCode, this.baseAddress);
+        } catch (error) {
+          throw new Error(`LINK_ERROR: ${error instanceof Error ? error.message : String(error)}`);
         }
-      } catch {
-        // If .text section is not found (e.g., empty input), return empty machine code
-        machineCode = new Uint8Array(0);
       }
 
       // Store object file for DWARF parsing
       this.lastObjectFile = objectFile;
+      if (needsMacroListing) {
+        this.macroListingInput = { source: processed, args: [...args], text: extractMachineCode(objectFile).machineCode, code: machineCode };
+      }
 
       return {
         objectFile,
@@ -677,12 +712,14 @@ export class GASAssembler {
       };
       
       const rows: LineRow[] = [];
+      const sequenceEnds: number[] = [];
       for (const line of decoded.split('\n')) {
         // Parse objdump table format: "in.s                                       1                   0               x"
-        const m = line.match(/^([^\s]+)\s+(\d+)\s+(\d+|0x[0-9a-f]+)\s+(.*)$/i);
+        const m = line.match(/^([^\s]+)\s+(\d+|-)\s+(\d+|0x[0-9a-f]+)(?:\s+(.*))?$/i);
         
         if (m) {
           const [, file, ln, hex, tail] = m;
+          if (ln === '-') { sequenceEnds.push(this.baseAddress + Number(hex)); continue; }
           rows.push({
             off: hex.startsWith('0x') ? parseInt(hex, 16) : parseInt(hex, 10),
             file: file.trim(),
@@ -695,7 +732,7 @@ export class GASAssembler {
 
       // Map to actual addresses with base address
       const sourceLineCount = assembly.split('\n').length;
-      let lineTable = rows.map(r => ({
+      let lineTable: DebugLineInfo[] = rows.map(r => ({
         address: this.baseAddress + r.off,
         lineNumber: r.line,
         fileName: r.file,
@@ -717,6 +754,15 @@ export class GASAssembler {
       }
 
       lineTable.sort((a, b) => a.address - b.address);
+      if (this.target === 'mips-linux-gnu' && this.variant === 'mips-r6') {
+        // Other files' .loc rows do not identify lines in this editor buffer.
+        lineTable = lineTable.filter(row => row.fileName === 'in.s');
+        if (!/(?:^|;)\s*(?:[\w.$]+:\s*)*\.loc\b/m.test(assembly)) {
+          const boundaries = [...new Set([...lineTable.map(row => row.address), ...sequenceEnds])].sort((a, b) => a - b);
+          const next = new Map(boundaries.slice(0, -1).map((address, i) => [address, boundaries[i + 1]]));
+          lineTable = lineTable.map(row => ({ ...row, endAddress: next.get(row.address) }));
+        }
+      }
 
       return lineTable;
 
@@ -726,7 +772,43 @@ export class GASAssembler {
     }
   }
 
+  async getMacroSlotCandidates(): Promise<MipsMacroSlotCandidate[]> {
+    const input = this.macroListingInput;
+    if (!input) return [];
+    if (!this.macroSlotPromise) {
+      // This GAS build changes its DWARF rows when macro listings are enabled.
+      // Never use that diagnostic object for execution or normal line tables.
+      this.macroSlotPromise = (async () => {
+        let listing = '';
+        let diagnosticObject: Uint8Array | null = null;
+        try {
+          await (this.gasInstance as CallableFunction)({
+            arguments: [...input.args, '-almcn'],
+            preRun: [(module: { FS: { writeFile: (name: string, data: string) => void } }) => {
+              module.FS.writeFile('in.s', input.source);
+            }],
+            postRun: [(module: { FS: { readFile: (name: string) => Uint8Array } }) => {
+              diagnosticObject = new Uint8Array(module.FS.readFile('out.o'));
+            }],
+            print: (text: string) => { listing += text + '\n'; },
+            printErr: () => {},
+          });
+          if (!diagnosticObject) return [];
+          const elf = extractMachineCode(diagnosticObject);
+          const text = elf.machineCode;
+          if (text.length !== input.text.length || text.some((byte, i) => byte !== input.text[i])) return [];
+          const code = applyMipsRelocations(diagnosticObject, elf.textSectionOffset, text, this.baseAddress);
+          if (code.length !== input.code.length || code.some((byte, i) => byte !== input.code[i])) return [];
+          return collectMipsMacroSlotCandidates(listing, this.baseAddress);
+        } catch { return []; }
+      })();
+    }
+    return (await this.macroSlotPromise).map(candidate => ({ ...candidate }));
+  }
+
   destroy(): void {
+    this.macroListingInput = null;
+    this.macroSlotPromise = null;
     this.isInitialized = false;
     this.lastObjectFile = null;
   }
@@ -830,6 +912,10 @@ export class ARMAssembler {
     } catch (error) {
       throw error;
     }
+  }
+
+  getMacroSlotCandidates(): Promise<MipsMacroSlotCandidate[]> {
+    return this.gasAssembler.getMacroSlotCandidates();
   }
 
   destroy(): void {

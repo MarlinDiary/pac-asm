@@ -1,0 +1,1401 @@
+{
+  "MIPS_R6": [
+    {
+      "name": "beq-taken-nop",
+      "words": [
+        "0x11920004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 66561,
+        "s2": 66561,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "beq-taken-increment",
+      "words": [
+        "0x11920004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 66561,
+        "s2": 66561,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "beq-not-taken-nop",
+      "words": [
+        "0x11920004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 66561,
+        "s2": 66562,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "beq-not-taken-increment",
+      "words": [
+        "0x11920004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 66561,
+        "s2": 66562,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bne-taken-nop",
+      "words": [
+        "0x15920004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 2,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bne-taken-increment",
+      "words": [
+        "0x15920004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 2,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bne-not-taken-nop",
+      "words": [
+        "0x15920004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 2,
+        "s2": 2,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bne-not-taken-increment",
+      "words": [
+        "0x15920004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 2,
+        "s2": 2,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "blez-taken-nop",
+      "words": [
+        "0x19800004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "blez-taken-increment",
+      "words": [
+        "0x19800004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "blez-not-taken-nop",
+      "words": [
+        "0x19800004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "blez-not-taken-increment",
+      "words": [
+        "0x19800004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgtz-taken-nop",
+      "words": [
+        "0x1d800004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgtz-taken-increment",
+      "words": [
+        "0x1d800004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgtz-not-taken-nop",
+      "words": [
+        "0x1d800004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgtz-not-taken-increment",
+      "words": [
+        "0x1d800004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bltz-taken-nop",
+      "words": [
+        "0x05800004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 4294967295,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bltz-taken-increment",
+      "words": [
+        "0x05800004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 4294967295,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bltz-not-taken-nop",
+      "words": [
+        "0x05800004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bltz-not-taken-increment",
+      "words": [
+        "0x05800004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgez-taken-nop",
+      "words": [
+        "0x05810004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgez-taken-increment",
+      "words": [
+        "0x05810004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgez-not-taken-nop",
+      "words": [
+        "0x05810004",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 4294967295,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "bgez-not-taken-increment",
+      "words": [
+        "0x05810004",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 4294967295,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "j-nop",
+      "words": [
+        "0x08004005",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "j-increment",
+      "words": [
+        "0x08004005",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "jal-nop",
+      "words": [
+        "0x0c004005",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 65544,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "jal-increment",
+      "words": [
+        "0x0c004005",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 65544,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "jr-r6-alias-nop",
+      "words": [
+        "0x01000009",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "jr-r6-alias-increment",
+      "words": [
+        "0x01000009",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "jalr-nop",
+      "words": [
+        "0x0100f809",
+        "0x00000000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 65544,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "jalr-increment",
+      "words": [
+        "0x0100f809",
+        "0x25ad0001",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 0,
+        "s2": 0,
+        "t0": 65556,
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 65544,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "command-in-branch-delay-slot-taken",
+      "words": [
+        "0x11920004",
+        "0xad2e0000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 1,
+        "t0": 65556,
+        "t1": 196608,
+        "t6": 3
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          3,
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "command-in-branch-delay-slot-not-taken",
+      "words": [
+        "0x11920004",
+        "0xad2e0000",
+        "0x34130001",
+        "0x08004006",
+        "0x00000000",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t4": 1,
+        "s2": 2,
+        "t0": 65556,
+        "t1": 196608,
+        "t6": 3
+      },
+      "expected": {
+        "s3": 1,
+        "t5": 0,
+        "ra": 0,
+        "commands": [
+          3,
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 20
+      },
+      "single": true
+    },
+    {
+      "name": "ordinary-increment",
+      "words": [
+        "0x25ad0001",
+        "0x25ad0001",
+        "0x34130002",
+        "0xad330000",
+        "0x00000000"
+      ],
+      "registers": {
+        "t1": 196608
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 2,
+        "ra": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 8
+      },
+      "single": true
+    },
+    {
+      "name": "adjacent-command-stores",
+      "words": [
+        "0x34130002",
+        "0xad330000",
+        "0xad2e0000",
+        "0x25ad0001",
+        "0x00000000"
+      ],
+      "registers": {
+        "t1": 196608,
+        "t6": 3
+      },
+      "expected": {
+        "s3": 2,
+        "t5": 1,
+        "ra": 0,
+        "commands": [
+          2,
+          3
+        ]
+      },
+      "breaks": {
+        "control": 4,
+        "slot": 8,
+        "target": 12
+      },
+      "single": true
+    }
+  ],
+  "ARM": [
+    {
+      "name": "b",
+      "words": [
+        "0xea000002",
+        "0xe3a03001",
+        "0xea000001",
+        "0xe1a00000",
+        "0xe3a03002",
+        "0xe5813000",
+        "0xe1a00000"
+      ],
+      "registers": {
+        "r0": 65552,
+        "r1": 196608,
+        "cpsr": 16
+      },
+      "expected": {
+        "r3": 2,
+        "r5": 0,
+        "lr": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 16
+      },
+      "single": true
+    },
+    {
+      "name": "beq-taken",
+      "words": [
+        "0x0a000002",
+        "0xe3a03001",
+        "0xea000001",
+        "0xe1a00000",
+        "0xe3a03002",
+        "0xe5813000",
+        "0xe1a00000"
+      ],
+      "registers": {
+        "r0": 65552,
+        "r1": 196608,
+        "cpsr": 1073741840
+      },
+      "expected": {
+        "r3": 2,
+        "r5": 0,
+        "lr": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 16
+      },
+      "single": true
+    },
+    {
+      "name": "beq-not-taken",
+      "words": [
+        "0x0a000002",
+        "0xe3a03001",
+        "0xea000001",
+        "0xe1a00000",
+        "0xe3a03002",
+        "0xe5813000",
+        "0xe1a00000"
+      ],
+      "registers": {
+        "r0": 65552,
+        "r1": 196608,
+        "cpsr": 16
+      },
+      "expected": {
+        "r3": 1,
+        "r5": 0,
+        "lr": 0,
+        "commands": [
+          1
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 16
+      },
+      "single": true
+    },
+    {
+      "name": "bl",
+      "words": [
+        "0xeb000002",
+        "0xe3a03001",
+        "0xea000001",
+        "0xe1a00000",
+        "0xe3a03002",
+        "0xe5813000",
+        "0xe1a00000"
+      ],
+      "registers": {
+        "r0": 65552,
+        "r1": 196608,
+        "cpsr": 16
+      },
+      "expected": {
+        "r3": 2,
+        "r5": 0,
+        "lr": 65540,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 16
+      },
+      "single": true
+    },
+    {
+      "name": "bx",
+      "words": [
+        "0xe12fff10",
+        "0xe3a03001",
+        "0xea000001",
+        "0xe1a00000",
+        "0xe3a03002",
+        "0xe5813000",
+        "0xe1a00000"
+      ],
+      "registers": {
+        "r0": 65552,
+        "r1": 196608,
+        "cpsr": 16
+      },
+      "expected": {
+        "r3": 2,
+        "r5": 0,
+        "lr": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 16
+      },
+      "single": true
+    },
+    {
+      "name": "ordinary-increment",
+      "words": [
+        "0xe2855001",
+        "0xe2855001",
+        "0xe3a03002",
+        "0xe5813000",
+        "0xe1a00000"
+      ],
+      "registers": {
+        "r1": 196608,
+        "cpsr": 16
+      },
+      "expected": {
+        "r3": 2,
+        "r5": 2,
+        "lr": 0,
+        "commands": [
+          2
+        ]
+      },
+      "breaks": {
+        "control": 0,
+        "slot": 4,
+        "target": 8
+      },
+      "single": true
+    },
+    {
+      "name": "adjacent-command-stores",
+      "words": [
+        "0xe3a03002",
+        "0xe5813000",
+        "0xe5816000",
+        "0xe2855001",
+        "0xe1a00000"
+      ],
+      "registers": {
+        "r1": 196608,
+        "r6": 3,
+        "cpsr": 16
+      },
+      "expected": {
+        "r3": 2,
+        "r5": 1,
+        "lr": 0,
+        "commands": [
+          2,
+          3
+        ]
+      },
+      "breaks": {
+        "control": 4,
+        "slot": 8,
+        "target": 12
+      },
+      "single": true
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 // Execution engine for ARM and MIPS R6 instructions
 
-import { EMULATOR_RUN_TIMEOUT_US } from '@/lib/emulator-errors';
+import { EMULATOR_RUN_TIMEOUT_US, formatRuntimeError } from '@/lib/emulator-errors';
 import { UnicornInstance, UnicornGlobal, StepResult, EmulatorConfig, Architecture } from './types';
 import { LiteralPoolDetector } from './literal-pool';
 import { MemoryManager } from './memory-manager';
@@ -12,6 +12,8 @@ export class ExecutionEngine {
   private literalPoolDetector: LiteralPoolDetector;
   private memoryManager: MemoryManager;
   private arch: Architecture;
+  private analyzedCode?: readonly number[];
+  private needsMipsBoundaryHook = false;
 
   constructor(
     unicorn: UnicornInstance,
@@ -40,36 +42,102 @@ export class ExecutionEngine {
   }
 
   private isMipsBranchOrJump(instruction: number): boolean {
-    const op = (instruction >>> 26) & 0x3f;
-    if (op === 0x02 || op === 0x03) {
-      // J, JAL
-      return true;
+    // R6 retains delayed branches alongside compact branches. Opcodes 6/7
+    // are delayed BLEZ/BGTZ only when rt is zero; other encodings are compact.
+    const op = instruction >>> 26;
+    const rt = (instruction >>> 16) & 0x1f;
+    if (op === 2 || op === 3 || op === 4 || op === 5) return true;
+    if (op === 6 || op === 7) return rt === 0;
+    if (op === 1) return rt === 0 || rt === 1 || rt === 0x11;
+    if (op === 0) return (instruction & 0x3f) === 9; // JALR (including JR alias)
+    if (op === 0x11 || op === 0x12) {
+      const rs = (instruction >>> 21) & 0x1f;
+      return rs === 9 || rs === 13; // BC1/2EQZ, BC1/2NEZ
     }
-
-    if (op === 0x01) {
-      // REGIMM encoding: BLTZ/BGEZ and their variants
-      const rt = (instruction >>> 16) & 0x1f;
-      // 0x00 BLTZ, 0x01 BGEZ, 0x10 BLTZAL, 0x11 BGEZAL, 0x12 BLTZALL, 0x13 BGEZALL
-      if (rt === 0x00 || rt === 0x01 || (rt >= 0x10 && rt <= 0x13)) {
-        return true;
-      }
-    }
-
-    if (op === 0x00) {
-      const funct = instruction & 0x3f;
-      // JR, JALR
-      if (funct === 0x08 || funct === 0x09) {
-        return true;
-      }
-    }
-
-    // BEQ, BNE, BLEZ, BGTZ and their likely variants
-    if (op === 0x04 || op === 0x05 || op === 0x06 || op === 0x07 ||
-        op === 0x14 || op === 0x15 || op === 0x16 || op === 0x17) {
-      return true;
-    }
-
     return false;
+  }
+
+  private hasMipsStoreInBranchSlot(): boolean {
+    // Most R6 programs can retain the fast memory-hook-only path. A store
+    // in a delayed/forbidden slot needs a code hook to stop at a completed
+    // instruction boundary, after Unicorn has resolved the branch state.
+    const code = this.memoryManager.getLoadedCode();
+    if (this.analyzedCode === code) return this.needsMipsBoundaryHook;
+    this.analyzedCode = code;
+    this.needsMipsBoundaryHook = false;
+    for (let i = 4; i + 3 < code.length; i += 4) {
+      const op = code[i] >>> 2;
+      // Include integer, FP and SPECIAL3 (R6 SC) stores conservatively.
+      if (op !== 0x1f && op !== 0x28 && op !== 0x29 && op !== 0x2a &&
+          op !== 0x2b && op !== 0x2e && op !== 0x38 && op !== 0x39 && op !== 0x3d) continue;
+      const previous = this.decodeInstr32(Array.from(code.slice(i - 4, i)));
+      const prevOp = previous >>> 26;
+      if (this.isMipsBranchOrJump(previous) || prevOp === 6 || prevOp === 7 ||
+          prevOp === 8 || prevOp === 0x18 || prevOp === 0x16 || prevOp === 0x17 ||
+          prevOp === 0x36 || prevOp === 0x3e) {
+        this.needsMipsBoundaryHook = true;
+        break;
+      }
+    }
+    return this.needsMipsBoundaryHook;
+  }
+
+  private isMipsCompactBranch(word: number): boolean {
+    const op = word >>> 26;
+    const rt = (word >>> 16) & 31;
+    return ((op === 6 || op === 7) && rt !== 0) ||
+      [8, 0x18, 0x16, 0x17, 0x32, 0x3a, 0x36, 0x3e].includes(op);
+  }
+
+  private mipsCompactFallsThrough(word: number): boolean {
+    // Latch the condition BEFORE executing a slot that may change its operands.
+    // This selects a completed pause boundary; Unicorn still executes the CPU.
+    const op = word >>> 26, rs = (word >>> 21) & 31, rt = (word >>> 16) & 31;
+    if (op === 0x32 || op === 0x3a || ((op === 0x36 || op === 0x3e) && rs === 0)) return false;
+    const names = 'zero at v0 v1 a0 a1 a2 a3 t0 t1 t2 t3 t4 t5 t6 t7 s0 s1 s2 s3 s4 s5 s6 s7 t8 t9 k0 k1 gp sp fp ra'.split(' ');
+    const a = this.memoryManager.getRegister(names[rs]).value >>> 0;
+    const b = this.memoryManager.getRegister(names[rt]).value >>> 0;
+    let taken: boolean;
+    if (op === 8 || op === 0x18) {
+      if (rs >= rt) {
+        const sum = (a | 0) + (b | 0);
+        const overflow = sum < -0x80000000 || sum > 0x7fffffff;
+        taken = op === 8 ? overflow : !overflow;
+      } else taken = op === 8 ? a === b : a !== b;
+    } else if (op === 6 || op === 0x16) {
+      taken = rs === 0 ? (b | 0) <= 0 : rs === rt ? (b | 0) >= 0 :
+        op === 6 ? a >= b : (a | 0) >= (b | 0);
+    } else if (op === 7 || op === 0x17) {
+      taken = rs === 0 ? (b | 0) > 0 : rs === rt ? (b | 0) < 0 :
+        op === 7 ? a < b : (a | 0) < (b | 0);
+    } else if (op === 0x36 || op === 0x3e) {
+      taken = op === 0x36 ? a === 0 : a !== 0;
+    } else return false;
+    return !taken;
+  }
+
+  private executeInstructionBoundary(pc: number, endAddress: number, word: number): void {
+    const delayed = this.arch === 'MIPS_R6' && this.isMipsBranchOrJump(word);
+    const compact = this.arch === 'MIPS_R6' && this.isMipsCompactBranch(word);
+    if (!delayed && !compact) {
+      this.unicorn.emu_start(pc, endAddress, 0, 1);
+      return;
+    }
+    // This WASM can complete a delay/forbidden slot even when emu_stop is
+    // requested by its code hook. Stopping there can skip later memory hooks.
+    // Latch the compact branch condition before its slot changes registers,
+    // and stop at the first boundary after the complete branch operation.
+    const hasSlot = delayed || (compact && this.mipsCompactFallsThrough(word));
+    const stopAt = hasSlot ? 3 : 2;
+    let visited = 0;
+    const hook = this.unicorn.hook_add(this.uc.HOOK_CODE, () => {
+      if (++visited === stopAt) this.unicorn.emu_stop();
+    }, undefined, 1, 0);
+    try {
+      this.unicorn.emu_start(pc, endAddress, 0, 0);
+    } finally {
+      this.unicorn.hook_del(hook);
+    }
   }
 
   private extractMemoryHookEvent(args: unknown[]): { type: number; addr: number; size: number; value: number } | null {
@@ -163,7 +231,8 @@ export class ExecutionEngine {
       : this.uc.ARM_REG_PC;
     const pc = this.unicorn.reg_read_i32(pcReg);
     const endAddress = this.config.codeAddress + this.config.codeSize;
-    this.unicorn.emu_start(pc, endAddress, 0, 1);
+    const word = this.arch === 'MIPS_R6' ? this.decodeInstr32(Array.from(this.unicorn.mem_read(pc, 4))) : 0;
+    this.executeInstructionBoundary(pc, endAddress, word);
   }
 
   stepDebugExecution(): StepResult {
@@ -230,7 +299,7 @@ export class ExecutionEngine {
             },
             registers: undefined,
             executedAddresses: [pcBefore >>> 0]
-          };
+          }
         }
 
         this.unicorn.reg_write_i32(pcReg, pcAfter);
@@ -276,67 +345,17 @@ export class ExecutionEngine {
       // Record the primary instruction address
       executedAddresses.push(pcBefore >>> 0);
 
-      // For ARM: Use simple single-instruction execution
-      const isMipsR6 = this.arch === 'MIPS_R6';
-
-      if (this.arch === 'ARM' || isMipsR6) {
-        try {
-          this.unicorn.emu_start(pcBefore, endAddress, 0, 1);
-        } catch {}
-        pcAfter = this.unicorn.reg_read_i32(pcReg);
-      } else {
-        // For MIPS: Use HOOK_CODE counting to handle delay slots correctly
-        let desiredCount = 1;
-        try {
-          const ins = this.decodeInstr32(instructionBytes);
-          if (this.isMipsBranchOrJump(ins)) {
-            desiredCount = 2; // include delay slot
-          }
-        } catch {}
-
-        let executed = 0;
-        const targetHookCount = (desiredCount >>> 0) + 1; // HOOK_CODE fires before exec; stop on (executed >= desired+1)
-        let codeHook: unknown | undefined;
-        try {
-          // Listen for all code addresses to avoid missing callbacks due to range mismatch
-          const begin = 1 >>> 0;
-          const end = 0 >>> 0; // special meaning in wrapper: full-range
-          codeHook = (this.unicorn as unknown as {
-            hook_add: (
-              type: number,
-              cb: (...args: unknown[]) => unknown,
-              user_data: unknown,
-              begin: number,
-              end: number
-            ) => unknown
-          }).hook_add(
-            this.uc.HOOK_CODE,
-            (() => {
-              executed++;
-              if (executed >= targetHookCount) {
-                try { this.unicorn.emu_stop(); } catch {}
-              }
-            }) as unknown as (...args: unknown[]) => unknown,
-            undefined,
-            begin,
-            end
-          );
-        } catch {}
-
-        try {
-          // Large budget; hook will stop us after desired instructions
-          const maxCount = 0x7fffffff;
-          this.unicorn.emu_start(pcBefore, endAddress, 0, maxCount);
-        } catch {}
-        finally {
-          try { if (codeHook) (this.unicorn as unknown as { hook_del: (h: unknown) => void }).hook_del(codeHook); } catch {}
-        }
-
-        pcAfter = this.unicorn.reg_read_i32(pcReg);
-        if (desiredCount > 1) {
-          executedAddresses.push((pcBefore + 4) >>> 0);
-        }
+      const word = this.decodeInstr32(instructionBytes);
+      const hasSlot = this.arch === 'MIPS_R6' && (this.isMipsBranchOrJump(word) ||
+        (this.isMipsCompactBranch(word) && this.mipsCompactFallsThrough(word)));
+      try {
+        this.executeInstructionBoundary(pcBefore, endAddress, word);
+        if (hasSlot) executedAddresses.push((pcBefore + 4) >>> 0);
+      } catch (error) {
+        try { if (hookHandle) this.unicorn.hook_del(hookHandle); } catch {}
+        throw new Error(formatRuntimeError('Instruction execution failed', String(error)));
       }
+      pcAfter = this.unicorn.reg_read_i32(pcReg);
 
       // Remove hook if present
       try { if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle); } catch {}
@@ -413,15 +432,11 @@ export class ExecutionEngine {
     } else {
       // Execute one instruction normally
         const endAddress = this.config.codeAddress + this.config.codeSize;
-        this.unicorn.emu_start(pc, endAddress, 0, 1);
+        this.executeInstructionBoundary(pc, endAddress, this.decodeInstr32(instructionBytes));
         executedInstructions++;
         
-        const newPc = this.unicorn.reg_read_i32(pcReg);
-       
-        // If PC didn't change, we might be stuck
-        if (newPc === pc) {
-          break;
-        }
+        // A self-branch can do real work in its slot. The instruction budget,
+        // not an unchanged PC, bounds this loop.
       }
     }
 
@@ -456,11 +471,12 @@ export class ExecutionEngine {
     let lastExecutedPc: number | undefined;
     let stopPending = false;
     const breakpointSet = new Set((breakpointAddresses ?? []).map((addr) => (addr >>> 0)));
-    const shouldUseCodeHook = this.arch !== 'MIPS_R6' || breakpointSet.size > 0;
+    const shouldUseCodeHook = this.arch !== 'MIPS_R6' || breakpointSet.size > 0 || this.hasMipsStoreInBranchSlot();
     let codeHookRegistered = false;
     let breakpointHit = false;
     let breakpointAddress = 0;
     let stopAfterNextInstruction = false;
+    let breakpointHasSlot = false;
     let resumePcAfterBreakpoint: number | undefined;
 
     const cb = (...hookArgs: unknown[]) => {
@@ -485,20 +501,16 @@ export class ExecutionEngine {
         }
         nextPc = rawPc;
       } else {
+        // For an ordinary store, this WASM exposes the store's own PC.
         const rawPc = this.unicorn.reg_read_i32(pcReg) >>> 0;
-        if (this.arch === 'MIPS_R6') {
-          // For MIPS_R6, the PC has already advanced past the store when the hook fires.
-          storePc = rawPc >= 4 ? ((rawPc - 4) >>> 0) : rawPc;
-          nextPc = rawPc;
-
-        } else {
-          storePc = rawPc;
-          nextPc = rawPc;
-        }
+        storePc = rawPc;
+        nextPc = rawPc;
       }
 
       memEventInfo = { address: untilAddress, value: normalizedValue, storePc, nextPc };
-      try { this.unicorn.emu_stop(); } catch {}
+      if (this.arch !== 'MIPS_R6' || !codeHookRegistered) {
+        this.unicorn.emu_stop();
+      }
     };
 
     // Register hook only for the data command byte address range
@@ -555,6 +567,12 @@ export class ExecutionEngine {
 
             const currentAddr = addr >>> 0;
 
+            if (stopAfterNextInstruction && breakpointHasSlot && currentAddr === ((breakpointAddress + 4) >>> 0)) {
+              // Execute the slot exactly once before exposing a paused state.
+              breakpointHasSlot = false;
+              return;
+            }
+
             if (stopAfterNextInstruction) {
               stopAfterNextInstruction = false;
               stopPending = false;
@@ -563,17 +581,25 @@ export class ExecutionEngine {
               return;
             }
 
+            // Deliver each movement before executing another instruction or breakpoint.
+            if (stopPending) {
+              stopPending = false;
+              this.unicorn.emu_stop();
+              return;
+            }
+
             if (breakpointSet.size > 0 && breakpointSet.has(currentAddr)) {
               breakpointHit = true;
               breakpointAddress = currentAddr;
               stopAfterNextInstruction = true;
+              if (this.arch === 'MIPS_R6') {
+                const word = this.decodeInstr32(Array.from(this.unicorn.mem_read(currentAddr, 4)));
+                breakpointHasSlot = this.isMipsBranchOrJump(word) ||
+                  (this.isMipsCompactBranch(word) && this.mipsCompactFallsThrough(word));
+              }
               return;
             }
 
-            if (stopPending) {
-              stopPending = false;
-              try { this.unicorn.emu_stop(); } catch {}
-            }
           }) as unknown as (...args: unknown[]) => unknown,
           undefined,
           1 >>> 0,
@@ -591,8 +617,8 @@ export class ExecutionEngine {
 
     try {
       this.unicorn.emu_start(pc, endAddress, 0, 0);
-    } catch {
-      // Emulation stopped due to hook, worker shutdown, or other reason
+    } catch (error) {
+      throw new Error(formatRuntimeError('Emulation failed', String(error)));
     } finally {
       try {
         if (hookHandle) (this.unicorn as unknown as { hook_del: (handle: unknown) => void }).hook_del(hookHandle);
@@ -602,7 +628,7 @@ export class ExecutionEngine {
       } catch {}
     }
 
-    let pcAfter = resumePcAfterBreakpoint ?? (this.unicorn.reg_read_i32(pcReg) >>> 0);
+    let pcAfter = this.unicorn.reg_read_i32(pcReg) >>> 0;
 
     if (memEventInfo && !breakpointHit) {
       const { storePc, nextPc } = memEventInfo;
@@ -613,13 +639,13 @@ export class ExecutionEngine {
         const sequentialPc = (basePc + 4) >>> 0;
         try { this.unicorn.reg_write_i32(pcReg, sequentialPc); } catch {}
         pcAfter = sequentialPc;
-      } else if (this.arch === 'MIPS_R6') {
-        // For MIPS_R6, we need to advance PC to avoid re-executing the same instruction
-        // The hook fires during/after the store, but we need to ensure we don't re-run it
+      } else if (this.arch === 'MIPS_R6' && !codeHookRegistered) {
+        // Fast path: an ordinary store completed, but this WASM leaves PC at
+        // that store on a memory-hook stop. Slot stores use the boundary hook.
         const advancePc = (pcAfter + 4) >>> 0;
         try { this.unicorn.reg_write_i32(pcReg, advancePc); } catch {}
         pcAfter = advancePc;
-      } else if (pcAfter === storePc) {
+      } else if (this.arch !== 'MIPS_R6' && pcAfter === storePc) {
         // For MIPS, only advance if PC still points to store instruction
         const sequentialPc = ((nextPc ?? storePc) + 4) >>> 0;
         try { this.unicorn.reg_write_i32(pcReg, sequentialPc); } catch {}
@@ -632,11 +658,12 @@ export class ExecutionEngine {
     const memEvent = memEventInfo ? { address: memEventInfo.address, value: memEventInfo.value } : undefined;
     if (breakpointHit) {
       stopReason = 'breakpoint';
-      const sequentialPc = (resumePcAfterBreakpoint !== undefined)
-        ? (resumePcAfterBreakpoint >>> 0)
-        : ((breakpointAddress + 4) >>> 0);
-      pcAfter = sequentialPc;
-      try { this.unicorn.reg_write_i32(pcReg, pcAfter); } catch {}
+      if (this.arch === 'ARM') {
+        pcAfter = resumePcAfterBreakpoint ?? ((breakpointAddress + 4) >>> 0);
+        this.unicorn.reg_write_i32(pcReg, pcAfter);
+      }
+      // MIPS has already resolved its real target. Never overwrite it with a
+      // hook address, a delay-slot address or breakpointAddress + 4.
     } else if (memEvent) {
       stopReason = 'mem-write';
     } else if (pcAfter >= endAddress) {

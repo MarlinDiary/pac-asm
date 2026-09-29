@@ -532,6 +532,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               }}
               disabled={gameState.isCodeDisabled}
               highlightedLine={gameState.highlightedLine}
+              highlightedLines={gameState.highlightedLines}
               highlightedLineSecondary={gameState.highlightedLineSecondary}
               breakpoints={gameState.breakpoints}
               onBreakpointsChange={gameState.setBreakpoints}
