@@ -17,9 +17,10 @@ export default function DebuggerBar({ onReturnClick, onStopClick, onStepDown, on
   }
 
   return (
-    <div className="flex items-center h-8">
+    <div className="pac-debugger-bar flex items-center h-8">
       {/* Square button */}
       <button 
+        aria-label="Stop debugging" title="Stop debugging"
         onClick={handleStopClick}
         className="w-8 h-8 p-2 bg-[#e7e7e7] dark:bg-[#222222] hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a] rounded-l-sm flex items-center justify-center cursor-pointer"
       >
@@ -33,6 +34,7 @@ export default function DebuggerBar({ onReturnClick, onStopClick, onStepDown, on
       <div className="h-8 bg-[#e7e7e7] dark:bg-[#222222] rounded-r-sm flex">
         {/* Arrow down to dot button - Step Down */}
         <button 
+          aria-label="Step forward" title="Step forward" disabled={!canStepDown}
           onClick={canStepDown ? onStepDown : undefined}
           className={`w-8 h-8 p-2 flex items-center justify-center ${
             canStepDown ? 'hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a] cursor-pointer' : 'cursor-default'
@@ -43,6 +45,7 @@ export default function DebuggerBar({ onReturnClick, onStopClick, onStepDown, on
         
         {/* Arrow up from dot button - Step Up */}
         <button 
+          aria-label="Step back" title="Step back" disabled={!canStepUp}
           onClick={canStepUp ? onStepUp : undefined}
           className={`w-8 h-8 p-2 flex items-center justify-center ${
             canStepUp ? 'hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a] cursor-pointer' : 'cursor-default'
@@ -53,6 +56,7 @@ export default function DebuggerBar({ onReturnClick, onStopClick, onStepDown, on
         
         {/* Refresh ccw button - Replay */}
         <button 
+          aria-label="Restart debugging" title="Restart debugging"
           onClick={onReplay}
           className="w-8 h-8 p-2 hover:bg-[#e2e2e2] dark:hover:bg-[#2a2a2a] rounded-r-sm flex items-center justify-center cursor-pointer"
         >

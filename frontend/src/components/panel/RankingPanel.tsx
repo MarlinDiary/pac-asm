@@ -257,22 +257,22 @@ export default function RankingPanel({
   const isChallenge = levelId === 'challenge'
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="pac-ranking h-full flex flex-col" data-challenge={isChallenge}>
       <SubBar>
-        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-3" style={{ width: '6%' }}></div>
-        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: isChallenge ? '26%' : '28%' }}>Name</div>
+        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-3" data-rank-field="rank" style={{ width: '6%' }}></div>
+        <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="name" style={{ width: isChallenge ? '26%' : '28%' }}>Name</div>
         {isChallenge ? (
           <>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '22%' }}>Score</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '18%' }}>Steps</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '18%' }}>Time</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '10%' }}></div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="score" style={{ width: '22%' }}>Score</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="steps" style={{ width: "18%" }}>Steps</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="time" style={{ width: "18%" }}>Time</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="replay" style={{ width: '10%' }}></div>
           </>
         ) : (
           <>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '16%' }}>Status</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '25%' }}>Cycles</div>
-            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" style={{ width: '25%' }}>Time</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="status" style={{ width: '16%' }}>Status</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="cycles" style={{ width: "25%" }}>Cycles</div>
+            <div className="text-[#8a8a8e] dark:text-[#9FA0A2] text-sm pl-2" data-rank-field="time" style={{ width: "25%" }}>Time</div>
           </>
         )}
       </SubBar>
@@ -286,52 +286,52 @@ export default function RankingPanel({
             {Array.from({ length: 10 }).map((_, index) => (
               <div
                 key={`skeleton-${index}`}
-                className={`flex items-center h-12 ${
+                className={`pac-ranking-row flex items-center h-12 ${
                   index % 2 === 0
                     ? 'bg-white dark:bg-[#262626]'
                     : 'bg-[#f7f7f8] dark:bg-[#353535]'
                 }`}
               >
                 {/* Rank skeleton */}
-                <div style={{ width: '6%' }} className="pl-3">
+                <div data-rank-field="rank" style={{ width: '6%' }} className="pl-3">
                   <div className="h-4 w-3 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
                 {/* Name skeleton */}
-                <div style={{ width: isChallenge ? '26%' : '28%' }} className="flex items-center gap-2 pl-2">
+                <div data-rank-field="name" style={{ width: isChallenge ? '26%' : '28%' }} className="flex items-center gap-2 pl-2">
                   <div className="w-5 h-5 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded-full animate-pulse" />
                   <div className="h-4 w-24 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                 </div>
                 {isChallenge ? (
                   <>
                     {/* Score skeleton */}
-                    <div style={{ width: '22%' }} className="pl-2">
+                    <div data-rank-field="score" style={{ width: '22%' }} className="pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Steps skeleton */}
-                    <div style={{ width: '18%' }} className="pl-2">
+                    <div data-rank-field="steps" style={{ width: "18%" }} className="pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Submit Time skeleton */}
-                    <div style={{ width: '18%' }} className="pl-2">
+                    <div data-rank-field="time" style={{ width: "18%" }} className="pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Play skeleton */}
-                    <div style={{ width: '10%' }} className="pl-2">
+                    <div data-rank-field="replay" style={{ width: '10%' }} className="pl-2">
                       <div className="h-3.5 w-3.5 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded-full animate-pulse" />
                     </div>
                   </>
                 ) : (
                   <>
                     {/* Status skeleton */}
-                    <div style={{ width: '16%' }} className="pl-2 flex items-center">
+                    <div data-rank-field="status" style={{ width: '16%' }} className="pl-2 flex items-center">
                       <div className="h-4 w-4 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Cycles skeleton */}
-                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                    <div data-rank-field="cycles" style={{ width: "25%" }} className="text-sm pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                     {/* Submit Time skeleton */}
-                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                    <div data-rank-field="time" style={{ width: "25%" }} className="text-sm pl-2">
                       <div className="h-4 w-16 bg-[#f0f0f0] dark:bg-[#0f0f0f] rounded animate-pulse" />
                     </div>
                   </>
@@ -366,39 +366,42 @@ export default function RankingPanel({
             return (
               <div
                 key={entry.id}
-                className={`flex items-center h-12 ${
+                className={`pac-ranking-row flex items-center h-12 ${
                   index % 2 === 0
                     ? 'bg-white dark:bg-[#262626]'
                     : 'bg-[#f7f7f8] dark:bg-[#353535]'
                 }`}
               >
-                <div style={{ width: '6%' }} className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] pl-3">
+                <div data-rank-field="rank" style={{ width: '6%' }} className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] pl-3">
                   {index + 1}
                 </div>
-                <div style={{ width: isChallenge ? '26%' : '28%' }} className="flex items-center gap-2 pl-2">
+                <div data-rank-field="name" style={{ width: isChallenge ? '26%' : '28%' }} className="flex items-center gap-2 pl-2">
                   <Avatar name={entry.userName} avatarUrl={entry.userAvatarUrl} />
-                  <span className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] truncate">
+                  <span title={entry.userName} className="text-sm text-[#1f1f1f] dark:text-[#f5f5f5] truncate">
                     {entry.userName}
+                  </span>
+                  <span className="pac-mobile-only pac-ranking-name-status">
+                    {isSuccessful ? <Check aria-label="Accepted" className="w-4 h-4 text-[#2CBC5D]" /> : <X aria-label={entry.status} className="w-4 h-4 text-[#EF4843]" />}
                   </span>
                 </div>
                 {isChallenge ? (
                   <>
-                    <div style={{ width: '22%' }} className="text-sm pl-2">
+                    <div data-rank-field="score" style={{ width: '22%' }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {Math.round(entry.score ?? entry.averageScore ?? 0).toString()}
                       </span>
                     </div>
-                    <div style={{ width: '18%' }} className="text-sm pl-2">
+                    <div data-rank-field="steps" style={{ width: "18%" }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {stepCount !== null ? new Intl.NumberFormat().format(stepCount) : '-'}
                       </span>
                     </div>
-                    <div style={{ width: '18%' }} className="text-sm pl-2">
+                    <div data-rank-field="time" style={{ width: "18%" }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {formatSubmitTime(entry.createdAt)}
                       </span>
                     </div>
-                    <div style={{ width: '10%' }} className="flex items-center pl-2">
+                    <div data-rank-field="replay" style={{ width: '10%' }} className="flex items-center pl-2">
                       {entry.hasReplay ? (
                         <button
                           type="button"
@@ -425,19 +428,19 @@ export default function RankingPanel({
                   </>
                 ) : (
                   <>
-                    <div style={{ width: '16%' }} className="pl-2 flex items-center">
+                    <div data-rank-field="status" style={{ width: '16%' }} className="pl-2 flex items-center">
                       {isSuccessful ? (
-                        <Check className="w-4 h-4 text-[#2CBC5D]" />
+                        <Check aria-label="Accepted" className="w-4 h-4 text-[#2CBC5D]" />
                       ) : (
-                        <X className="w-4 h-4 text-[#EF4843]" />
+                        <X aria-label={entry.status} className="w-4 h-4 text-[#EF4843]" />
                       )}
                     </div>
-                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                    <div data-rank-field="cycles" style={{ width: "25%" }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {cycleCount !== null ? new Intl.NumberFormat().format(cycleCount) : '-'}
                       </span>
                     </div>
-                    <div style={{ width: '25%' }} className="text-sm pl-2">
+                    <div data-rank-field="time" style={{ width: "25%" }} className="text-sm pl-2">
                       <span className="text-[#1f1f1f] dark:text-[#f5f5f5]">
                         {formatSubmitTime(entry.createdAt)}
                       </span>
@@ -449,7 +452,7 @@ export default function RankingPanel({
           })
         )}
       </div>
-      <div className="w-full h-9 border-t border-[#f0f0f0] dark:border-[#3C3C3C] flex items-center justify-between px-3">
+      <div className="pac-ranking-footer w-full h-9 border-t border-[#f0f0f0] dark:border-[#3C3C3C] flex items-center justify-between px-3">
         {!isAuthenticated ? (
           <span className="text-[#A8A8A8] dark:text-[#7D7D7D] text-sm">
             You need to log in to submit

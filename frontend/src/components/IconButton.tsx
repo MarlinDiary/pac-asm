@@ -2,6 +2,7 @@ import { LucideIcon } from 'lucide-react'
 import { ReactNode } from 'react'
 
 interface IconButtonProps {
+  label?: string
   icon?: LucideIcon
   onClick?: () => void
   size?: number
@@ -9,9 +10,11 @@ interface IconButtonProps {
   customContent?: ReactNode
 }
 
-export default function IconButton({ icon: Icon, onClick, size = 16, disabled = false, customContent }: IconButtonProps) {
+export default function IconButton({ label, icon: Icon, onClick, size = 16, disabled = false, customContent }: IconButtonProps) {
   return (
     <button
+      aria-label={label}
+      title={label}
       className={`w-8 h-8 flex items-center justify-center hover:rounded-md group ${
         disabled
           ? 'opacity-40'

@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes'
 import { useSettings } from '@/hooks/useSettings'
 
 interface CodeEditorProps {
+  mobile?: boolean
   value?: string
   onChange?: (value: string | undefined) => void
   height?: string | number
@@ -182,6 +183,7 @@ const EDITOR_STYLES = (
 )
 
 export default function CodeEditor({
+  mobile = false,
   value = '',
   onChange,
   height = '100%',
@@ -825,7 +827,7 @@ export default function CodeEditor({
         loading=""
         options={{
           minimap: { enabled: false },
-          fontSize: settings.fontSize,
+          fontSize: mobile ? Math.max(16, settings.fontSize) : settings.fontSize,
           fontFamily: 'Menlo, Monaco, "Courier New", monospace',
           lineNumbers: 'on',
           lineNumbersMinChars: 3,

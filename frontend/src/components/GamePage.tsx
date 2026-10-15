@@ -5,6 +5,8 @@ import Confetti from 'react-confetti'
 import DeathOverlay from '@/components/DeathOverlay'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import Card from '@/components/Card'
+import GameViewport from '@/components/GameViewport'
+import { useMobileViewport, mobileLevelLabel } from '@/hooks/useMobileViewport'
 import ExecutionBar from '@/components/bar/ExecutionBar'
 import DebuggerBar from '@/components/bar/DebuggerBar'
 import IconButton from '@/components/IconButton'
@@ -32,6 +34,7 @@ import { useDiagnosticsStore } from '@/stores/diagnosticsStore'
 import { Gamepad2, CodeXml, CircuitBoard, HardDrive, Settings2, Stethoscope, Maximize2, Minimize2, Book, Trophy, ChevronLeft, ChevronRight, CircleUserRound, LogOut, Lightbulb } from 'lucide-react'
 import { GameMap } from '@/data/maps'
 import SettingsPanel from '@/components/SettingsPanel'
+import MobileMoreMenu from '@/components/MobileMoreMenu'
 import { useSettings } from '@/hooks/useSettings'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signIn, signOut, useSession } from 'next-auth/react'
@@ -57,6 +60,9 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   const userMenuRef = useRef<HTMLDivElement | null>(null)
   const [secretClickCount, setSecretClickCount] = useState(0)
   const secretClickTimer = useRef<NodeJS.Timeout | null>(null)
+
+  const { isMobile, viewportHeight } = useMobileViewport()
+  const [mobilePane, setMobilePane] = useState<'game' | 'code' | 'tools'>('game')
 
   // Get level display name
   const getLevelDisplayName = (id: string): string => {
@@ -224,6 +230,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab === 'ranking') {
+      setMobilePane('game')
       gameState.setLeftPanelTab(3) // Ranking tab is at index 3 (Game=0, Manual=1, Hint=2, Ranking=3)
       // Clean up the URL parameter
       const url = new URL(window.location.href)
@@ -318,38 +325,44 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   // Switch to Diagnostics tab when new error appears
   useEffect(() => {
     if (errors.length > 0) {
+      if (isMobile) setMobilePane('code')
       setRightPanelTab(2) // Switch to Diagnostics tab (index 2)
     }
-  }, [errors.length, setRightPanelTab])
+  }, [errors.length, setRightPanelTab, isMobile])
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-[#f0f0f0] dark:bg-[#0f0f0f]">
-      <div className="p-2 h-full flex flex-col" style={{ zoom: settings.pageZoom === 110 ? 1.11 : settings.pageZoom / 100 }}>
-        <div className="flex justify-center relative">
-          <div className="absolute left-0 top-0 flex items-center h-10 gap-1">
+    <div className="pac-game-page h-screen w-full overflow-hidden bg-[#f0f0f0] dark:bg-[#0f0f0f]" style={isMobile && viewportHeight ? { height: viewportHeight, '--pac-viewport-height': `${viewportHeight}px` } as React.CSSProperties : undefined}>
+      <div inert={isMobile && (isSettingsOpen || selectedReplayEntry !== null)} className="pac-game-shell p-2 h-full flex flex-col" style={{ zoom: settings.pageZoom === 110 ? 1.11 : settings.pageZoom / 100 }}>
+        <div className="pac-header flex justify-center relative" data-debug={gameState.isDebugMode}>
+          <div className="pac-level-nav absolute left-0 top-0 flex items-center h-10 gap-1">
             <IconButton
               icon={ChevronLeft}
+              label="Previous level"
               onClick={handlePreviousLevel}
               disabled={isPreviousDisabled}
             />
             <div
-              className="h-8 px-3 flex items-center select-none"
+              className="pac-level-title h-8 px-3 flex items-center select-none"
+              aria-label={getLevelDisplayName(levelId)}
+              title={getLevelDisplayName(levelId)}
               onClick={handleLevelNameClick}
             >
               <span className="text-[14px] font-medium text-[#1A1A1A] dark:text-[#F5F5F5]">
-                {getLevelDisplayName(levelId)}
+                <span className="pac-desktop-only">{getLevelDisplayName(levelId)}</span>
+                <span className="pac-mobile-only">{mobileLevelLabel(levelId)}</span>
               </span>
             </div>
             <IconButton
               icon={ChevronRight}
+              label="Next level"
               onClick={handleNextLevel}
               disabled={isNextDisabled}
             />
           </div>
-          <div className="relative">
+          <div className="pac-execution relative">
             <ExecutionBar
-              onDebugClick={executionControl.handleDebugClick}
-              onPlayClick={executionControl.handlePlayClick}
+              onDebugClick={() => { setMobilePane('game'); executionControl.handleDebugClick() }}
+              onPlayClick={() => { setMobilePane('game'); executionControl.handlePlayClick() }}
               isDebugMode={gameState.isDebugMode}
               statusMessage={executionControl.statusMessage}
               isBusy={executionControl.isBusy}
@@ -377,16 +390,18 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               ) : null}
             </div>
           </div>
-          <div className="absolute right-0 top-0 flex items-center gap-2">
-            <IconButton
+          <div className="pac-header-actions absolute right-0 top-0 flex items-center gap-2">
+            <span className="pac-desktop-only"><IconButton
+              label="Toggle fullscreen"
               icon={gameState.isFullscreen ? Minimize2 : Maximize2}
               onClick={gameState.toggleFullscreen}
               size={15}
-            />
-            <IconButton icon={Settings2} onClick={() => setIsSettingsOpen(true)} />
+            /></span>
+            <IconButton label="Settings" icon={Settings2} onClick={() => setIsSettingsOpen(true)} />
             <div className="relative" ref={userMenuRef}>
               {isAuthenticated ? (
                 <IconButton
+                  label={session?.user?.name ?? "Account"}
                   icon={session?.user?.image ? undefined : CircleUserRound}
                   onClick={() => setIsUserMenuOpen((open) => !open)}
                   size={17}
@@ -403,6 +418,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               ) : (
                 <IconButton
                   icon={CircleUserRound}
+                  label="Log in"
                   onClick={handleLogin}
                   size={17}
                 />
@@ -429,13 +445,34 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
             </div>
           </div>
         </div>
-        <div className="flex-1 pt-2 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
+        <div className="pac-workspace-wrap flex-1 pt-2 overflow-hidden">
+        <nav className="pac-mobile-nav pac-mobile-only" aria-label="Mobile workspace">
+          {([
+            { name: 'Game', icon: Gamepad2, pane: 'game', left: 0, color: '#3579f6' },
+            { name: 'Code', icon: CodeXml, pane: 'code', left: 0, color: '#4fae40' },
+            { name: 'Ranking', icon: Trophy, pane: 'game', left: 3, color: '#FFB700' },
+          ] as const).map(({ name, icon: Icon, pane, left, color }) => (
+            <button key={name} type="button"
+              aria-pressed={mobilePane === pane && (pane === 'code' || gameState.leftPanelTab === left)}
+              onClick={() => { setMobilePane(pane); if (pane === 'game') gameState.setLeftPanelTab(left) }}>
+              <Icon size={16} color={color} aria-hidden="true" /><span>{name}</span>
+            </button>
+          ))}
+          <MobileMoreMenu mobile={isMobile}
+            value={mobilePane === 'tools' ? ['Register', 'Memory', 'Diagnostics'][gameState.rightPanelTab] : mobilePane === 'game' ? ({ 1: 'Manual', 2: 'Hint' } as Record<number, string>)[gameState.leftPanelTab] ?? '' : ''}
+            onSelect={(name) => {
+              const index = ['Manual', 'Hint', 'Register', 'Memory', 'Diagnostics'].indexOf(name)
+              if (index < 0) return
+              if (index < 2) { setMobilePane('game'); gameState.setLeftPanelTab(index + 1) }
+              else { setMobilePane('tools'); setRightPanelTab(index - 2) }
+            }} />
+        </nav>
+        <ResizablePanelGroup direction="horizontal" className="pac-workspace h-full">
         {/* First column with two panels */}
-        <ResizablePanel defaultSize={33} ref={panelLayout.firstColumnRef} minSize={10}>
+        <ResizablePanel className="pac-main-panel" data-mobile-active={mobilePane === 'game'} inert={isMobile && mobilePane !== 'game'} defaultSize={33} ref={panelLayout.firstColumnRef} minSize={10}>
           <ResizablePanelGroup direction="vertical" className="h-full">
             <ResizablePanel defaultSize={70} ref={panelLayout.panel1Ref} minSize={10}>
-              <Card
+              <Card className="pac-mobile-hide-tabs"
                 tabs={[
                   { icon: Gamepad2, text: "Game", color: "#3579f6" },
                   { icon: Book, text: "Manual", color: "#50AE40" },
@@ -477,8 +514,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                         onComplete={() => gameState.setCurrentPlayObjectiveNotMet(false)}
                       />
                       {levelMap.waterBackground && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="relative flex items-center justify-center">
+                        <GameViewport mobile={isMobile} width={levelMap.width * (levelMap.tileSize || 64)} height={levelMap.height * (levelMap.tileSize || 64)}>
                             <WaterRenderer
                               tilesX={levelMap.waterBackground.tilesX}
                               tilesY={levelMap.waterBackground.tilesY}
@@ -487,8 +523,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
                             <div className="absolute inset-0 flex items-center justify-center z-10">
                               <MapRenderer map={gameState.currentMap} shouldShakePlayer={gameState.shouldShakePlayer} />
                             </div>
-                          </div>
-                        </div>
+                        </GameViewport>
                       )}
                     </div>
                   </div>,
@@ -521,9 +556,11 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         />
         
         {/* Second column */}
-        <ResizablePanel defaultSize={34} ref={panelLayout.panel3Ref} minSize={10}>
-          <Card tabs={[{ icon: CodeXml, text: "Code", color: "#4fae40" }]}>
+        <ResizablePanel className="pac-code-panel" data-mobile-active={mobilePane === 'code'} inert={isMobile && mobilePane !== 'code'} defaultSize={34} ref={panelLayout.panel3Ref} minSize={10}>
+          <Card className="pac-mobile-hide-tabs" tabs={[{ icon: CodeXml, text: "Code", color: "#4fae40" }]}>
+            <div className="pac-code-content">
             <CodeEditor
+              mobile={isMobile}
               value={gameState.codeOverride ?? gameState.currentCode}
               onChange={(value) => {
                 if (!gameState.codeOverride) {
@@ -537,6 +574,12 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               breakpoints={gameState.breakpoints}
               onBreakpointsChange={gameState.setBreakpoints}
             />
+            {errors.length > 0 && <div className="pac-mobile-diagnostics pac-mobile-only" role="status">
+              <strong>{errors.length} diagnostic{errors.length === 1 ? '' : 's'}</strong>
+              <p>{errors[0].error}</p>
+              <button type="button" onClick={() => { setMobilePane('tools'); setRightPanelTab(2) }}>View diagnostics</button>
+            </div>}
+            </div>
           </Card>
         </ResizablePanel>
         
@@ -546,8 +589,8 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
         />
         
         {/* Third column */}
-        <ResizablePanel defaultSize={33} ref={panelLayout.panel4Ref} minSize={10}>
-          <Card 
+        <ResizablePanel className="pac-tools-panel" data-mobile-active={mobilePane === 'tools'} inert={isMobile && mobilePane !== 'tools'} defaultSize={33} ref={panelLayout.panel4Ref} minSize={10}>
+          <Card className="pac-mobile-hide-tabs"
             tabs={[
               { icon: CircuitBoard, text: "Register", color: "#9164EA" },
               { icon: HardDrive, text: "Memory", color: "#01A2C2" },
@@ -613,6 +656,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
       </div>
     </div>
     <SettingsPanel
+      mobile={isMobile}
       isOpen={isSettingsOpen}
       onClose={() => setIsSettingsOpen(false)}
       isRunning={executionControl.isBusy}
@@ -620,6 +664,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
       onResetCode={handleResetCode}
     />
     <SubmissionReplayModal
+      mobile={isMobile}
       entry={selectedReplayEntry}
       levelMap={levelMap}
       onClose={() => setSelectedReplayEntry(null)}

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Confetti from 'react-confetti'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, X } from 'lucide-react'
 import DeathOverlay from '@/components/DeathOverlay'
 import MapRenderer from '@/components/MapRenderer'
+import GameViewport from '@/components/GameViewport'
 import type { GameMap } from '@/data/maps'
 import type { RankingEntry } from '@/hooks/useExecutionControl'
 import {
@@ -44,6 +45,7 @@ interface SubmissionReplayResponse {
 }
 
 interface SubmissionReplayModalProps {
+  mobile?: boolean
   entry: RankingEntry | null
   levelMap: GameMap
   onClose: () => void
@@ -56,6 +58,7 @@ interface OverlayTriggerState {
 }
 
 export default function SubmissionReplayModal({
+  mobile = false,
   entry,
   levelMap,
   onClose
@@ -71,6 +74,7 @@ export default function SubmissionReplayModal({
   const [showObjectiveNotMet, setShowObjectiveNotMet] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [shouldShakePlayer, setShouldShakePlayer] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const overlayTriggersRef = useRef<OverlayTriggerState>({
@@ -280,7 +284,7 @@ export default function SubmissionReplayModal({
       return
     }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
         onClose()
       }
     }
@@ -289,6 +293,22 @@ export default function SubmissionReplayModal({
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, onClose])
+
+  // Full-screen mobile replay is a modal screen, not a second active workspace.
+  useEffect(() => {
+    if (!isOpen || !mobile) return
+    const previous = document.activeElement as HTMLElement | null
+    panelRef.current?.querySelector<HTMLButtonElement>('.pac-replay-close')?.focus()
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const buttons = Array.from(panelRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])
+      const first = buttons[0], last = buttons[buttons.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    }
+    document.addEventListener('keydown', trapFocus)
+    return () => { document.removeEventListener('keydown', trapFocus); previous?.focus() }
+  }, [isOpen, mobile])
 
   useEffect(() => {
     if (!replay || !isPlaying) {
@@ -365,12 +385,18 @@ export default function SubmissionReplayModal({
 
       {/* Panel */}
       <div
-        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-[#262626] rounded-md shadow-[0_0_20px_rgba(0,0,0,0.2)] border border-black/10 dark:border-white/10 z-50 overflow-hidden transition-all duration-150 ${
+        ref={panelRef}
+        role={mobile ? "dialog" : undefined}
+        aria-modal={mobile && isOpen ? true : undefined}
+        aria-label={mobile ? "Submission replay" : undefined}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        className={`pac-replay fixed ${mobile ? 'top-0 left-0' : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'} bg-white dark:bg-[#262626] rounded-md shadow-[0_0_20px_rgba(0,0,0,0.2)] border border-black/10 dark:border-white/10 z-50 overflow-hidden transition-all duration-150 ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
-        <div className="flex items-center justify-between px-4 py-2.5 gap-3">
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+        <div className="pac-replay-header flex items-center justify-between px-4 py-2.5 gap-3">
+          <div title={displayEntry?.userName} className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
             {displayEntry?.userName ?? 'Challenge Playback'}
           </div>
           <button
@@ -381,9 +407,10 @@ export default function SubmissionReplayModal({
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
+          <button type="button" className="pac-mobile-only pac-replay-close" aria-label="Close replay" onClick={onClose}><X size={20} /></button>
         </div>
         <div className="border-t border-black/10 dark:border-white/10" />
-        <div className="relative flex items-center justify-center bg-[#FAFAFA] dark:bg-[#1E1E1E] p-4 overflow-hidden">
+        <div className="pac-replay-map relative flex items-center justify-center bg-[#FAFAFA] dark:bg-[#1E1E1E] p-4 overflow-hidden">
           {error ? (
             <div className="max-w-md text-center px-6">
               <div className="text-sm font-medium text-[#A44A1A] dark:text-[#FFB27C]">
@@ -415,7 +442,13 @@ export default function SubmissionReplayModal({
                 fontSize="2rem"
                 onComplete={() => setShowObjectiveNotMet(false)}
               />
-              <MapRenderer map={currentMap} shouldShakePlayer={shouldShakePlayer} />
+              {mobile ? (
+                <GameViewport mobile width={currentMap.width * (currentMap.tileSize || 20)} height={currentMap.height * (currentMap.tileSize || 20)}>
+                  <MapRenderer map={currentMap} shouldShakePlayer={shouldShakePlayer} />
+                </GameViewport>
+              ) : (
+                <MapRenderer map={currentMap} shouldShakePlayer={shouldShakePlayer} />
+              )}
             </>
           )}
         </div>

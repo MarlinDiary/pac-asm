@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { Cog, CodeXml, RefreshCcw } from 'lucide-react'
+import { Cog, CodeXml, RefreshCcw, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import {
   Select,
@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch'
 import { useSettings } from '@/hooks/useSettings'
 
 interface SettingsPanelProps {
+  mobile?: boolean
   isOpen: boolean
   onClose: () => void
   isRunning?: boolean
@@ -27,8 +28,12 @@ interface SidebarItem {
   icon: React.ReactNode
 }
 
-export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDebugMode = false, onResetCode }: SettingsPanelProps) {
+export default function SettingsPanel({ mobile = false, isOpen, onClose, isRunning = false, isDebugMode = false, onResetCode }: SettingsPanelProps) {
   const [selectedSection, setSelectedSection] = React.useState('general')
+  const [mobileSection, setMobileSection] = React.useState<string | null>(null)
+  const activeSection = mobile ? mobileSection : selectedSection
+
+  useEffect(() => { setMobileSection(null) }, [isOpen, mobile])
 
   const sidebarItems: SidebarItem[] = [
     { id: 'general', label: 'General', icon: <Cog className="w-4 h-4" style={{ width: '16px', height: '16px' }} /> },
@@ -60,7 +65,7 @@ export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDe
   // Handle escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
         onClose()
       }
     }
@@ -73,6 +78,27 @@ export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDe
       document.removeEventListener('keydown', handleEscape)
     }
   }, [isOpen, onClose])
+
+  // Keep keyboard focus in the mobile screen; Select portals manage their own focus.
+  useEffect(() => {
+    if (!isOpen || !mobile) return
+    const previous = document.activeElement as HTMLElement | null
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !panelRef.current?.contains(event.target as Node)) return
+      const controls = Array.from(panelRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), [tabindex="0"]'))
+        .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
+      const first = controls[0], last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    }
+    document.addEventListener('keydown', trapFocus)
+    return () => { document.removeEventListener('keydown', trapFocus); previous?.focus() }
+  }, [isOpen, mobile])
+
+  useEffect(() => {
+    if (isOpen && mobile) panelRef.current?.querySelector<HTMLButtonElement>(mobileSection ? '.pac-settings-back' : '.pac-settings-sidebar button')?.focus()
+  }, [isOpen, mobile, mobileSection])
+
 
   return (
     <>
@@ -87,28 +113,39 @@ export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDe
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[calc(100vh-100px)] max-h-[760px] w-full max-w-[696px] bg-white dark:bg-[#262626] rounded-md shadow-[0_0_20px_rgba(0,0,0,0.2)] border border-black/10 dark:border-white/10 z-50 flex transition-all duration-150 overflow-hidden ${
+        role={mobile ? "dialog" : undefined}
+        aria-modal={mobile && isOpen ? true : undefined}
+        aria-labelledby={mobile ? "pac-settings-title" : undefined}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        className={`pac-settings fixed ${mobile ? 'top-0 left-0' : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'} h-[calc(100vh-100px)] max-h-[760px] w-full max-w-[696px] bg-white dark:bg-[#262626] rounded-md shadow-[0_0_20px_rgba(0,0,0,0.2)] border border-black/10 dark:border-white/10 z-50 flex transition-all duration-150 overflow-hidden ${
           isOpen
             ? 'opacity-100 scale-100'
             : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
+        <header className="pac-mobile-only pac-settings-header">
+          {mobileSection ? <button className="pac-settings-back" type="button" aria-label="Back to settings" onClick={() => setMobileSection(null)}><ChevronLeft size={20} /></button> : <span className="pac-settings-back-space" />}
+          <h2 id="pac-settings-title">{mobileSection === 'general' ? 'General' : mobileSection === 'editor' ? 'Editor' : 'Settings'}</h2>
+          <button className="pac-settings-close" type="button" aria-label="Close settings" onClick={onClose}><X size={20} /></button>
+        </header>
         {/* Sidebar */}
-        <div className="flex w-[216px] shrink-0 flex-col bg-[#FAFAFA] dark:bg-[#262626] border-r border-black/10 dark:border-white/10">
+        <div data-mobile-visible={mobileSection === null} className="pac-settings-sidebar flex w-[216px] shrink-0 flex-col bg-[#FAFAFA] dark:bg-[#262626] border-r border-black/10 dark:border-white/10">
           <div className="flex-1 p-2">
             <nav className="space-y-1">
               {sidebarItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setSelectedSection(item.id)}
+                  onClick={() => { setSelectedSection(item.id); if (mobile) setMobileSection(item.id) }}
                   className={`box-border flex h-8 w-full items-center rounded-md px-2 shrink-0 gap-2 text-xs transition-colors cursor-pointer ${
-                    selectedSection === item.id
+                    !mobile && selectedSection === item.id
                       ? 'bg-[#E7E7E7] dark:bg-[#0F0F0F] text-gray-900 dark:text-gray-100 font-semibold'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-[#F0F0F0] dark:hover:bg-[#222222]'
                   }`}
                 >
                   {item.icon}
                   <span>{item.label}</span>
+                  <ChevronRight className="pac-mobile-only pac-settings-chevron" size={18} aria-hidden="true" />
                 </button>
               ))}
             </nav>
@@ -116,15 +153,15 @@ export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDe
         </div>
 
         {/* Content */}
-        <div className="flex-1 relative overflow-y-auto">
-          {selectedSection === 'general' && (
+        <div data-mobile-visible={mobileSection !== null} className="pac-settings-content flex-1 relative overflow-y-auto">
+          {activeSection === 'general' && (
             <>
-              <div className="py-3.5 px-6">
+              <div className="pac-desktop-only py-3.5 px-6">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
                   General
                 </h3>
               </div>
-              <div className="border-t border-black/10 dark:border-white/10" />
+              <div className="pac-desktop-only border-t border-black/10 dark:border-white/10" />
               <div className="px-6 py-4">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between h-8">
@@ -161,7 +198,7 @@ export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDe
                       <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
                     )}
                   </div>
-                  <div className="flex items-center justify-between h-8">
+                  <div className="pac-desktop-only flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Page Zoom
                     </label>
@@ -198,14 +235,14 @@ export default function SettingsPanel({ isOpen, onClose, isRunning = false, isDe
             </>
           )}
 
-          {selectedSection === 'editor' && (
+          {activeSection === 'editor' && (
             <>
-              <div className="py-3.5 px-6">
+              <div className="pac-desktop-only py-3.5 px-6">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
                   Editor
                 </h3>
               </div>
-              <div className="border-t border-black/10 dark:border-white/10" />
+              <div className="pac-desktop-only border-t border-black/10 dark:border-white/10" />
               <div className="px-6 py-4">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between h-8">

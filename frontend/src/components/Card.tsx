@@ -10,6 +10,7 @@ interface TabConfig {
 }
 
 interface CardProps {
+  className?: string
   children?: React.ReactNode
   tabs?: TabConfig[]
   defaultSelectedTab?: number
@@ -18,7 +19,7 @@ interface CardProps {
   tabContent?: React.ReactNode[]
 }
 
-export default function Card({ children, tabs = [], defaultSelectedTab = 0, selectedTab: controlledSelectedTab, onTabChange, tabContent = [] }: CardProps) {
+export default function Card({ className = '', children, tabs = [], defaultSelectedTab = 0, selectedTab: controlledSelectedTab, onTabChange, tabContent = [] }: CardProps) {
   const [internalSelectedTab, setInternalSelectedTab] = useState(defaultSelectedTab)
   const selectedTab = controlledSelectedTab !== undefined ? controlledSelectedTab : internalSelectedTab
   
@@ -30,7 +31,7 @@ export default function Card({ children, tabs = [], defaultSelectedTab = 0, sele
   }
 
   return (
-    <div className="w-full h-full bg-white dark:bg-[#262626] rounded-lg flex flex-col overflow-hidden">
+    <div className={`w-full h-full bg-white dark:bg-[#262626] rounded-lg flex flex-col overflow-hidden ${className}`}>
       <TabBar>
         {tabs.map((tab, index) => (
           <Tab
