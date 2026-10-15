@@ -206,6 +206,7 @@ export default function CodeEditor({
   const [editorReady, setEditorReady] = useState(false)
   const { settings } = useSettings()
   const isMipsLike = settings.architecture === 'MIPS_R6'
+  const codeCompletion = !mobile && settings.codeCompletion
 
   // Ensure languages and token providers are registered before editor mounts
   function handleEditorWillMount(monaco: typeof import('monaco-editor')) {
@@ -259,6 +260,22 @@ export default function CodeEditor({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!mobile || !editorReady || !editorRef.current || !monacoRef.current) return
+    const editor = editorRef.current
+    const monaco = monacoRef.current
+    // Also close an existing desktop popup when switching to a phone layout.
+    editor.trigger('mobile', 'hideSuggestWidget', undefined)
+    const action = editor.addAction({
+      id: 'pacasm.mobile.disable-completion',
+      label: 'Disable mobile code completion',
+      precondition: 'editorTextFocus',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space, monaco.KeyMod.WinCtrl | monaco.KeyCode.Space],
+      run: () => {}
+    })
+    return () => action.dispose()
+  }, [mobile, editorReady])
 
   function handleEditorDidMount(
     editor: import('monaco-editor').editor.IStandaloneCodeEditor, 
@@ -827,7 +844,7 @@ export default function CodeEditor({
         loading=""
         options={{
           minimap: { enabled: false },
-          fontSize: mobile ? Math.max(16, settings.fontSize) : settings.fontSize,
+          fontSize: settings.fontSize,
           fontFamily: 'Menlo, Monaco, "Courier New", monospace',
           lineNumbers: 'on',
           lineNumbersMinChars: 3,
@@ -859,17 +876,17 @@ export default function CodeEditor({
           occurrencesHighlight: 'off',
           selectionHighlight: false,
           stickyScroll: { enabled: settings.stickyScroll },
-          // Code completion settings based on user preference
-          quickSuggestions: settings.codeCompletion ? {
+          // Keep the desktop preference; never offer completions on phones.
+          quickSuggestions: codeCompletion ? {
             other: true,
             comments: false,
             strings: false
           } : false,
-          suggestOnTriggerCharacters: settings.codeCompletion,
-          acceptSuggestionOnCommitCharacter: settings.codeCompletion,
-          wordBasedSuggestions: settings.codeCompletion ? 'allDocuments' : 'off',
+          suggestOnTriggerCharacters: codeCompletion,
+          acceptSuggestionOnCommitCharacter: codeCompletion,
+          wordBasedSuggestions: codeCompletion ? 'allDocuments' : 'off',
           suggest: {
-            showWords: settings.codeCompletion
+            showWords: codeCompletion
           }
         }}
       />

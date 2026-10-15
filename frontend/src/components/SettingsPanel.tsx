@@ -104,7 +104,7 @@ export default function SettingsPanel({ mobile = false, isOpen, onClose, isRunni
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-[#0f0f0f]/60 z-40 transition-opacity duration-150 cursor-pointer ${
+        className={`pac-settings-backdrop fixed inset-0 bg-[#0f0f0f]/60 z-40 transition-opacity duration-150 cursor-pointer ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
@@ -280,7 +280,7 @@ export default function SettingsPanel({ mobile = false, isOpen, onClose, isRunni
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center justify-between h-8">
+                  <div className="pac-desktop-only flex items-center justify-between h-8">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Code Completion
                     </label>
