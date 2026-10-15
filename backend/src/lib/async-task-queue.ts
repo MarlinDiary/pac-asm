@@ -55,6 +55,22 @@ export class AsyncTaskQueue {
     })
   }
 
+  // Best-effort work shares running slots but never joins or overtakes the FIFO.
+  tryRun<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.running >= this.concurrency || this.pending.length > 0) {
+      return Promise.reject(new QueueOverloadedError('Server busy, please retry', this.retryAfterSeconds))
+    }
+
+    // Reserve synchronously so simultaneous callers cannot claim the same slot.
+    this.running += 1
+    return Promise.resolve()
+      .then(fn)
+      .finally(() => {
+        this.running -= 1
+        this.drain()
+      })
+  }
+
   private drain() {
     while (this.running < this.concurrency && this.pending.length > 0) {
       const task = this.pending.shift()

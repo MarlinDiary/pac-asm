@@ -112,23 +112,27 @@ router.post('/validate', async (req: Request, res: Response) => {
   }
 
   const maxSteps = parseOptionalNumber(body.maxSteps)
-  if (Number.isNaN(maxSteps)) {
-    return res.status(400).json({ error: 'maxSteps must be a number' })
+  if (maxSteps !== undefined && !Number.isFinite(maxSteps)) {
+    return res.status(400).json({ error: 'maxSteps must be a finite number' })
   }
 
   const includeRegisters = parseOptionalBoolean(body.includeRegisters) ?? false
 
   try {
-    const result = await validateGame({
+    const result = await heavyValidationQueue.tryRun(() => validateGame({
       sourceCode,
       levelId,
       architecture,
       maxSteps: maxSteps ?? undefined,
       includeRegisters
-    })
+    }))
 
     return res.status(200).json(result)
   } catch (error) {
+    if (error instanceof QueueOverloadedError) {
+      res.setHeader('Retry-After', String(error.retryAfterSeconds))
+      return res.status(error.statusCode).json({ error: error.message })
+    }
     const message = error instanceof Error ? error.message : String(error)
     return res.status(500).json({ error: message })
   }
