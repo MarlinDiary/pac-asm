@@ -129,7 +129,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     const id = session?.user?.email ?? session?.user?.name ?? ''
     const name = session?.user?.name ?? session?.user?.email ?? ''
     const avatarUrl = session?.user?.image ?? undefined
-    return { id, name, avatarUrl }
+    return { id, name, avatarUrl, publicId: session?.publicUserId ?? '' }
   }, [session])
   const pendingSubmissionStorageKey = useMemo(() => {
     if (!userInfo.id) {
@@ -253,7 +253,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
       return
     }
 
-    const currentUserEntry = entries.find((entry) => entry.userId === userInfo.id)
+    const currentUserEntry = entries.find((entry) => entry.userId === userInfo.publicId)
     if (!currentUserEntry) {
       return
     }
@@ -262,7 +262,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     if (Number.isFinite(updatedAtMs) && updatedAtMs >= startedAtMs - 1000) {
       clearPendingSubmission()
     }
-  }, [clearPendingSubmission, userInfo.id])
+  }, [clearPendingSubmission, userInfo.id, userInfo.publicId])
 
   const {
     currentCode,
@@ -853,7 +853,7 @@ export const useExecutionControl = ({ gameState, levelMap, levelId, architecture
     setIsSubmitting,
     applySubmissionResult,
     setRankingLoading,
-    currentUserId: userInfo.id,
+    currentUserId: userInfo.publicId,
 
     // Status helpers
     statusMessage,

@@ -8,6 +8,11 @@ import type { AdapterSession } from "next-auth/adapters";
 
 const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000').replace(/\/$/, '')
 
+function githubPublicId(id: unknown): string | undefined {
+  return (typeof id === 'string' || typeof id === 'number') && /^\d+$/.test(String(id))
+    ? `github:${id}` : undefined;
+}
+
 const authConfig = {
   providers: [
     GitHub({
@@ -25,6 +30,28 @@ const authConfig = {
     async jwt({ token, account }: { token: JWT; account?: Account | null }) {
       if (account?.provider === "github") {
         token.accessToken = account.access_token;
+        token.publicUserId = githubPublicId(account.providerAccountId);
+      }
+
+      // Pre-upgrade JWTs have a random Auth.js sub, not the GitHub account ID.
+      // Enrich them once; a failed lookup must not invalidate an existing login.
+      if (!token.publicUserId && token.accessToken) {
+        try {
+          const response = await fetch('https://api.github.com/user', {
+            headers: {
+              Authorization: `Bearer ${token.accessToken}`,
+              Accept: 'application/vnd.github+json',
+              'User-Agent': 'PacAsm-App',
+            },
+            signal: AbortSignal.timeout(5000),
+          });
+          if (response.ok) {
+            const profile = await response.json() as { id?: unknown };
+            token.publicUserId = githubPublicId(profile.id);
+          }
+        } catch {
+          // Leave authentication and direct job polling usable while offline.
+        }
       }
 
       return token;
@@ -32,6 +59,7 @@ const authConfig = {
     async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user && token.accessToken) {
         session.accessToken = token.accessToken as string;
+        session.publicUserId = token.publicUserId;
       }
 
       return session;

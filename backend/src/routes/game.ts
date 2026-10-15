@@ -8,6 +8,7 @@ import RunLogModel from '../models/run-log'
 import { GitHubAuthError, requireVerifiedGitHubIdentity, syncVerifiedGitHubUser } from '../lib/github-auth'
 import { heavyValidationQueue } from '../lib/game-validation-queue'
 import { QueueOverloadedError } from '../lib/async-task-queue'
+import { publicUserId, publicUserName, resolvePublicUserIds } from '../lib/public-user'
 
 const router = Router()
 
@@ -290,7 +291,7 @@ router.post('/submit', async (req: Request, res: Response) => {
         jobStore.set(jobId, {
           status: 'done',
           createdAt: Date.now(),
-          submission: toRankingEntry(submission),
+          submission: toRankingEntry(submission, publicUserId(syncedUser.record)),
           summary
         })
       } catch (error) {
@@ -328,8 +329,9 @@ router.get('/submissions/:submissionId/replay', async (req: Request, res: Respon
       return res.status(404).json({ error: 'Replay not available for this submission' })
     }
 
+    const publicIds = await resolvePublicUserIds([submission.userId])
     return res.status(200).json({
-      submission: toRankingEntry(submission),
+      submission: toRankingEntry(submission, publicIds.get(submission.userId)),
       replay
     })
   } catch (error) {
@@ -373,7 +375,8 @@ router.get('/ranking', async (req: Request, res: Response) => {
       { $limit: 200 }
     ])
       .exec()
-    const ranking = submissions.map(toRankingEntryRecord)
+    const publicIds = await resolvePublicUserIds(submissions.map(doc => doc.userId))
+    const ranking = submissions.map(doc => toRankingEntryRecord(doc, publicIds.get(doc.userId)))
 
     return res.status(200).json({ submissions: ranking })
   } catch (error) {
@@ -431,7 +434,7 @@ function extractMetrics(levelId: string, summary: GameValidationSummary) {
   return { status }
 }
 
-function toRankingEntry(doc: SubmissionDocument) {
+function toRankingEntry(doc: SubmissionDocument, publicId?: string) {
   const score = typeof doc.score === 'number'
     ? doc.score
     : (typeof doc.averageScore === 'number' ? doc.averageScore : 0)
@@ -444,8 +447,8 @@ function toRankingEntry(doc: SubmissionDocument) {
 
   return {
     id: doc.id,
-    userId: doc.userId,
-    userName: doc.userName,
+    userId: publicId ?? `submission:${doc.id}`,
+    userName: publicUserName(doc.userName),
     userAvatarUrl: doc.userAvatarUrl,
     levelId: doc.levelId,
     architecture: doc.architecture,
@@ -481,7 +484,7 @@ interface RankingRecord {
   updatedAt: Date | string
 }
 
-function toRankingEntryRecord(doc: RankingRecord) {
+function toRankingEntryRecord(doc: RankingRecord, publicId?: string) {
   const score = typeof doc.score === 'number'
     ? doc.score
     : (typeof doc.averageScore === 'number' ? doc.averageScore : 0)
@@ -494,8 +497,8 @@ function toRankingEntryRecord(doc: RankingRecord) {
 
   return {
     id: String(doc._id),
-    userId: doc.userId,
-    userName: doc.userName,
+    userId: publicId ?? `submission:${String(doc._id)}`,
+    userName: publicUserName(doc.userName),
     userAvatarUrl: doc.userAvatarUrl,
     levelId: doc.levelId,
     architecture: doc.architecture,
