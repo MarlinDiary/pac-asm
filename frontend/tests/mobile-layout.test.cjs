@@ -228,12 +228,12 @@ test('phone editor closes existing suggestions and blocks explicit completion sh
     else{assert.equal(cleanup,undefined);assert.equal(calls.length,0);assert.equal(action,undefined)}
   }
 });
-test('phone Settings removes backdrop and panel shadow throughout transitions but keeps desktop modal classes', () => {
+test('phone Settings removes backdrop, shadow and panel transition but keeps desktop modal classes', () => {
   const source=read('src/components/SettingsPanel.tsx'),css=read('src/app/globals.css'),mobile=css.split('@media (max-width: 900px)')[1];
   assert.match(source,/pac-settings-backdrop fixed inset-0 bg-\[#0f0f0f\]\/60 z-40 transition-opacity/);
   assert(source.includes('shadow-[0_0_20px_rgba(0,0,0,0.2)]'));
   assert.match(mobile,/\.pac-settings-backdrop \{ display: none/);
-  assert.match(mobile,/\.pac-settings \{[^}]*box-shadow: none; transition-property: opacity/);
+  assert.match(mobile,/\.pac-settings \{[^}]*box-shadow: none; transition: none/);
   assert(!css.split('@media (max-width: 900px)')[0].includes('.pac-settings-backdrop'));
   assert.match(source,/className="pac-desktop-only flex items-center justify-between h-8">\s*<label[^>]*>\s*Code Completion/);
 });
@@ -244,4 +244,23 @@ test('phone Challenge hides check and cross only, retaining ordinary level statu
   const ranking=read('src/components/panel/RankingPanel.tsx');
   for(const f of ['score','steps','replay'])assert(ranking.includes('data-rank-field="'+f+'"'));
   assert(ranking.includes('<Check aria-label="Accepted"'));assert(ranking.includes('<X aria-label={entry.status}'));
+});
+
+
+test('phone panel shells and backdrops have no open/close animation; replay content and desktop animation are retained', () => {
+  const full=read('src/app/globals.css'), [desktop,mobile]=full.split('@media (max-width: 900px)');
+  for (const name of ['settings','replay']) {
+    const token='.pac-'+name+' {',start=mobile.indexOf(token),rule=mobile.slice(start,mobile.indexOf('}',start));
+    assert(start>=0);assert(rule.includes('transition: none;'));assert(rule.includes('animation: none;'));assert(rule.includes('box-shadow: none;'));
+    const backdrop='.pac-'+name+'-backdrop {',b=mobile.indexOf(backdrop),backdropRule=mobile.slice(b,mobile.indexOf('}',b));
+    assert(b>=0);assert(backdropRule.includes('display: none;'));assert(backdropRule.includes('transition: none;'));assert(backdropRule.includes('animation: none;'));
+    assert(!desktop.includes('.pac-'+name+'-backdrop'));
+    assert(!mobile.includes('.pac-'+name+' *'));
+    const source=read('src/components/'+(name==='settings'?'SettingsPanel':'SubmissionReplayModal')+'.tsx');
+    assert(source.includes('pac-'+name+'-backdrop fixed'));assert(source.includes('transition-all duration-150'));assert(source.includes('shadow-[0_0_20px_rgba(0,0,0,0.2)]'));
+    assert(source.includes('inert={!isOpen}'));assert(source.includes('aria-hidden={!isOpen}'));
+  }
+  const replay=read('src/components/SubmissionReplayModal.tsx');
+  assert(replay.includes('}, DEBUG_STEP_FRAME_DELAY_MS)'));assert(replay.includes('setIsPlaying(replay.frames.length > 1)'));
+  assert(replay.includes('onClick={handleRestart}'));
 });

@@ -377,7 +377,7 @@ export default function SubmissionReplayModal({
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-[#0f0f0f]/60 z-40 transition-opacity duration-150 cursor-pointer ${
+        className={`pac-replay-backdrop fixed inset-0 bg-[#0f0f0f]/60 z-40 transition-opacity duration-150 cursor-pointer ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
