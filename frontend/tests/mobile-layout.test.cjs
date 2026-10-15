@@ -4,7 +4,7 @@ function load(file,react={}){const out={};const js=ts.transpileModule(read(file)
 test('mobile labels follow the five existing levels, without inventing a sixth',()=>{const m=load('src/hooks/useMobileViewport.ts');assert.deepEqual(['1','2','3','4','challenge','level1'].map(m.mobileLevelLabel),['I','II','III','IV','V','I']);assert.equal(m.MOBILE_QUERY,'(max-width: 900px)')});
 test('mobile viewport follows keyboard height, respects pinch zoom and removes listeners',()=>{let state=[],cursor=0,effects=[],listeners=new Map();const subscribe=(k,f)=>listeners.set(k,f);const query={matches:true,addEventListener:(k,f)=>subscribe('media',f),removeEventListener:()=>listeners.delete('media')};const viewport={height:812,scale:1,addEventListener:(k,f)=>subscribe('viewport',f),removeEventListener:()=>listeners.delete('viewport')};global.window={matchMedia:()=>query,visualViewport:viewport};try{const m=load('src/hooks/useMobileViewport.ts',{useState:v=>{const i=cursor++;if(!(i in state))state[i]=v;return[state[i],v=>state[i]=v]},useEffect:f=>effects.push(f)});m.useMobileViewport();const cleanup=effects[0]();assert.deepEqual(state,[true,812]);viewport.height=420;listeners.get('viewport')();assert.deepEqual(state,[true,420]);viewport.scale=2;listeners.get('viewport')();assert.deepEqual(state,[true,undefined]);query.matches=false;listeners.get('media')();assert.deepEqual(state,[false,undefined]);cleanup();assert.equal(listeners.size,0)}finally{delete global.window}});
 test('mobile game fits width and height without changing board geometry or upscaling',()=>{const {fitGameScale}=load('src/components/GameViewport.tsx');for(const [w,h,mw,mh] of [[304,420,320,192],[359,600,640,640],[414,300,960,960],[720,480,320,192]]){const s=fitGameScale(w,h,mw,mh);assert(s<=1&&s>0);assert(mw*s<=w-24+.01);assert(mh*s<=h-24+.01)}});
-test('one mounted CodeEditor, RankingPanel and emulator across all mobile tabs',()=>{const s=read('src/components/GamePage.tsx');for(const re of [/<CodeEditor\b/g,/<RankingPanel\b/g,/useEmulator\(\)/g])assert.equal([...s.matchAll(re)].length,1);assert.match(s,/aria-label="Mobile workspace"/);assert.match(s,/data-mobile-active=\{mobilePane === 'code'\}/);assert.match(s,/inert=\{isMobile && mobilePane !== 'code'\}/);assert.match(s,/setMobilePane\('game'\)\s+gameState.setLeftPanelTab\(3\)/);assert.match(s,/if \(isMobile\) setMobilePane\('code'\)/);assert.match(s,/View diagnostics/)});
+test('one mounted CodeEditor, RankingPanel and emulator across all mobile tabs',()=>{const s=read('src/components/GamePage.tsx');for(const re of [/<CodeEditor\b/g,/<RankingPanel\b/g,/useEmulator\(\)/g])assert.equal([...s.matchAll(re)].length,1);assert.match(s,/aria-label="Mobile workspace"/);assert.match(s,/data-mobile-active=\{mobilePane === 'code'\}/);assert.match(s,/inert=\{isMobile && mobilePane !== 'code'\}/);assert.match(s,/setMobilePane\('game'\)\s+gameState.setLeftPanelTab\(3\)/);assert.match(s,/if \(isMobile\) setMobilePane\('tools'\)/);assert(!s.includes('pac-mobile-diagnostics'))});
 test('responsive rules are mobile-scoped; keep zoom, resize and desktop columns untouched',()=>{const css=read('src/app/globals.css');const marker=css.indexOf('/* One mounted workspace');assert(marker>0);const added=css.slice(marker);assert.match(added,/@media \(max-width: 900px\)/);const before=added.slice(0,added.indexOf('@media'));assert(!before.includes('zoom:'));assert.match(added,/zoom: 1 !important/);assert.match(added,/100dvh/);assert.match(added,/safe-area-inset-bottom/);assert.match(added,/\.pac-workspace > \[data-mobile-active="true"\]/);assert.match(added,/grid-template-columns: (?:20|24)px minmax\(0, 1fr\) auto/);assert(!added.includes('user-scalable'));assert(!added.includes('touch-action: none'))});
 test('icon-only controls remain named and mobile code avoids tiny font',()=>{for(const label of ['Debug','Run'])assert(read('src/components/bar/ExecutionBar.tsx').includes('aria-label="'+label+'"'));for(const label of ['Stop debugging','Step forward','Step back','Restart debugging'])assert(read('src/components/bar/DebuggerBar.tsx').includes('aria-label="'+label+'"'));assert.match(read('src/components/CodeEditor.tsx'),/mobile \? Math.max\(16, settings.fontSize\) : settings.fontSize/);assert.match(read('src/components/GamePage.tsx'),/label="Log in"/)});
 test('ranking retains all fields, authentication, submit gate and replay action',()=>{const s=read('src/components/panel/RankingPanel.tsx');for(const field of ['rank','name','status','cycles','score','steps','time','replay'])assert(s.includes('data-rank-field="'+field+'"'));assert.match(s,/onClick=\{isAuthenticated \? handleSubmit : onLogin\}/);assert.match(s,/if \(controller.isSubmitting\) return/);assert.match(s,/aria-label="Watch playback"/);assert.match(s,/Authorization: `Bearer \$\{user.accessToken\}`/)});
@@ -168,4 +168,34 @@ test('mobile More check and icon share the option theme variables without a fixe
   const mobile=css.slice(css.indexOf('@media (max-width: 900px)'));
   assert.match(mobile, /\.pac-tool-icon \{ color: var\(--pac-tool-color\)/);
   assert.match(mobile, /\.dark \.pac-tool-icon \{ color: var\(--pac-tool-dark-color\)/);
+});
+
+test('new errors directly open mobile Diagnostics, without a duplicate code footer; desktop and empty state stay unchanged', () => {
+  const source = read('src/components/GamePage.tsx');
+  const effect = source.match(/\/\/ Switch to Diagnostics tab when new error appears\s+useEffect\(\(\) => \{([\s\S]+?)\n  \}, \[errors.length, setRightPanelTab, isMobile\]\)/);
+  assert(effect);
+  const execute = (mobile, count) => {
+    const state = {pane: 'code', rightTab: 0};
+    new Function('errors', 'isMobile', 'setMobilePane', 'setRightPanelTab', effect[1])(
+      Array(count).fill({error: 'NOT_AN_ARM_INSTRUCTION'}), mobile,
+      pane => state.pane = pane, tab => state.rightTab = tab);
+    return state;
+  };
+  for (const count of [1, 2]) assert.deepEqual(execute(true, count), {pane: 'tools', rightTab: 2});
+  assert.deepEqual(execute(false, 1), {pane: 'code', rightTab: 2});
+  assert.deepEqual(execute(true, 0), {pane: 'code', rightTab: 0});
+  assert(!source.includes('pac-mobile-diagnostics'));
+  assert(source.includes('<DiagnosticsPanel />'));
+});
+
+test('mobile Submit and workspace tabs have symmetric circular corners with the same hit and painted heights', () => {
+  const css = read('src/app/globals.css').split('@media (max-width: 900px)')[1];
+  for (const selector of ['.pac-mobile-nav > button', '.pac-ranking-footer > button']) {
+    const rule = css.slice(css.indexOf(selector + ' {')).split('}')[0];
+    assert.match(rule, /height: 44px/);
+    assert.match(rule, /border: 4px solid transparent/);
+    assert.match(rule, /border-radius: 10px/);
+    assert.match(rule, /background-clip: padding-box/);
+    assert(!rule.includes('border-block:'));
+  }
 });

@@ -325,7 +325,7 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
   // Switch to Diagnostics tab when new error appears
   useEffect(() => {
     if (errors.length > 0) {
-      if (isMobile) setMobilePane('code')
+      if (isMobile) setMobilePane('tools')
       setRightPanelTab(2) // Switch to Diagnostics tab (index 2)
     }
   }, [errors.length, setRightPanelTab, isMobile])
@@ -574,11 +574,6 @@ export default function GamePage({ levelMap, levelId, isChallenge = false }: Gam
               breakpoints={gameState.breakpoints}
               onBreakpointsChange={gameState.setBreakpoints}
             />
-            {errors.length > 0 && <div className="pac-mobile-diagnostics pac-mobile-only" role="status">
-              <strong>{errors.length} diagnostic{errors.length === 1 ? '' : 's'}</strong>
-              <p>{errors[0].error}</p>
-              <button type="button" onClick={() => { setMobilePane('tools'); setRightPanelTab(2) }}>View diagnostics</button>
-            </div>}
             </div>
           </Card>
         </ResizablePanel>
